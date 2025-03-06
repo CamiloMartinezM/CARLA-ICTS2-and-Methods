@@ -116,15 +116,17 @@ def run(args):
 def run_server():
     # train environment
     port = "-carla-port={}".format(Config.port)
+    carla_p = "/home/jovyan/carla-0-9-15"
     if not Config.server:
-        carla_p = "your path to carla"
-        p = subprocess.run(['cd '+carla_p+' && ./CarlaUE4.sh your arguments' + port], shell=True)
-        #cmd = 'cd '+carla_p+' && ./CarlaUE4.sh -quality-level=Low -RenderOffScreen -carla-server -benchmark -fps=50' + port
+        # carla_p = "your path to carla"
+        # p = subprocess.run(['cd '+carla_p+' && ./CarlaUE4.sh your arguments' + port], shell=True)
+        cmd = 'cd '+carla_p+' && ./CarlaUE4.sh -quality-level=Low -RenderOffScreen -carla-server -benchmark -fps=50' + port
         #pro = subprocess.Popen(cmd, stdout=subprocess.PIPE, 
         #                   shell=True, preexec_fn=os.setsid)
+        p = subprocess.run([cmd], shell=True)
     else:
-        carla_p = "your path to carla"
-        command = "unset SDL_VIDEODRIVER && ./CarlaUE4.sh  -quality-level="+ Config.qw  +" your arguments" + port # -quality-level=Low 
+        # command = "unset SDL_VIDEODRIVER && ./CarlaUE4.sh  -quality-level="+ Config.qw  +" your arguments" + port # -quality-level=Low 
+        command = "unset SDL_VIDEODRIVER && ./CarlaUE4.sh  -quality-level="+ Config.qw  +" -quality-level=Low " + port
         p = subprocess.run(['cd '+carla_p+' && ' + command ], shell=True)
         
     return p
@@ -159,9 +161,9 @@ if __name__ == '__main__':
     Config.port = args.port
     Config.qw = args.qw
     print(Config.scenarios)
-    # p = Process(target=run_server)
-    # p.start()
-    # t.sleep(20)
+    p = Process(target=run_server)
+    p.start()
+    t.sleep(20)
 
     #p2 = Process(target=run_test_server)
     #p2.start()
