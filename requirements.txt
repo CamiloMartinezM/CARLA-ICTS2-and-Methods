@@ -1,0 +1,12 @@
+networkx
+numpy
+distro
+Shapely
+carla==0.9.15
+opencv-python
+scikit-learn
+tensorboard
+
+# For linting
+ruff
+mypy
