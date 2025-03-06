@@ -3,36 +3,36 @@
 # This work is licensed under the terms of the MIT license.
 # For a copy, see <https://opensource.org/licenses/MIT>.
 
-""" This module implements an agent that roams around a track following random
+"""This module implements an agent that roams around a track following random
 waypoints and avoiding other vehicles.
-The agent also responds to traffic lights. """
+The agent also responds to traffic lights.
+"""
 
-import sys
 import math
-
+import sys
 from enum import Enum
 
 import carla
-from benchmark.misc import is_within_distance_ahead, is_within_distance, compute_distance
+
+from benchmark.misc import compute_distance, is_within_distance, is_within_distance_ahead
 
 
 class AgentState(Enum):
+    """AGENT_STATE represents the possible states of a roaming agent
     """
-    AGENT_STATE represents the possible states of a roaming agent
-    """
+
     NAVIGATING = 1
     BLOCKED_BY_VEHICLE = 2
     BLOCKED_RED_LIGHT = 3
 
 
-class Agent(object):
+class Agent:
     """Base class to define agents in CARLA"""
 
     def __init__(self, vehicle):
-        """
-        Constructor method.
+        """Constructor method.
 
-            :param vehicle: actor to apply to local planner logic onto
+        :param vehicle: actor to apply to local planner logic onto
         """
         self._vehicle = vehicle
         self._proximity_tlight_threshold = 5.0  # meters
@@ -42,9 +42,9 @@ class Agent(object):
         try:
             self._map = self._world.get_map()
         except RuntimeError as error:
-            print('RuntimeError: {}'.format(error))
-            print('  The server could not send the OpenDRIVE (.xodr) file:')
-            print('  Make sure it exists, has the same name of your town, and is correct.')
+            print(f"RuntimeError: {error}")
+            print("  The server could not send the OpenDRIVE (.xodr) file:")
+            print("  Make sure it exists, has the same name of your town, and is correct.")
             sys.exit(1)
         self._last_traffic_light = None
 
@@ -54,11 +54,10 @@ class Agent(object):
 
     @staticmethod
     def run_step(debug=False):
-        """
-        Execute one step of navigation.
+        """Execute one step of navigation.
 
-            :param debug: boolean flag for debugging
-            :return: control
+        :param debug: boolean flag for debugging
+        :return: control
         """
         control = carla.VehicleControl()
 
@@ -72,8 +71,7 @@ class Agent(object):
         return control
 
     def _is_light_red(self, lights_list):
-        """
-        Method to check if there is a red light affecting us. This version of
+        """Method to check if there is a red light affecting us. This version of
         the method is compatible with both European and US style traffic lights.
 
         :param lights_list: list containing TrafficLight objects
@@ -100,21 +98,22 @@ class Agent(object):
             if dot_ve_wp < 0:
                 continue
 
-            if is_within_distance_ahead(object_waypoint.transform,
-                                        self._vehicle.get_transform(),
-                                        self._proximity_tlight_threshold):
+            if is_within_distance_ahead(
+                object_waypoint.transform,
+                self._vehicle.get_transform(),
+                self._proximity_tlight_threshold,
+            ):
                 if traffic_light.state == carla.TrafficLightState.Red:
                     return (True, traffic_light)
 
         return (False, None)
 
     def _get_trafficlight_trigger_location(self, traffic_light):  # pylint: disable=no-self-use
+        """Calculates the yaw of the waypoint that represents the trigger volume of the traffic light
         """
-        Calculates the yaw of the waypoint that represents the trigger volume of the traffic light
-        """
+
         def rotate_point(point, radians):
-            """
-            rotate a given point by a given angle
+            """Rotate a given point by a given angle
             """
             rotated_x = math.cos(radians) * point.x - math.sin(radians) * point.y
             rotated_y = math.sin(radians) * point.x - math.cos(radians) * point.y
@@ -131,10 +130,17 @@ class Agent(object):
 
         return carla.Location(point_location.x, point_location.y, point_location.z)
 
-    def _bh_is_vehicle_hazard(self, ego_wpt, ego_loc, vehicle_list,
-                           proximity_th, up_angle_th, low_angle_th=0, lane_offset=0):
-        """
-        Check if a given vehicle is an obstacle in our way. To this end we take
+    def _bh_is_vehicle_hazard(
+        self,
+        ego_wpt,
+        ego_loc,
+        vehicle_list,
+        proximity_th,
+        up_angle_th,
+        low_angle_th=0,
+        lane_offset=0,
+    ):
+        """Check if a given vehicle is an obstacle in our way. To this end we take
         into account the road and lane the target vehicle is on and run a
         geometry test to check if the target vehicle is under a certain distance
         in front of our ego vehicle. We also check the next waypoint, just to be
@@ -161,42 +167,45 @@ class Agent(object):
             - vehicle is the blocker object itself
             - distance is the meters separating the two vehicles
         """
-
         # Get the right offset
         if ego_wpt.lane_id < 0 and lane_offset != 0:
             lane_offset *= -1
 
         for target_vehicle in vehicle_list:
-
             target_vehicle_loc = target_vehicle.get_location()
             # If the object is not in our next or current lane it's not an obstacle
 
             target_wpt = self._map.get_waypoint(target_vehicle_loc)
-            if target_wpt.road_id != ego_wpt.road_id or \
-                    target_wpt.lane_id != ego_wpt.lane_id + lane_offset:
+            if (
+                target_wpt.road_id != ego_wpt.road_id
+                or target_wpt.lane_id != ego_wpt.lane_id + lane_offset
+            ):
                 next_wpt = self._local_planner.get_incoming_waypoint_and_direction(steps=5)[0]
-                if target_wpt.road_id != next_wpt.road_id or \
-                        target_wpt.lane_id != next_wpt.lane_id + lane_offset:
+                if (
+                    target_wpt.road_id != next_wpt.road_id
+                    or target_wpt.lane_id != next_wpt.lane_id + lane_offset
+                ):
                     continue
 
-            if is_within_distance(target_vehicle_loc, ego_loc,
-                                  self._vehicle.get_transform().rotation.yaw,
-                                  proximity_th, up_angle_th, low_angle_th):
-
+            if is_within_distance(
+                target_vehicle_loc,
+                ego_loc,
+                self._vehicle.get_transform().rotation.yaw,
+                proximity_th,
+                up_angle_th,
+                low_angle_th,
+            ):
                 return (True, target_vehicle, compute_distance(target_vehicle_loc, ego_loc))
 
         return (False, None, -1)
 
     def _is_vehicle_hazard(self, vehicle_list):
-        """
-
-        :param vehicle_list: list of potential obstacle to check
+        """:param vehicle_list: list of potential obstacle to check
         :return: a tuple given by (bool_flag, vehicle), where
                  - bool_flag is True if there is a vehicle ahead blocking us
                    and False otherwise
                  - vehicle is the blocker object itself
         """
-
         ego_vehicle_location = self._vehicle.get_location()
         ego_vehicle_waypoint = self._map.get_waypoint(ego_vehicle_location)
 
@@ -207,24 +216,26 @@ class Agent(object):
 
             # if the object is not in our lane it's not an obstacle
             target_vehicle_waypoint = self._map.get_waypoint(target_vehicle.get_location())
-            if target_vehicle_waypoint.road_id != ego_vehicle_waypoint.road_id or \
-                    target_vehicle_waypoint.lane_id != ego_vehicle_waypoint.lane_id:
+            if (
+                target_vehicle_waypoint.road_id != ego_vehicle_waypoint.road_id
+                or target_vehicle_waypoint.lane_id != ego_vehicle_waypoint.lane_id
+            ):
                 continue
 
-            if is_within_distance_ahead(target_vehicle.get_transform(),
-                                        self._vehicle.get_transform(),
-                                        self._proximity_vehicle_threshold):
+            if is_within_distance_ahead(
+                target_vehicle.get_transform(),
+                self._vehicle.get_transform(),
+                self._proximity_vehicle_threshold,
+            ):
                 return (True, target_vehicle)
 
         return (False, None)
 
-
     @staticmethod
     def emergency_stop():
-        """
-        Send an emergency stop command to the vehicle
+        """Send an emergency stop command to the vehicle
 
-            :return: control for braking
+        :return: control for braking
         """
         control = carla.VehicleControl()
         control.steer = 0.0

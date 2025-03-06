@@ -1,8 +1,10 @@
 from Ball import Ball
 from Player import Player
 
+
 class Moment:
     """A class for keeping info about the moments"""
+
     def __init__(self, moment):
         self.quarter = moment[0]  # Hardcoded position for quarter in json
         self.game_clock = moment[2]  # Hardcoded position for game_clock in json

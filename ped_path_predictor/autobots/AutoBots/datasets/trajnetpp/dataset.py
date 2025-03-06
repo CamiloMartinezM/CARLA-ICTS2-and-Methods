@@ -1,6 +1,7 @@
-import os
-import numpy as np
 import glob
+import os
+
+import numpy as np
 from torch.utils.data import Dataset
 
 
@@ -14,11 +15,11 @@ class TrajNetPPDataset(Dataset):
         self.map_attr = 0  # dummy
         self.k_attr = 2
 
-        dset_fnames = sorted(glob.glob(os.path.join(dset_path, split_name+"_*.npy")))
+        dset_fnames = sorted(glob.glob(os.path.join(dset_path, split_name + "_*.npy")))
         agents_dataset = []
         for dset_fname in dset_fnames:
             agents_dataset.append(np.load(dset_fname))
-        self.agents_dataset = np.concatenate(agents_dataset)[:, :, :self.num_others+1]
+        self.agents_dataset = np.concatenate(agents_dataset)[:, :, : self.num_others + 1]
         del agents_dataset
 
     def __getitem__(self, idx: int):
@@ -31,8 +32,8 @@ class TrajNetPPDataset(Dataset):
         data_mask[nan_indices] = [0, 0, 0]
 
         # Separate past and future.
-        agents_in = data_mask[:self.in_seq_len]
-        agents_out = data_mask[self.in_seq_len:]
+        agents_in = data_mask[: self.in_seq_len]
+        agents_out = data_mask[self.in_seq_len :]
 
         ego_in = agents_in[:, 0]
         ego_out = agents_out[:, 0]
@@ -44,4 +45,3 @@ class TrajNetPPDataset(Dataset):
 
     def __len__(self):
         return len(self.agents_dataset)
-

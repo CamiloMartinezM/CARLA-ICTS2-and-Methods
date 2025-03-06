@@ -1,38 +1,78 @@
 import os
+
 import numpy as np
 import torch
 from torch.optim import Adam
 
-from .base import BaseAgent
-from SAC.sac_discrete.sacd.model import TwinnedQNetwork, CateoricalPolicy
+from SAC.sac_discrete.sacd.model import CateoricalPolicy, TwinnedQNetwork
 from SAC.sac_discrete.sacd.utils import disable_gradients
+
+from .base import BaseAgent
 
 
 class SacdAgent(BaseAgent):
-
-    def __init__(self, env, test_env, log_dir, num_steps=100000, batch_size=64,
-                 lr=0.0003, memory_size=1000000, gamma=0.99, multi_step=1,
-                 target_entropy_ratio=0.98, start_steps=20000,
-                 update_interval=4, target_update_interval=8000,
-                 use_per=False, dueling_net=False, num_eval_steps=125000,
-                 max_episode_steps=27000, log_interval=10, eval_interval=1000,
-                 cuda=True, seed=0):
+    def __init__(
+        self,
+        env,
+        test_env,
+        log_dir,
+        num_steps=100000,
+        batch_size=64,
+        lr=0.0003,
+        memory_size=1000000,
+        gamma=0.99,
+        multi_step=1,
+        target_entropy_ratio=0.98,
+        start_steps=20000,
+        update_interval=4,
+        target_update_interval=8000,
+        use_per=False,
+        dueling_net=False,
+        num_eval_steps=125000,
+        max_episode_steps=27000,
+        log_interval=10,
+        eval_interval=1000,
+        cuda=True,
+        seed=0,
+    ):
         super().__init__(
-            env, test_env, log_dir, num_steps, batch_size, memory_size, gamma,
-            multi_step, target_entropy_ratio, start_steps, update_interval,
-            target_update_interval, use_per, num_eval_steps, max_episode_steps,
-            log_interval, eval_interval, cuda, seed)
+            env,
+            test_env,
+            log_dir,
+            num_steps,
+            batch_size,
+            memory_size,
+            gamma,
+            multi_step,
+            target_entropy_ratio,
+            start_steps,
+            update_interval,
+            target_update_interval,
+            use_per,
+            num_eval_steps,
+            max_episode_steps,
+            log_interval,
+            eval_interval,
+            cuda,
+            seed,
+        )
 
         # Define networks.
         self.policy = CateoricalPolicy(
-            self.env.observation_space.shape[2], self.env.action_space.n
-            ).to(self.device)
+            self.env.observation_space.shape[2], self.env.action_space.n,
+        ).to(self.device)
         self.online_critic = TwinnedQNetwork(
-            self.env.observation_space.shape[2], self.env.action_space.n,
-            dueling_net=dueling_net).to(device=self.device)
-        self.target_critic = TwinnedQNetwork(
-            self.env.observation_space.shape[2], self.env.action_space.n,
-            dueling_net=dueling_net).to(device=self.device).eval()
+            self.env.observation_space.shape[2], self.env.action_space.n, dueling_net=dueling_net,
+        ).to(device=self.device)
+        self.target_critic = (
+            TwinnedQNetwork(
+                self.env.observation_space.shape[2],
+                self.env.action_space.n,
+                dueling_net=dueling_net,
+            )
+            .to(device=self.device)
+            .eval()
+        )
 
         # Copy parameters of the learning network to the target network.
         self.target_critic.load_state_dict(self.online_critic.state_dict())
@@ -45,8 +85,7 @@ class SacdAgent(BaseAgent):
         self.q2_optim = Adam(self.online_critic.Q2.parameters(), lr=lr)
 
         # Target entropy is -log(1/|A|) * ratio (= maximum entropy * ratio).
-        self.target_entropy = \
-            -np.log(1.0 / self.env.action_space.n) * target_entropy_ratio
+        self.target_entropy = -np.log(1.0 / self.env.action_space.n) * target_entropy_ratio
 
         # We optimize log(alpha), instead of alpha.
         self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
@@ -55,10 +94,13 @@ class SacdAgent(BaseAgent):
 
     def explore(self, state):
         # Act with randomness.
-        #TODO added by me
-        state = (torch.tensor(state[0].reshape(1,400,400,3)/255.0,dtype=torch.float32),torch.tensor(state[1].reshape(1,6),dtype=torch.float32))
-        #print(state[0])
-        #state = torch.ByteTensor(
+        # TODO added by me
+        state = (
+            torch.tensor(state[0].reshape(1, 400, 400, 3) / 255.0, dtype=torch.float32),
+            torch.tensor(state[1].reshape(1, 6), dtype=torch.float32),
+        )
+        # print(state[0])
+        # state = torch.ByteTensor(
         #    state[0]).to(self.device).float() / 255. #why tf a bytetensor??? for floats #TODO removed by me
         with torch.no_grad():
             action, _, _ = self.policy.sample(state)
@@ -66,8 +108,7 @@ class SacdAgent(BaseAgent):
 
     def exploit(self, state):
         # Act without randomness.
-        state = torch.ByteTensor(
-            state[None, ...]).to(self.device).float() / 255.
+        state = torch.ByteTensor(state[None, ...]).to(self.device).float() / 255.0
         with torch.no_grad():
             action = self.policy.act(state)
         return action.item()
@@ -85,9 +126,9 @@ class SacdAgent(BaseAgent):
         with torch.no_grad():
             _, action_probs, log_action_probs = self.policy.sample(next_states)
             next_q1, next_q2 = self.target_critic(next_states)
-            next_q = (action_probs * (
-                torch.min(next_q1, next_q2) - self.alpha * log_action_probs
-                )).sum(dim=1, keepdim=True)
+            next_q = (
+                action_probs * (torch.min(next_q1, next_q2) - self.alpha * log_action_probs)
+            ).sum(dim=1, keepdim=True)
 
         assert rewards.shape == next_q.shape
         return rewards + (1.0 - dones) * self.gamma_n * next_q
@@ -121,15 +162,14 @@ class SacdAgent(BaseAgent):
             q = torch.min(q1, q2)
 
         # Expectations of entropies.
-        entropies = -torch.sum(
-            action_probs * log_action_probs, dim=1, keepdim=True)
+        entropies = -torch.sum(action_probs * log_action_probs, dim=1, keepdim=True)
 
         # Expectations of Q.
         q = torch.sum(torch.min(q1, q2) * action_probs, dim=1, keepdim=True)
 
         # Policy objective is maximization of (Q + alpha * entropy) with
         # priority weights.
-        policy_loss = (weights * (- q - self.alpha * entropies)).mean()
+        policy_loss = (weights * (-q - self.alpha * entropies)).mean()
 
         return policy_loss, entropies.detach()
 
@@ -138,13 +178,11 @@ class SacdAgent(BaseAgent):
 
         # Intuitively, we increse alpha when entropy is less than target
         # entropy, vice versa.
-        entropy_loss = -torch.mean(
-            self.log_alpha * (self.target_entropy - entropies)
-            * weights)
+        entropy_loss = -torch.mean(self.log_alpha * (self.target_entropy - entropies) * weights)
         return entropy_loss
 
     def save_models(self, save_dir):
         super().save_models(save_dir)
-        self.policy.save(os.path.join(save_dir, 'policy.pth'))
-        self.online_critic.save(os.path.join(save_dir, 'online_critic.pth'))
-        self.target_critic.save(os.path.join(save_dir, 'target_critic.pth'))
+        self.policy.save(os.path.join(save_dir, "policy.pth"))
+        self.online_critic.save(os.path.join(save_dir, "online_critic.pth"))
+        self.target_critic.save(os.path.join(save_dir, "target_critic.pth"))

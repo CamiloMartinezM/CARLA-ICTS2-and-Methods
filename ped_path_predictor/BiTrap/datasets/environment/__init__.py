@@ -1,8 +1,8 @@
-from .data_structures import RingBuffer, SingleHeaderNumpyArray, DoubleHeaderNumpyArray
-from .scene import Scene
-from .node import Node
-from .scene_graph import TemporalSceneGraph, SceneGraph
-from .environment import Environment
-from .node_type import NodeTypeEnum
+from .data_structures import DoubleHeaderNumpyArray, RingBuffer, SingleHeaderNumpyArray
 from .data_utils import derivative_of
+from .environment import Environment
+from .node import Node
+from .node_type import NodeTypeEnum
+from .scene import Scene
+from .scene_graph import SceneGraph, TemporalSceneGraph
 # from .map import GeometricMap

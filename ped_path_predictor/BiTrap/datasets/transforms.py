@@ -1,12 +1,12 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 import random
-import torch
-import torchvision
-from torchvision.transforms import functional as F
-from bitrap.structures.bounding_box import BoxList
-import pdb
 
-class Compose(object):
+import torch
+from bitrap.structures.bounding_box import BoxList
+from torchvision.transforms import functional as F
+
+
+class Compose:
     def __init__(self, transforms):
         self.transforms = transforms
 
@@ -19,18 +19,19 @@ class Compose(object):
         format_string = self.__class__.__name__ + "("
         for t in self.transforms:
             format_string += "\n"
-            format_string += "    {0}".format(t)
+            format_string += f"    {t}"
         format_string += "\n)"
         return format_string
 
 
-class Resize(object):
+class Resize:
     def __init__(self, min_size=None, max_size=None, enforced_size=None):
         if not isinstance(min_size, (list, tuple)):
             min_size = (min_size,)
         self.min_size = min_size
         self.max_size = max_size
         self.enforced_size = enforced_size
+
     # modified from torchvision to add support for max size
     def get_size(self, image_size):
         w, h = image_size
@@ -55,9 +56,8 @@ class Resize(object):
         return (oh, ow)
 
     def __call__(self, images, target):
-        '''
-        images: a list of PIL Image object 
-        '''
+        """images: a list of PIL Image object
+        """
         if self.enforced_size is None:
             size = self.get_size(images.size)
             images = F.resize(images, size)
@@ -66,15 +66,15 @@ class Resize(object):
         else:
             images = images.resize(self.enforced_size)
             # for i, img in enumerate(images):
-                # images[i] = img.resize(self.enforced_size)
+            # images[i] = img.resize(self.enforced_size)
 
         return images, target
 
     def __str__(self):
-        return 'Resize(): Min {} | Max {}'.format(self.min_size, self.max_size)
+        return f"Resize(): Min {self.min_size} | Max {self.max_size}"
 
 
-class RandomHorizontalFlip(object):
+class RandomHorizontalFlip:
     def __init__(self, prob=0.5):
         self.prob = prob
 
@@ -91,7 +91,7 @@ class RandomHorizontalFlip(object):
         return image, target
 
 
-class ToTensor(object):
+class ToTensor:
     def __call__(self, image, target):
         if isinstance(image, list):
             image = [F.to_tensor(img) for img in image]
@@ -100,25 +100,27 @@ class ToTensor(object):
             image = F.to_tensor(image)
         return image, target
 
-class PointCrop(object):
-    '''
-    NOTE: crop the image centered at the defined pixel point
-    '''
+
+class PointCrop:
+    """NOTE: crop the image centered at the defined pixel point
+    """
+
     def __init__(self, crop_size):
         if isinstance(crop_size, (tuple, list)):
             self.crop_w, self.crop_h = crop_size
         elif isinstance(crop_size, (int, float)):
             self.crop_w, self.crop_h = int(crop_size), int(crop_size)
         else:
-            raise ValueError()
+            raise ValueError
 
     def __call__(self, image, pt):
-        '''img:'''
-        t, l = int(pt[1] - self.crop_h), int(pt[0] - self.crop_w/2)
+        """img:"""
+        t, l = int(pt[1] - self.crop_h), int(pt[0] - self.crop_w / 2)
         image = F.crop(image, t, l, self.crop_h, self.crop_w)
         return image
-        
-class Normalize(object):
+
+
+class Normalize:
     def __init__(self, mean, std, to_bgr255=True):
         self.mean = mean
         self.std = std
@@ -130,5 +132,5 @@ class Normalize(object):
         if self.mean is not None and self.std is not None:
             image = F.normalize(image, mean=self.mean, std=self.std)
         else:
-            image = image*2 - 1
+            image = image * 2 - 1
         return image, target

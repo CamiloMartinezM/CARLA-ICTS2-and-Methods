@@ -1,10 +1,10 @@
-"""
-Author: Dikshant Gupta
+"""Author: Dikshant Gupta
 Time: 03.08.21 13:22
 """
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
 from assets.map import CarlaMap
 
 
@@ -39,9 +39,11 @@ class OccupancyGrid:
         return costmap
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     grid = OccupancyGrid("Town01")
-    cp = grid.get_costmap([["car", [[85, 1750], [90, 1750], [90, 1740], [85, 1740]]], ["pedestrian", [85, 1750]]])
+    cp = grid.get_costmap(
+        [["car", [[85, 1750], [90, 1750], [90, 1740], [85, 1740]]], ["pedestrian", [85, 1750]]],
+    )
     # cp[cp == 10000] = -56
     plt.imshow(cp, cmap="gray")
     plt.show()

@@ -1,30 +1,44 @@
-import gym
-import numpy as np
-from benchmark.environment.ped_controller import ControllerConfig
-import carla
-import pygame
 import random
-from PIL import Image
-import time
-import matplotlib.pyplot as plt
-from benchmark.environment.world import World
-from benchmark.environment.hud import HUD
-from benchmark.learner_example import Learner
-import timeit
 
-from config import (Config, Config01, Config02, Config03, Config04, Config05, Config06,
-                    IConfig01, IConfig02, IConfig03, IConfig04, IConfig05, IConfig06, )
+import carla
+import gym
+import matplotlib.pyplot as plt
+import numpy as np
+import pygame
+from PIL import Image
+
+from benchmark.environment.hud import HUD
+from benchmark.environment.ped_controller import ControllerConfig
+from benchmark.environment.world import World
+from benchmark.learner_example import Learner
 from benchmark.scenarios.scenario import Scenario
+from config import (
+    Config,
+    Config01,
+    Config02,
+    Config03,
+    Config04,
+    Config05,
+    Config06,
+    IConfig01,
+    IConfig02,
+    IConfig03,
+    IConfig04,
+    IConfig05,
+    IConfig06,
+)
 
 
 class GIDASBenchmark(gym.Env):
-    def __init__(self, port=Config.port, mode = "TRAINING", setting="normal", record=False):
+    def __init__(self, port=Config.port, mode="TRAINING", setting="normal", record=False):
         super(GIDASBenchmark, self).__init__()
         random.seed(100)
         self.action_space = gym.spaces.Discrete(Config.N_DISCRETE_ACTIONS)
         height = int(Config.segcam_image_x)
         width = int(Config.segcam_image_y)
-        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(height, width, 3), dtype=np.uint8)
+        self.observation_space = gym.spaces.Box(
+            low=0, high=255, shape=(height, width, 3), dtype=np.uint8,
+        )
         self.fig = plt.figure()
         pygame.init()
         pygame.font.init()
@@ -47,17 +61,17 @@ class GIDASBenchmark(gym.Env):
         print("Load World")
         hud = HUD(Config.width, Config.height)
         with open("./assets/Town01_my.xodr") as odr:
-            self.world = self.client.generate_opendrive_world(odr.read(),
-                                                              carla.OpendriveGenerationParameters(
-                                                                  2.0, 50.0, 0.0, 200.0, False, True))
+            self.world = self.client.generate_opendrive_world(
+                odr.read(), carla.OpendriveGenerationParameters(2.0, 50.0, 0.0, 200.0, False, True),
+            )
 
         # self.client.load_world('Town01_Opt', carla.MapLayer.Buildings)
-        self.first_sleep = True 
+        self.first_sleep = True
         wld = self.client.get_world()
         self.extract = False
         self.prev_vel = 20
         print("Loaded ")
-        #time.sleep(5)
+        # time.sleep(5)
         # wld.unload_map_layer(carla.MapLayer.StreetLights)
         # wld.unload_map_layer(carla.MapLayer.Props)
         # wld.unload_map_layer(carla.MapLayer.Particles)
@@ -82,7 +96,7 @@ class GIDASBenchmark(gym.Env):
         self.val_episodes = list()
         self.test_episodes = list()
 
-        i=0
+        i = 0
         print(Config.scenarios)
         if self.mode == "TRAINING":
             selector = lambda x: x.get_training()
@@ -151,37 +165,46 @@ class GIDASBenchmark(gym.Env):
                 self.val_episodes.extend(IConfig06().get_validation())
                 self.test_episodes.extend(IConfig06().get_test())
 
-
             else:
                 # Used for backwards compatibility
-                for speed in np.arange(Config.ped_speed_range[0], Config.ped_speed_range[1] + 0.1, 0.1):
-                    for distance in np.arange(Config.ped_distance_range[0], Config.ped_distance_range[1] + 1, 1):
+                for speed in np.arange(
+                    Config.ped_speed_range[0], Config.ped_speed_range[1] + 0.1, 0.1,
+                ):
+                    for distance in np.arange(
+                        Config.ped_distance_range[0], Config.ped_distance_range[1] + 1, 1,
+                    ):
                         conf = ControllerConfig(speed, distance)
                         self.episodes.append((scenario, conf))
-                        i=i+1
+                        i = i + 1
 
-        print("TRAINING"," Number scences:", len(self.episodes))
-        print("VALIDATION"," Number scences:", len(self.val_episodes))
-        print("TESTING"," Number scences:", len(self.test_episodes))
-        #if self.mode == "TESTING" or self.mode=="VALIDATION":
+        print("TRAINING", " Number scences:", len(self.episodes))
+        print("VALIDATION", " Number scences:", len(self.val_episodes))
+        print("TESTING", " Number scences:", len(self.test_episodes))
+        # if self.mode == "TESTING" or self.mode=="VALIDATION":
         self.val_episodes_iterator = iter(self.val_episodes)
         self.test_episodes_iterator = iter(self.test_episodes)
         self.ds = 0
 
     def _get_special_scenes(self):
         for scenario in Config.val_scenarios:
-            for speed in np.arange(Config.val_ped_speed_range[0][0], Config.val_ped_speed_range[0][1] + 0.1, 0.1):
-                for distance in np.arange(Config.val_ped_distance_range[0], Config.ped_distance_range[1] + 1, 1):
+            for speed in np.arange(
+                Config.val_ped_speed_range[0][0], Config.val_ped_speed_range[0][1] + 0.1, 0.1,
+            ):
+                for distance in np.arange(
+                    Config.val_ped_distance_range[0], Config.ped_distance_range[1] + 1, 1,
+                ):
                     self.episodes.append((scenario, speed, distance))
-                    #TODO has to be adapted for new config interface
-            for speed in np.arange(Config.val_ped_speed_range[1][0], Config.val_ped_speed_range[1][1] + 0.1, 0.1):
-                for distance in np.arange(Config.val_ped_distance_range[0], Config.ped_distance_range[1] + 1, 1):
+                    # TODO has to be adapted for new config interface
+            for speed in np.arange(
+                Config.val_ped_speed_range[1][0], Config.val_ped_speed_range[1][1] + 0.1, 0.1,
+            ):
+                for distance in np.arange(
+                    Config.val_ped_distance_range[0], Config.ped_distance_range[1] + 1, 1,
+                ):
                     self.episodes.append((scenario, speed, distance))
         # episodes = [(scenario, 1.3, 40.0), (scenario, 1.5, 40.0), (scenario, 1.7, 36.0), (scenario, 2.0, 32.0),
         #         #             (scenario, 1.6, 36.0), (scenario, 2.0, 25.0), (scenario, 2.8, 18.0)]
         # self.episodes += episodes
-
-
 
     def reset(self):
         if True:
@@ -193,25 +216,24 @@ class GIDASBenchmark(gym.Env):
             self.speed = conf.ped_speed
             self.distance = conf.ped_distance
         else:
-            scenario_id, self.speed, self.distance = self.next_scene() 
-            conf=ControllerConfig()
+            scenario_id, self.speed, self.distance = self.next_scene()
+            conf = ControllerConfig()
             conf.ped_speed = self.speed
             conf.ped_distance = self.distance
-        func = 'self.scene_generator.scenario' + scenario_id
-        scenario = eval(func + '()')
+        func = "self.scene_generator.scenario" + scenario_id
+        scenario = eval(func + "()")
         self.world.restart(scenario, conf)
         self.planner_agent.update_scenario(scenario)
 
         self.world.world.tick()
-        i=0
-        #print("Is none", self.world.semseg_sensor.array is None)
+        i = 0
+        # print("Is none", self.world.semseg_sensor.array is None)
         while self.world.semseg_sensor.array is None:
-            i+=1
+            i += 1
             self.world.world.tick()
             if i > 100:
-
                 print(i)
-        #print("Is none", self.world.semseg_sensor.array is None)
+        # print("Is none", self.world.semseg_sensor.array is None)
         observation, risk, ped_observable = self._get_observation()
         self.ds = 0
         return observation
@@ -221,25 +243,24 @@ class GIDASBenchmark(gym.Env):
         self.scenario = scenario_id
         self.speed = conf.ped_speed
         self.distance = conf.ped_distance
-        func = 'self.scene_generator.scenario' + scenario_id
-        scenario = eval(func + '()')
+        func = "self.scene_generator.scenario" + scenario_id
+        scenario = eval(func + "()")
         self.world.restart(scenario, conf)
         self.planner_agent.update_scenario(scenario)
 
         self.world.world.tick()
         # print("Is none", self.world.semseg_sensor.array is None)
-        i=0
+        i = 0
         while self.world.semseg_sensor.array is None:
             self.world.world.tick()
             if i > 100:
                 print(i)
         return self.world.get_walker_state()
 
-
     def _get_observation(self):
         control, observation, risk, ped_observable = self.planner_agent.run_step()
-        x,y,icr,son = self.world.get_walker_state()
-        #print(x,y,icr,son)
+        x, y, icr, son = self.world.get_walker_state()
+        # print(x,y,icr,son)
         self.control = control
         return observation, risk, ped_observable
 
@@ -248,51 +269,51 @@ class GIDASBenchmark(gym.Env):
         velocity = self.world.player.get_velocity()
         speed = (velocity.x * velocity.x + velocity.y * velocity.y) ** 0.5
         speed *= 3.6
-        #if speed > Config.max_speed_kmh:
+        # if speed > Config.max_speed_kmh:
         #    action = 1
-        #print(speed)
-        #action = 1 if self.ds%2==0 else 0
-        #action = 0
-        #print(speed)
-        #print(velocity)
-        #self.control = self.world.player.get_control()
-        #print("Before",self.control)
-        #acc_vec = carla.Vector3D(0,-10,0)
-        #self.world.player.add_force(acc_vec)
-        #if self.ds < 30:
+        # print(speed)
+        # action = 1 if self.ds%2==0 else 0
+        # action = 0
+        # print(speed)
+        # print(velocity)
+        # self.control = self.world.player.get_control()
+        # print("Before",self.control)
+        # acc_vec = carla.Vector3D(0,-10,0)
+        # self.world.player.add_force(acc_vec)
+        # if self.ds < 30:
         #    action = 0
-        #else:
+        # else:
         #    action = 2
-        #action = 1
+        # action = 1
 
-        #if speed > 35:
-            #print("Violation")
+        # if speed > 35:
+        # print("Violation")
         if action == 0:
             self.control.throttle = 0.6
-            #print("Acc")
+            # print("Acc")
         elif action == 2:
             self.control.brake = 0.6
-            #print("Brake")
-            #pass
+            # print("Brake")
+            # pass
         elif action == 1:
             # print("Keep")
             self.control.throttle = 0.0
             self.control.brake = 0.0
-        self.control.gear=2
-        self.control.manual_gear_shift=True
+        self.control.gear = 2
+        self.control.manual_gear_shift = True
 
         self.world.player.apply_control(self.control)
         if Config.synchronous:
             frame_num = self.client.get_world().tick()
             if self.record:
                 im = Image.fromarray(self.world.camera_manager.array.copy())
-                im.save("_out/recordings/frame_{:03d}.png".format(frame_num))
+                im.save(f"_out/recordings/frame_{frame_num:03d}.png")
         if Config.display:
             self.render()
-        #print(self.world.player.get_acceleration())
+        # print(self.world.player.get_acceleration())
 
         observation, risk, ped_observable = self._get_observation()
-        if self.retarded_agent=="hyleap":
+        if self.retarded_agent == "hyleap":
             if self.control.throttle == 0.6:
                 action = 0
             elif self.control.brake == 0.6:
@@ -300,20 +321,28 @@ class GIDASBenchmark(gym.Env):
             else:
                 action = 1
         reward, goal, accident, near_miss, terminal = self.planner_agent.get_reward(action)
-        info = {"goal": goal, "accident": accident, "near miss": near_miss,
-                "velocity": self.planner_agent.vehicle.get_velocity(), "risk": risk, 'ped_observable': ped_observable,
-                "scenario": self.scenario, "ped_speed": self.speed, "ped_distance": self.distance}
-        self.ds+=1
+        info = {
+            "goal": goal,
+            "accident": accident,
+            "near miss": near_miss,
+            "velocity": self.planner_agent.vehicle.get_velocity(),
+            "risk": risk,
+            "ped_observable": ped_observable,
+            "scenario": self.scenario,
+            "ped_speed": self.speed,
+            "ped_distance": self.distance,
+        }
+        self.ds += 1
         if self.mode == "TESTING":
             terminal = goal or accident
         self.plot_intention = False
         if self.plot_intention:
-            self.pc +=1
+            self.pc += 1
             if self.pc % 5 == 0:
-                fig=plt.figure()
+                fig = plt.figure()
                 plt.imshow(observation)
-                fig.savefig("cp_debug/cp_%d.png"%self.pc,dpi=400)
-        #print("The time difference is :", timeit.default_timer() - starttime)
+                fig.savefig("cp_debug/cp_%d.png" % self.pc, dpi=400)
+        # print("The time difference is :", timeit.default_timer() - starttime)
         return observation, reward, terminal, info
 
     def extract_step(self):
@@ -321,20 +350,22 @@ class GIDASBenchmark(gym.Env):
         if Config.synchronous:
             frame_num = self.client.get_world().tick()
 
-        x,y,icr,son = self.world.get_walker_state()
+        x, y, icr, son = self.world.get_walker_state()
 
-        return x,y,icr,son
+        return x, y, icr, son
 
     def extract_car_pos(self):
         self.world.tick(self.clock)
         if Config.synchronous:
             frame_num = self.client.get_world().tick()
 
-        x,y= self.world.get_car_state()
+        x, y = self.world.get_car_state()
 
-        return x,y
-    
-    def record_step(self,):
+        return x, y
+
+    def record_step(
+        self,
+    ):
         self.world.tick(self.clock)
 
         self.control = carla.VehicleControl()
@@ -346,51 +377,51 @@ class GIDASBenchmark(gym.Env):
         speed = (velocity.x * velocity.x + velocity.y * velocity.y) ** 0.5
         speed *= 3.6
         action = 0
-        if self.scenario == '10':
+        if self.scenario == "10":
             # Maintain a minimum speed of 20kmph
             if speed < 20:
                 action = 0
             elif speed > 50:
                 action = 2
-        if self.scenario == '11' or self.scenario == '12':
+        if self.scenario == "11" or self.scenario == "12":
             # Maintain a maximum speed of 20kmph
             if speed > 20:
                 action = 2
-        #if self.scenario in ["01_int", "02_int","01","01_non_int",]:
+        # if self.scenario in ["01_int", "02_int","01","01_non_int",]:
         #    action = 0
         #    if speed > 30:
         #        action = 2
-        #if self.scenario in ["03_non_int"]:
+        # if self.scenario in ["03_non_int"]:
         #    action = 0
         #    if speed > 25:
         #        action = 2
-        #if self.scenario in ["03_int"]:
+        # if self.scenario in ["03_int"]:
         #    if speed > 25:
         #        action = 2
 
         if action == 0:
-            vel_target = velocity  + carla.Vector3D(0,-0.075*self.pc,0)
+            vel_target = velocity + carla.Vector3D(0, -0.075 * self.pc, 0)
             self.world.player.set_target_velocity(vel_target)
-            #self.control.throttle = 0.6
-            #print("Acc")
-        #elif action == 2:
+            # self.control.throttle = 0.6
+            # print("Acc")
+        # elif action == 2:
         #    vel_target = velocity + carla.Vector3D(0,0.01,0)
         #    self.world.player.set_target_velocity(vel_target)
-            #self.control.brake = 0.6
-            #print("Brake")
-        #elif action == 1:
+        # self.control.brake = 0.6
+        # print("Brake")
+        # elif action == 1:
         #    #print("Keep")
         #    self.control.throttle = 0
         ds = speed - self.prev_vel
-        dsdt = ds*20
+        dsdt = ds * 20
         self.prev_vel = speed
         print("Speed", speed)
         print("Action", action)
-        print("dsdt",dsdt)
+        print("dsdt", dsdt)
         print(vel_target)
         print(self.world.player.get_velocity())
         print(self.world.player.get_acceleration())
-        self.pc+=1
+        self.pc += 1
         """
         #scenario01
         print(self.world.player.get_location().y)
@@ -417,31 +448,29 @@ class GIDASBenchmark(gym.Env):
             self.control.throttle = 0.0
         """
 
-        #self.world.player.apply_control(self.control)
+        # self.world.player.apply_control(self.control)
 
         if Config.synchronous:
             frame_num = self.client.get_world().tick()
 
-        x,y,icr,son = self.world.get_walker_state()
+        x, y, icr, son = self.world.get_walker_state()
 
         observation, risk, ped_observable = self._get_observation()
         self.plot_intention = False
         if self.plot_intention:
-            self.pc +=1
+            self.pc += 1
             if self.pc % 5 == 0:
-                fig=plt.figure()
+                fig = plt.figure()
                 plt.imshow(observation)
-                fig.savefig("cp_debug/cp_%d.png"%self.pc,dpi=800)
+                fig.savefig("cp_debug/cp_%d.png" % self.pc, dpi=800)
                 print("Saved")
-        return x,y,icr,son
-    
-
+        return x, y, icr, son
 
     def render(self, mode="human"):
         if self.display is None:
             self.display = pygame.display.set_mode(
-                (Config.width, Config.height),
-                pygame.HWSURFACE | pygame.DOUBLEBUF)
+                (Config.width, Config.height), pygame.HWSURFACE | pygame.DOUBLEBUF,
+            )
             self.display.fill((0, 0, 0))
             pygame.display.flip()
         self.world.render(self.display)
@@ -477,12 +506,16 @@ class GIDASBenchmark(gym.Env):
         self.mode = "TESTING"
         episodes = list()
         for scenario in Config.test_scenarios:
-            if scenario in ['11', '12']:
+            if scenario in ["11", "12"]:
                 for speed in np.arange(10, 20 + 0.1, 0.1):
                     episodes.append((scenario, speed, 0))
             else:
-                for speed in np.arange(Config.test_ped_speed_range[0], Config.test_ped_speed_range[1] + 0.1, 0.1):
-                    for distance in np.arange(Config.test_ped_distance_range[0], Config.test_ped_distance_range[1] + 1, 1):
+                for speed in np.arange(
+                    Config.test_ped_speed_range[0], Config.test_ped_speed_range[1] + 0.1, 0.1,
+                ):
+                    for distance in np.arange(
+                        Config.test_ped_distance_range[0], Config.test_ped_distance_range[1] + 1, 1,
+                    ):
                         episodes.append((scenario, speed, distance))
         self.episodes = episodes[current_episode:]
         print("Episodes: ", len(self.episodes))
@@ -493,20 +526,19 @@ class GIDASBenchmark(gym.Env):
         self.test_episodes_iterator = iter(self.test_episodes)
 
     def next_scene(self):
-        #return random.choice(self.episodes)
+        # return random.choice(self.episodes)
         if self.mode == "VALIDATION":
             return next(self.val_episodes_iterator)
-        elif self.mode == "TESTING":
+        if self.mode == "TESTING":
             return next(self.test_episodes_iterator)
-        else:
-            #return self.episodes[0]
-            i = np.random.randint(0,len(self.episodes))
-            return self.episodes[i]
+        # return self.episodes[0]
+        i = np.random.randint(0, len(self.episodes))
+        return self.episodes[i]
 
-        
-
-    def seed(self,seed):
+    def seed(self, seed):
         pass
+
+
 """     
     def next_scene(self):
         if self.mode == "TRAINING":
@@ -516,5 +548,4 @@ class GIDASBenchmark(gym.Env):
             scene_config = next(self.test_episodes)
             #return self.episodes[0]
             return scene_config
-""" 
-
+"""

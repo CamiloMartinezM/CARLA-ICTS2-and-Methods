@@ -1,16 +1,11 @@
 #!/usr/bin/env python
 
-import matplotlib
-import matplotlib.axes
-import matplotlib.pyplot as plt
-
-import xml.etree.ElementTree as xml
-import pyproj
 import math
-
 import sys
+import xml.etree.ElementTree as xml
+
 import numpy as np
-import cv2
+import pyproj
 
 
 def get_value_list(d):
@@ -51,8 +46,10 @@ class LL2XYProjector:
     def __init__(self, lat_origin, lon_origin):
         self.lat_origin = lat_origin
         self.lon_origin = lon_origin
-        self.zone = math.floor((lon_origin + 180.) / 6) + 1  # works for most tiles, and for all in the dataset
-        self.p = pyproj.Proj(proj='utm', ellps='WGS84', zone=self.zone, datum='WGS84')
+        self.zone = (
+            math.floor((lon_origin + 180.0) / 6) + 1
+        )  # works for most tiles, and for all in the dataset
+        self.p = pyproj.Proj(proj="utm", ellps="WGS84", zone=self.zone, datum="WGS84")
         [self.x_origin, self.y_origin] = self.p(lon_origin, lat_origin)
 
     def latlon2xy(self, lat, lon):
@@ -97,7 +94,7 @@ def set_visible_area(point_dict, axes):
         max_x = max(point.x, max_x)
         max_y = max(point.y, max_y)
 
-    axes.set_aspect('equal', adjustable='box')
+    axes.set_aspect("equal", adjustable="box")
     axes.set_xlim([min_x - 10, max_x + 10])
     axes.set_ylim([min_y - 10, max_y + 10])
 
@@ -157,8 +154,8 @@ def get_minmax_mapfile(filename):
     point_dict = dict()
     for node in e.findall("node"):
         point = Point()
-        point.x, point.y = projector.latlon2xy(float(node.get('lat')), float(node.get('lon')))
-        point_dict[int(node.get('id'))] = point
+        point.x, point.y = projector.latlon2xy(float(node.get("lat")), float(node.get("lon")))
+        point_dict[int(node.get("id"))] = point
 
     xmin, ymin, xmax, ymax = get_minmax(point_dict)
     return xmin, ymin, xmax, ymax

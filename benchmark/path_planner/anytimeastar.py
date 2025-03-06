@@ -1,18 +1,20 @@
-"""
-Author: Dikshant Gupta
+"""Author: Dikshant Gupta
 Time: 22.02.22 21:43
 """
 
 import heapq as hq
 import math
-import matplotlib.pyplot as plt
-import numpy as np
 import time
-#from assets.occupancy_grid import OccupancyGrid
+
+import numpy as np
+
+# from assets.occupancy_grid import OccupancyGrid
 
 
 class Node:
-    def __init__(self, f=None, g=None, prev=None, prev_d=None, node_c=None, node_d=None, weight=None):
+    def __init__(
+        self, f=None, g=None, prev=None, prev_d=None, node_c=None, node_d=None, weight=None,
+    ):
         self.f = f
         self.g = g
         self.f_prime = weight * f
@@ -43,8 +45,10 @@ class AnytimeHybridAStar:
         self.hgcost = self.hgcost_dikshant
 
     def loc_dikshant(self, position, occupancy_grid):
-        location = [min(round(position[0] - self.min_x), occupancy_grid.shape[0] - 1),
-                    min(round(position[1] - self.min_y), occupancy_grid.shape[1] - 1)]
+        location = [
+            min(round(position[0] - self.min_x), occupancy_grid.shape[0] - 1),
+            min(round(position[1] - self.min_y), occupancy_grid.shape[1] - 1),
+        ]
         return location
 
     def hgcost_dikshant(self, position, target, occupancy_grid):
@@ -52,27 +56,32 @@ class AnytimeHybridAStar:
         output = self.dist(position, target)
         location = self.loc(position, occupancy_grid)
         cost = occupancy_grid[location[0], location[1]]
-        #if cost > 0:
-            #print(cost)
+        # if cost > 0:
+        # print(cost)
         return float(output + cost)
-    
+
     def hg_cost_zoomed(self, position, target, occupancy_grid):
         output = self.dist(position, target)
-        x,y = self.loc(position, occupancy_grid)
-        #cost = np.mean(occupancy_grid[x-10:x+10, y-3:y+3])
+        x, y = self.loc(position, occupancy_grid)
+        # cost = np.mean(occupancy_grid[x-10:x+10, y-3:y+3])
         cost = occupancy_grid[x, y]
         return float(output + cost)
 
     def loc_zoomed(self, p, grid_copy):
-        x,y= [min(round(self.mult * p[0] - self.mult * self.min_x), grid_copy.shape[0] - 1),
-                    min(round(self.mult * p[1] - self.min_y), grid_copy.shape[1] - 1)]
-        return [x,y]
+        x, y = [
+            min(round(self.mult * p[0] - self.mult * self.min_x), grid_copy.shape[0] - 1),
+            min(round(self.mult * p[1] - self.min_y), grid_copy.shape[1] - 1),
+        ]
+        return [x, y]
 
     def dist(self, position, target):
         # output = np.sqrt(((position[0] - target[0]) ** 2) + ((position[1] - target[1]) ** 2) +
         #                  (math.radians(position[2]) - math.radians(target[2])) ** 2)
-        output = abs(position[0] - target[0]) + abs(position[1] - target[1]) + \
-                 abs(math.radians(position[2]) - math.radians(target[2]))
+        output = (
+            abs(position[0] - target[0])
+            + abs(position[1] - target[1])
+            + abs(math.radians(position[2]) - math.radians(target[2]))
+        )
         return float(output) * 1.0
 
     def next_node(self, location, aph, d):
@@ -117,7 +126,9 @@ class AnytimeHybridAStar:
         f = self.hgcost(start, end, occupancy_grid)
         f_prime = weight * f
         hq.heappush(open_heap, (f_prime, start))
-        open_diction[start] = Node(f, g, prev=start, prev_d=start, node_c=start, node_d=start, weight=weight)
+        open_diction[start] = Node(
+            f, g, prev=start, prev_d=start, node_c=start, node_d=start, weight=weight,
+        )
 
         incumbent = None
         last_visited_node = None
@@ -140,8 +151,9 @@ class AnytimeHybridAStar:
                         delta = steering_inputs[i]
                         velocity = speed_inputs[j]
 
-                        neighbour_x_cts, neighbour_y_cts, neighbour_theta_cts = self.next_node(current_node.node_c,
-                                                                                               delta, velocity)
+                        neighbour_x_cts, neighbour_y_cts, neighbour_theta_cts = self.next_node(
+                            current_node.node_c, delta, velocity,
+                        )
                         neighbour_theta_cts = math.degrees(neighbour_theta_cts)
 
                         neighbour_x_d = round(neighbour_x_cts)
@@ -156,30 +168,69 @@ class AnytimeHybridAStar:
 
                         dist = 1000
                         for obs in obstacles:
-                            d = np.sqrt((neighbour_x_d - obs[0]) ** 2 + (neighbour_y_d - obs[1]) ** 2)
-                            if d < dist:
-                                dist = d
+                            d = np.sqrt(
+                                (neighbour_x_d - obs[0]) ** 2 + (neighbour_y_d - obs[1]) ** 2,
+                            )
+                            dist = min(dist, d)
 
-                        if g + f < upper_bound and dist > 1.5 and current_node.node_d != neighbour_d:
+                        if (
+                            g + f < upper_bound
+                            and dist > 1.5
+                            and current_node.node_d != neighbour_d
+                        ):
                             if self.dist(neighbour_d, end) < 3:
                                 f = g
                                 incumbent = neighbour_d
-                                visited_diction[neighbour_d] = Node(0, g, prev=current_node.node_c,
-                                                                    prev_d=current_node.node_d, node_c=neighbour_cts,
-                                                                    node_d=neighbour_d, weight=weight)
+                                visited_diction[neighbour_d] = Node(
+                                    0,
+                                    g,
+                                    prev=current_node.node_c,
+                                    prev_d=current_node.node_d,
+                                    node_c=neighbour_cts,
+                                    node_d=neighbour_d,
+                                    weight=weight,
+                                )
                                 upper_bound = f
                             elif neighbour_d in open_diction and open_diction[neighbour_d].g > g:
-                                open_diction[neighbour_d] = Node(f, g, current_node.node_c, prev_d=current_node.node_d,
-                                                                 node_c=neighbour_cts, node_d=neighbour_d, weight=weight)
-                                hq.heappush(open_heap, (open_diction[neighbour_d].f_prime, neighbour_d))
-                            elif neighbour_d in visited_diction and visited_diction[neighbour_d].g > g:
-                                open_diction[neighbour_d] = Node(f, g, current_node.node_c, prev_d=current_node.node_d,
-                                                                 node_c=neighbour_cts, node_d=neighbour_d, weight=weight)
+                                open_diction[neighbour_d] = Node(
+                                    f,
+                                    g,
+                                    current_node.node_c,
+                                    prev_d=current_node.node_d,
+                                    node_c=neighbour_cts,
+                                    node_d=neighbour_d,
+                                    weight=weight,
+                                )
+                                hq.heappush(
+                                    open_heap, (open_diction[neighbour_d].f_prime, neighbour_d),
+                                )
+                            elif (
+                                neighbour_d in visited_diction
+                                and visited_diction[neighbour_d].g > g
+                            ):
+                                open_diction[neighbour_d] = Node(
+                                    f,
+                                    g,
+                                    current_node.node_c,
+                                    prev_d=current_node.node_d,
+                                    node_c=neighbour_cts,
+                                    node_d=neighbour_d,
+                                    weight=weight,
+                                )
                                 visited_diction.pop(neighbour_d)
                             else:
-                                open_diction[neighbour_d] = Node(f, g, current_node.node_c, prev_d=current_node.node_d,
-                                                                 node_c=neighbour_cts, node_d=neighbour_d, weight=weight)
-                                hq.heappush(open_heap, (open_diction[neighbour_d].f_prime, neighbour_d))
+                                open_diction[neighbour_d] = Node(
+                                    f,
+                                    g,
+                                    current_node.node_c,
+                                    prev_d=current_node.node_d,
+                                    node_c=neighbour_cts,
+                                    node_d=neighbour_d,
+                                    weight=weight,
+                                )
+                                hq.heappush(
+                                    open_heap, (open_diction[neighbour_d].f_prime, neighbour_d),
+                                )
 
         if incumbent is None:
             incumbent = last_visited_node
@@ -216,14 +267,30 @@ def main():
     # gx, gy, gtheta = 70, 1, -180
 
     # create obstacles
-    obstacle = [(-3, 203), (-3, 204), (-3, 205), (-3, 206), (-3, 207), (-3, 208), (-2, 204), (-2, 205), (-2, 206),
-                (-2, 207), (-2, 208), (-1, 204), (-1, 205), (-1, 206), (-1, 207), (-1, 208)]
+    obstacle = [
+        (-3, 203),
+        (-3, 204),
+        (-3, 205),
+        (-3, 206),
+        (-3, 207),
+        (-3, 208),
+        (-2, 204),
+        (-2, 205),
+        (-2, 206),
+        (-2, 207),
+        (-2, 208),
+        (-1, 204),
+        (-1, 205),
+        (-1, 206),
+        (-1, 207),
+        (-1, 208),
+    ]
 
     new_obs = obstacle + [(-2, 203), (-1, 203)]
     # obstacle.append((-1, 209)) # incoming car
     # obstacle = [(85, -2), (85, -1)]
     # obstacle = []
-    #occupancy_grid = OccupancyGrid()
+    # occupancy_grid = OccupancyGrid()
     hy_a_star = AnytimeHybridAStar(-10, 100, -10, 300, obstacle=[], vehicle_length=4.18)
 
     g = np.ones((110, 310)) * 1000.0
@@ -243,10 +310,11 @@ def main():
     y = round(sy)
     relaxed_g = g.copy()
     sidewalk_cost = 0.0
-    relaxed_g[13:16, y-10:y+10] = sidewalk_cost
-    relaxed_g[4:7, y-10:y+10] = sidewalk_cost
+    relaxed_g[13:16, y - 10 : y + 10] = sidewalk_cost
+    relaxed_g[4:7, y - 10 : y + 10] = sidewalk_cost
 
     from risk.risk_assesment import PerceivedRisk
+
     risk_estimator = PerceivedRisk()
     cmp = np.ones((110, 310)) * 0.0
     sidewalk_cost = 50.0
@@ -264,16 +332,20 @@ def main():
         cmp[obs[0] + 10, obs[1] + 10] = 1000
 
     t0 = time.time()
-    path = hy_a_star.find_path((sx, sy, stheta), (gx, gy, gtheta), relaxed_g, [], speed=1.0, weight=0.9)
+    path = hy_a_star.find_path(
+        (sx, sy, stheta), (gx, gy, gtheta), relaxed_g, [], speed=1.0, weight=0.9,
+    )
     path = path[0]
     path.reverse()
     print(path)
-    steering_angle = (path[2][2] - stheta)
+    steering_angle = path[2][2] - stheta
     player = [sx, sy, 35, stheta]
     t = time.time()
     risk, _ = risk_estimator.get_risk(player, steering_angle, cmp)
     t_taken = (time.time() - t0) * 1000
     print(len(path), risk, steering_angle, t_taken)
+
+
 """
     cp = occupancy_grid.get_costmap([])
     for path in [path]:
@@ -292,5 +364,5 @@ def main():
         plt.show()
 """
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

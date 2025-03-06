@@ -1,21 +1,25 @@
-"""
-Author: Dikshant Gupta
+"""Author: Dikshant Gupta
 Time: 28.09.22 08:27
 """
 
 import carla
+
 from benchmark.rlagent import RLAgent
 
 
 class SAC(RLAgent):
-    def __init__(self, world, carla_map, scenario, conn=None, eval_mode=False, agent='sac'):
+    def __init__(self, world, carla_map, scenario, conn=None, eval_mode=False, agent="sac"):
         super(SAC, self).__init__(world, carla_map, scenario)
         self.agent = agent
 
     def run_step(self, debug=False):
         self.vehicle = self.world.player
         transform = self.vehicle.get_transform()
-        start = (self.vehicle.get_location().x, self.vehicle.get_location().y, transform.rotation.yaw)
+        start = (
+            self.vehicle.get_location().x,
+            self.vehicle.get_location().y,
+            transform.rotation.yaw,
+        )
         end = self.scenario[2]
 
         # t = time.time()
@@ -32,7 +36,7 @@ class SAC(RLAgent):
         if len(path) == 0:
             control.steer = 0
         else:
-            control.steer = (path[2][2] - start[2]) / 70.
+            control.steer = (path[2][2] - start[2]) / 70.0
         # print("Angle: ", control.steer)
 
         # Best speed action for the given path

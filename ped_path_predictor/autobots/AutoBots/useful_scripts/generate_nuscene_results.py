@@ -1,12 +1,12 @@
 import json
+
 import numpy as np
 import torch
-from nuscenes.prediction import convert_local_coords_to_global
-from sklearn.cluster import AgglomerativeClustering
-
 from datasets.nuscenes.dataset import NuscenesH5Dataset
 from models.autobot_ego import AutoBotEgo
+from nuscenes.prediction import convert_local_coords_to_global
 from process_args import get_eval_args
+from sklearn.cluster import AgglomerativeClustering
 
 
 def load_model(args, model_config, k_attr, num_other_agents, pred_horizon, map_attr):
@@ -15,21 +15,23 @@ def load_model(args, model_config, k_attr, num_other_agents, pred_horizon, map_a
     else:
         device = torch.device("cpu")
 
-    autobot_model = AutoBotEgo(k_attr=k_attr,
-                               d_k=model_config.hidden_size,
-                               _M=num_other_agents,
-                               c=model_config.num_modes,
-                               T=pred_horizon,
-                               L_enc=model_config.num_encoder_layers,
-                               dropout=model_config.dropout,
-                               num_heads=model_config.tx_num_heads,
-                               L_dec=model_config.num_decoder_layers,
-                               tx_hidden_size=model_config.tx_hidden_size,
-                               use_map_img=model_config.use_map_image,
-                               use_map_lanes=model_config.use_map_lanes,
-                               map_attr=map_attr).to(device)
+    autobot_model = AutoBotEgo(
+        k_attr=k_attr,
+        d_k=model_config.hidden_size,
+        _M=num_other_agents,
+        c=model_config.num_modes,
+        T=pred_horizon,
+        L_enc=model_config.num_encoder_layers,
+        dropout=model_config.dropout,
+        num_heads=model_config.tx_num_heads,
+        L_dec=model_config.num_decoder_layers,
+        tx_hidden_size=model_config.tx_hidden_size,
+        use_map_img=model_config.use_map_image,
+        use_map_lanes=model_config.use_map_lanes,
+        map_attr=map_attr,
+    ).to(device)
 
-    model_dicts = torch.load(args.models_path, map_location={'cuda:1': 'cuda:0'})
+    model_dicts = torch.load(args.models_path, map_location={"cuda:1": "cuda:0"})
     autobot_model.load_state_dict(model_dicts["AutoBot"])
     autobot_model.eval()
 
@@ -42,7 +44,9 @@ def recompute_probs(pred_trajs, probs):
         distances.append(np.mean(np.linalg.norm(pred_trajs[k] - pred_trajs, axis=-1), axis=-1))
     distances = np.array(distances)
 
-    agg = AgglomerativeClustering(affinity='precomputed', linkage='complete', distance_threshold=None, n_clusters=6)
+    agg = AgglomerativeClustering(
+        affinity="precomputed", linkage="complete", distance_threshold=None, n_clusters=6,
+    )
     output = agg.fit_predict(distances)  # Returns class labels.
     temp_probs = probs.copy()
     for element in np.unique(output):
@@ -60,17 +64,33 @@ def recompute_probs(pred_trajs, probs):
 if __name__ == "__main__":
     args, model_config, model_dirname = get_eval_args()
 
-    val_dset = NuscenesH5Dataset(dset_path=args.dataset_path, split_name="val",
-                                 model_type=model_config.model_type, use_map_img=model_config.use_map_image,
-                                 use_map_lanes=model_config.use_map_lanes, rtn_extras=True)
+    val_dset = NuscenesH5Dataset(
+        dset_path=args.dataset_path,
+        split_name="val",
+        model_type=model_config.model_type,
+        use_map_img=model_config.use_map_image,
+        use_map_lanes=model_config.use_map_lanes,
+        rtn_extras=True,
+    )
 
     val_loader = torch.utils.data.DataLoader(
-        val_dset, batch_size=args.batch_size, shuffle=False, num_workers=12, drop_last=False, pin_memory=False
+        val_dset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=12,
+        drop_last=False,
+        pin_memory=False,
     )
     print("Val dataset loaded with length", len(val_dset))
 
-    autobot_model, device = load_model(args, model_config, val_dset.k_attr, val_dset.num_others, val_dset.pred_horizon,
-                                       val_dset.map_attr)
+    autobot_model, device = load_model(
+        args,
+        model_config,
+        val_dset.k_attr,
+        val_dset.num_others,
+        val_dset.pred_horizon,
+        val_dset.map_attr,
+    )
 
     preds = []
     with torch.no_grad():
@@ -104,12 +124,12 @@ if __name__ == "__main__":
                 for k in range(model_config.num_modes):
                     pred_seq = pred_seqs[b, k]
                     curr_out["prediction"].append(
-                        convert_local_coords_to_global(pred_seq, translation[b], rotation[b]).tolist()
+                        convert_local_coords_to_global(
+                            pred_seq, translation[b], rotation[b],
+                        ).tolist(),
                     )
 
                 preds.append(curr_out)
 
-        with open(model_dirname + '/autobot_preds.json', 'w') as fout:
+        with open(model_dirname + "/autobot_preds.json", "w") as fout:
             json.dump(preds, fout)
-
-

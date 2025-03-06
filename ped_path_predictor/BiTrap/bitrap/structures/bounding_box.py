@@ -1,14 +1,14 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+
 import torch
-import pdb
+
 # transpose
 FLIP_LEFT_RIGHT = 0
 FLIP_TOP_BOTTOM = 1
 
 
-class BoxList(object):
-    """
-    This class represents a set of bounding boxes.
+class BoxList:
+    """This class represents a set of bounding boxes.
     The bounding boxes are represented as a Nx4 Tensor.
     In order to uniquely determine the bounding boxes with respect
     to an image, we also store the corresponding image dimensions.
@@ -20,13 +20,10 @@ class BoxList(object):
         device = bbox.device if isinstance(bbox, torch.Tensor) else torch.device("cpu")
         bbox = torch.as_tensor(bbox, dtype=torch.float32, device=device)
         if bbox.ndimension() != 2:
-            raise ValueError(
-                "bbox should have 2 dimensions, got {}".format(bbox.ndimension())
-            )
+            raise ValueError(f"bbox should have 2 dimensions, got {bbox.ndimension()}")
         if bbox.size(-1) != 4:
             raise ValueError(
-                "last dimension of bbox should have a "
-                "size of 4, got {}".format(bbox.size(-1))
+                f"last dimension of bbox should have a size of 4, got {bbox.size(-1)}",
             )
         if mode not in ("xyxy", "xywh", "cxcywh"):
             raise ValueError("mode should be 'xyxy' or 'xywh' or 'cxcywh'")
@@ -66,13 +63,19 @@ class BoxList(object):
         elif mode == "xywh":
             TO_REMOVE = 1
             bbox = torch.cat(
-                (xmin, ymin, xmax - xmin + TO_REMOVE, ymax - ymin + TO_REMOVE), dim=-1
+                (xmin, ymin, xmax - xmin + TO_REMOVE, ymax - ymin + TO_REMOVE), dim=-1,
             )
             bbox = BoxList(bbox, self.size, mode=mode)
         elif mode == "cxcywh":
             TO_REMOVE = 0
             bbox = torch.cat(
-                (xmin + (xmax - xmin + TO_REMOVE)/2, ymin + (ymax - ymin + TO_REMOVE)/2, xmax - xmin + TO_REMOVE, ymax - ymin + TO_REMOVE), dim=-1
+                (
+                    xmin + (xmax - xmin + TO_REMOVE) / 2,
+                    ymin + (ymax - ymin + TO_REMOVE) / 2,
+                    xmax - xmin + TO_REMOVE,
+                    ymax - ymin + TO_REMOVE,
+                ),
+                dim=-1,
             )
             bbox = BoxList(bbox, self.size, mode=mode)
 
@@ -83,7 +86,7 @@ class BoxList(object):
         if self.mode == "xyxy":
             xmin, ymin, xmax, ymax = self.bbox.split(1, dim=-1)
             return xmin, ymin, xmax, ymax
-        elif self.mode == "xywh":
+        if self.mode == "xywh":
             TO_REMOVE = 1
             xmin, ymin, w, h = self.bbox.split(1, dim=-1)
             return (
@@ -92,29 +95,21 @@ class BoxList(object):
                 xmin + (w - TO_REMOVE).clamp(min=0),
                 ymin + (h - TO_REMOVE).clamp(min=0),
             )
-        elif self.mode == 'cxcywh':
+        if self.mode == "cxcywh":
             TO_REMOVE = 0
             cx, cy, w, h = self.bbox.split(1, dim=-1)
             w = w.clamp(min=0)
             h = h.clamp(min=0)
-            return (
-                cx - w/2,
-                cy - h/2,
-                cx + w/2,
-                cy + h/2
-                )
-        else:
-            raise RuntimeError("Should not be here")
+            return (cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2)
+        raise RuntimeError("Should not be here")
 
     def resize(self, size, *args, **kwargs):
-        """
-        Returns a resized copy of this bounding box
+        """Returns a resized copy of this bounding box
 
         :param size: The requested size in pixels, as a 2-tuple:
             (width, height).
         """
-
-        ratios = tuple(float(s) / float(s_orig) for s, s_orig in zip(size, self.size))
+        ratios = tuple(float(s) / float(s_orig) for s, s_orig in zip(size, self.size, strict=False))
         if ratios[0] == ratios[1]:
             ratio = ratios[0]
             scaled_box = self.bbox * ratio
@@ -132,9 +127,7 @@ class BoxList(object):
         scaled_xmax = xmax * ratio_width
         scaled_ymin = ymin * ratio_height
         scaled_ymax = ymax * ratio_height
-        scaled_box = torch.cat(
-            (scaled_xmin, scaled_ymin, scaled_xmax, scaled_ymax), dim=-1
-        )
+        scaled_box = torch.cat((scaled_xmin, scaled_ymin, scaled_xmax, scaled_ymax), dim=-1)
         bbox = BoxList(scaled_box, size, mode="xyxy")
         # bbox._copy_extra_fields(self)
         for k, v in self.extra_fields.items():
@@ -145,17 +138,14 @@ class BoxList(object):
         return bbox.convert(self.mode)
 
     def transpose(self, method):
-        """
-        Transpose bounding box (flip or rotate in 90 degree steps)
+        """Transpose bounding box (flip or rotate in 90 degree steps)
         :param method: One of :py:attr:`PIL.Image.FLIP_LEFT_RIGHT`,
           :py:attr:`PIL.Image.FLIP_TOP_BOTTOM`, :py:attr:`PIL.Image.ROTATE_90`,
           :py:attr:`PIL.Image.ROTATE_180`, :py:attr:`PIL.Image.ROTATE_270`,
           :py:attr:`PIL.Image.TRANSPOSE` or :py:attr:`PIL.Image.TRANSVERSE`.
         """
         if method not in (FLIP_LEFT_RIGHT, FLIP_TOP_BOTTOM):
-            raise NotImplementedError(
-                "Only FLIP_LEFT_RIGHT and FLIP_TOP_BOTTOM implemented"
-            )
+            raise NotImplementedError("Only FLIP_LEFT_RIGHT and FLIP_TOP_BOTTOM implemented")
 
         image_width, image_height = self.size
         xmin, ymin, xmax, ymax = self._split_into_xyxy()
@@ -172,7 +162,7 @@ class BoxList(object):
             transposed_ymax = image_height - ymin
 
         transposed_boxes = torch.cat(
-            (transposed_xmin, transposed_ymin, transposed_xmax, transposed_ymax), dim=-1
+            (transposed_xmin, transposed_ymin, transposed_xmax, transposed_ymax), dim=-1,
         )
         bbox = BoxList(transposed_boxes, self.size, mode="xyxy")
         # bbox._copy_extra_fields(self)
@@ -183,8 +173,7 @@ class BoxList(object):
         return bbox.convert(self.mode)
 
     def crop(self, box):
-        """
-        Cropss a rectangular region from this bounding box. The box is a
+        """Cropss a rectangular region from this bounding box. The box is a
         4-tuple defining the left, upper, right, and lower pixel
         coordinate.
         """
@@ -199,9 +188,7 @@ class BoxList(object):
         if False:
             is_empty = (cropped_xmin == cropped_xmax) | (cropped_ymin == cropped_ymax)
 
-        cropped_box = torch.cat(
-            (cropped_xmin, cropped_ymin, cropped_xmax, cropped_ymax), dim=-1
-        )
+        cropped_box = torch.cat((cropped_xmin, cropped_ymin, cropped_xmax, cropped_ymax), dim=-1)
         bbox = BoxList(cropped_box, (w, h), mode="xyxy")
         # bbox._copy_extra_fields(self)
         for k, v in self.extra_fields.items():
@@ -250,9 +237,7 @@ class BoxList(object):
         if self.mode == "xyxy":
             TO_REMOVE = 1
             area = (box[:, 2] - box[:, 0] + TO_REMOVE) * (box[:, 3] - box[:, 1] + TO_REMOVE)
-        elif self.mode == "xywh":
-            area = box[:, 2] * box[:, 3]
-        elif self.mode == "cxcywh":
+        elif self.mode == "xywh" or self.mode == "cxcywh":
             area = box[:, 2] * box[:, 3]
         else:
             raise RuntimeError("Should not be here")
@@ -267,15 +252,15 @@ class BoxList(object):
             if self.has_field(field):
                 bbox.add_field(field, self.get_field(field))
             elif not skip_missing:
-                raise KeyError("Field '{}' not found in {}".format(field, self))
+                raise KeyError(f"Field '{field}' not found in {self}")
         return bbox
 
     def __repr__(self):
         s = self.__class__.__name__ + "("
-        s += "num_boxes={}, ".format(len(self))
-        s += "image_width={}, ".format(self.size[0])
-        s += "image_height={}, ".format(self.size[1])
-        s += "mode={})".format(self.mode)
+        s += f"num_boxes={len(self)}, "
+        s += f"image_width={self.size[0]}, "
+        s += f"image_height={self.size[1]}, "
+        s += f"mode={self.mode})"
         return s
 
 

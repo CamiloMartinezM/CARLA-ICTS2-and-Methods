@@ -1,10 +1,11 @@
-"""
-Author: Dikshant Gupta
+"""Author: Dikshant Gupta
 Time: 23.08.21 21:52
 """
+
+import time
+
 import numpy
 import numpy as np
-import time
 
 
 class PerceivedRisk:
@@ -12,8 +13,8 @@ class PerceivedRisk:
         self.wheel_base = 1.9887
         self.tla = 5  # Look ahead time[s]
         self.par1 = 0.0064  # Steepness of the parabola
-        self.kexp1 = 0. * 0.07275  # inside circle
-        self.kexp2 = 5. * 0.07275  # outside circle
+        self.kexp1 = 0.0 * 0.07275  # inside circle
+        self.kexp2 = 5.0 * 0.07275  # outside circle
         self.mcexp = 0.001  # m
         self.cexp = 0.5  # c : ego car width / 4
 
@@ -36,9 +37,18 @@ class PerceivedRisk:
         # self.risk_field = np.vectorize(self.pointwise_risk)
 
     def get_risk(self, player, steering_angle, costmap):
-        drf = numpy.fromfunction(lambda i, j: self.pointwise_risk(i, j, player[0] - self.minx, player[1] - self.miny,
-                                                                  player[2] * 0.5, 0.5 * steering_angle,
-                                                                  player[3]), (110, 310))
+        drf = numpy.fromfunction(
+            lambda i, j: self.pointwise_risk(
+                i,
+                j,
+                player[0] - self.minx,
+                player[1] - self.miny,
+                player[2] * 0.5,
+                0.5 * steering_angle,
+                player[3],
+            ),
+            (110, 310),
+        )
         # drf glitch
         # drf[round(player[0] - self.minx + 10):, :] = 0
         risk = (drf * costmap).sum()
@@ -56,8 +66,7 @@ class PerceivedRisk:
         return abs(phi % (2 * np.pi))
 
     def pointwise_risk(self, x, y, vehicle_x, vehicle_y, velocity, delta, phi):
-        """
-        vehicle_x = x coordinate of vehicle (m)
+        """vehicle_x = x coordinate of vehicle (m)
         vehicle_y = y coordinate of vehicle (m)
         velocity = velocity of vehicle (m/s)
         delta = steering angle of the vehicle (degrees)
@@ -72,8 +81,7 @@ class PerceivedRisk:
 
         # dla = self.tla * np.sqrt(velocity.x * velocity.x + velocity.y * velocity.y)
         dla = self.tla * velocity
-        if dla < 1:
-            dla = 1
+        dla = max(dla, 1)
         r = abs(self.wheel_base / np.tan(delta))
 
         if delta > 0:
@@ -94,7 +102,7 @@ class PerceivedRisk:
         dist_r = np.sqrt((x - xc) * (x - xc) + (y - yc) * (y - yc))
         a_inside = (1 - np.sign(dist_r - r)) / 2.0
         a_outside = (1 + np.sign(dist_r - r)) / 2.0
-        num = -(np.sqrt((x - xc) ** 2 + (y - yc) ** 2) - r) ** 2
+        num = -((np.sqrt((x - xc) ** 2 + (y - yc) ** 2) - r) ** 2)
         den1 = 2 * sigma1 * sigma1
         z1 = a * a_inside * np.exp(num / den1)
         den2 = 2 * sigma2 * sigma2
@@ -114,7 +122,7 @@ class PerceivedRisk:
         theta_abs = abs(np.arccos(costheta))
         sign_theta = np.sign((xv - xc) * (y - yc) - (x - xc) * (yv - yc))
         theta_pos_neg = np.sign(delta) * sign_theta * theta_abs
-        theta = (2. * np.pi + theta_pos_neg) % (2. * np.pi)
+        theta = (2.0 * np.pi + theta_pos_neg) % (2.0 * np.pi)
         arc_len = r * theta
 
         return arc_len
@@ -152,7 +160,7 @@ if __name__ == "__main__":
     t0 = time.time()
     r, d = pr.get_risk(player, steering_angle, costmap=cmp)
     # print(cmp[1 + 10:4 + 10, 217 + 10], d[1 + 10:4 + 10, 217 + 10])
-    print(f'Time taken: {(time.time() - t0) * 1000}ms')
+    print(f"Time taken: {(time.time() - t0) * 1000}ms")
     print(r)
     # plt.imshow(d.T)
     # plt.show()

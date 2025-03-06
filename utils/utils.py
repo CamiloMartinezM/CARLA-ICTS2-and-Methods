@@ -1,23 +1,24 @@
-"""
-Author: Dikshant Gupta
+"""Author: Dikshant Gupta
 Time: 23.03.21 14:29
 """
-import re
-import carla
+
 import math
+import re
+
+import carla
 import torch
 
 
 def find_weather_presets():
-    rgx = re.compile('.+?(?:(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])|$)')
-    name = lambda x: ' '.join(m.group(0) for m in rgx.finditer(x))
-    presets = [x for x in dir(carla.WeatherParameters) if re.match('[A-Z].+', x)]
+    rgx = re.compile(".+?(?:(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])|$)")
+    name = lambda x: " ".join(m.group(0) for m in rgx.finditer(x))
+    presets = [x for x in dir(carla.WeatherParameters) if re.match("[A-Z].+", x)]
     return [(getattr(carla.WeatherParameters, x), name(x)) for x in presets]
 
 
 def get_actor_display_name(actor, truncate=250):
-    name = ' '.join(actor.type_id.replace('_', '.').title().split('.')[1:])
-    return (name[:truncate - 1] + u'\u2026') if len(name) > truncate else name
+    name = " ".join(actor.type_id.replace("_", ".").title().split(".")[1:])
+    return (name[: truncate - 1] + "\u2026") if len(name) > truncate else name
 
 
 def create_log_gaussian(mean, log_std, t):
@@ -42,10 +43,10 @@ def logsumexp(inputs, dim=None, keepdim=False):
 
 def soft_update(target, source, tau):
     with torch.no_grad():
-        for target_param, param in zip(target.parameters(), source.parameters()):
+        for target_param, param in zip(target.parameters(), source.parameters(), strict=False):
             target_param.data.copy_(target_param.data * tau + param.data * (1.0 - tau))
 
 
 def hard_update(target, source):
-    for target_param, param in zip(target.parameters(), source.parameters()):
+    for target_param, param in zip(target.parameters(), source.parameters(), strict=False):
         target_param.data.copy_(param.data)

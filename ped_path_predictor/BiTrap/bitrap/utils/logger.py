@@ -1,5 +1,4 @@
 import collections
-from datetime import datetime
 import json
 import logging
 import numbers
@@ -7,15 +6,16 @@ import os
 import random
 import string
 import time
+from datetime import datetime
 
 import coloredlogs
 import numpy as np
-from PIL import Image
-from tensorboardX import SummaryWriter
 import torch
 import wandb
-import pdb
-BACKENDS = ('wandb', 'tensorboardx')
+from PIL import Image
+from tensorboardX import SummaryWriter
+
+BACKENDS = ("wandb", "tensorboardx")
 RUN_ID_LENGTH = 8
 
 
@@ -37,43 +37,48 @@ class Logger(logging.Logger):
 
     sync: bool, default: True
         Whether to sync data to cloud. (Only available for WandB logging at the moment).
+
     """
 
     def __init__(self, name, config, project, viz_backend=None, sync=True):
         super().__init__(name)
         if torch.distributed.is_initialized():
             if torch.distributed.get_rank() == 0:
-                coloredlogs.install(fmt='%(asctime)s %(hostname)s %(levelname)s %(message)s',
-                                    logger=self)
+                coloredlogs.install(
+                    fmt="%(asctime)s %(hostname)s %(levelname)s %(message)s", logger=self,
+                )
             else:
                 self.disabled = True
         else:
-            coloredlogs.install(fmt='%(asctime)s %(hostname)s %(levelname)s %(message)s',
-                                logger=self)
+            coloredlogs.install(
+                fmt="%(asctime)s %(hostname)s %(levelname)s %(message)s", logger=self,
+            )
 
         self.project = project
         if viz_backend is not None and not self.disabled:
-            assert viz_backend in BACKENDS, "Please specify either None or a backend in {}".format(
-                BACKENDS)
+            assert viz_backend in BACKENDS, f"Please specify either None or a backend in {BACKENDS}"
             self._create_backend(config, project, viz_backend, sync)
             self.run_id = self.backend.run_id
         else:
             self.backend = None
-            self.run_id = "".join(random.SystemRandom().choice(string.ascii_lowercase +
-                                                               string.digits)
-                                  for _ in range(RUN_ID_LENGTH))
-        
+            self.run_id = "".join(
+                random.SystemRandom().choice(string.ascii_lowercase + string.digits)
+                for _ in range(RUN_ID_LENGTH)
+            )
+
         # For writing to file purpose
-        logging.basicConfig(filename=name+'.log',
-                            filemode='a',
-                            format='%(asctime)s,%(msecs)d %(levelname)s %(message)s',
-                            datefmt='%H:%M:%S',
-                            level=logging.DEBUG)
+        logging.basicConfig(
+            filename=name + ".log",
+            filemode="a",
+            format="%(asctime)s,%(msecs)d %(levelname)s %(message)s",
+            datefmt="%H:%M:%S",
+            level=logging.DEBUG,
+        )
 
     def _create_backend(self, config, project, backend, sync):
-        if backend == 'wandb':
+        if backend == "wandb":
             self.backend = _WandBBackend(config, project, sync)
-        elif backend == 'tensorboardx':
+        elif backend == "tensorboardx":
             self.backend = _TensorboardXBackend(config, project, sync)
 
     def update_config(self, config):
@@ -84,6 +89,7 @@ class Logger(logging.Logger):
         ----------
         config: Union[dict, OrderedDict]
             A dictionary containing configuration parameters.
+
         """
         if self.backend is not None:
             self.backend.update_config(config)
@@ -101,6 +107,7 @@ class Logger(logging.Logger):
         step: int, default: None
             Corresponding timestamp for log. Once a step has been incremented, it's not possible
             to log at a previous time step.
+
         """
         if self.backend is not None:
             self.backend.log_values(values, step)
@@ -129,6 +136,7 @@ class Logger(logging.Logger):
         step: int, default: None
             Corresponding timestamp for log. Once a step has been incremented, it's not possible
             to log at a previous time step.
+
         """
         if self.backend is not None:
             image = _prepare_image_for_logging(image)
@@ -152,6 +160,7 @@ class Logger(logging.Logger):
         step: int, default: None
             Corresponding timestamp for log. Once a step has been incremented, it's not possible
             to log at a previous time step.
+
         """
         if self.backend is not None:
             self.backend.log_plot(plot, label, caption, step)
@@ -164,7 +173,8 @@ class Logger(logging.Logger):
 
 class _Backend:
     """Defines an API for visualization backends. Can be used to add more visualization tools,
-    i.e. Visdom, etc.. if desired."""
+    i.e. Visdom, etc.. if desired.
+    """
 
     def __init__(self, config, project, run_id, log_dir, sync=True):
         """Base API for logging backends."""
@@ -192,8 +202,7 @@ class _Backend:
 
     def _increment_step(self, step):
         if step is not None:
-            if step > self.step:
-                self.step = step
+            self.step = max(self.step, step)
         else:
             self.step += 1
 
@@ -204,8 +213,7 @@ class _WandBBackend(_Backend):
     """
 
     def __init__(self, config, project, sync=True):
-
-        os.environ['WANDB_MODE'] = 'run' if sync else 'dryrun'
+        os.environ["WANDB_MODE"] = "run" if sync else "dryrun"
         wandb.init(config=config, project=project)
         super().__init__(config, project, wandb.run.id, wandb.run.dir, sync=sync)
 
@@ -243,11 +251,14 @@ class _WandBBackend(_Backend):
         step: int, default: None
             Corresponding timestamp for log. Once a step has been incremented, it's not possible
             to log at a previous time step.
+
         """
         if size is not None:
             image = np.array(
-                Image.fromarray(image.astype('uint8')).resize((size[-1], size[0]),
-                                                              resample=Image.BILINEAR))
+                Image.fromarray(image.astype("uint8")).resize(
+                    (size[-1], size[0]), resample=Image.BILINEAR,
+                ),
+            )
         self._increment_step(step)
         wandb.log({label: [wandb.Image(image, caption=caption)]}, step=self.step)
 
@@ -273,9 +284,11 @@ class _TensorboardXBackend(_Backend):
         self.start_time = time.time()
         self.start_asc_time = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
 
-        run_id = ''.join(random.SystemRandom().choice(string.ascii_lowercase + string.digits)
-                         for _ in range(HASH_LENGTH))
-        log_dir = '/'.join(['tensorboardx', project, 'run-' + self.start_asc_time + '-' + run_id])
+        run_id = "".join(
+            random.SystemRandom().choice(string.ascii_lowercase + string.digits)
+            for _ in range(HASH_LENGTH)
+        )
+        log_dir = "/".join(["tensorboardx", project, "run-" + self.start_asc_time + "-" + run_id])
 
         super().__init__(config, project, run_id, log_dir, sync=sync)
         self.logger = SummaryWriter(self.log_dir)
@@ -283,8 +296,9 @@ class _TensorboardXBackend(_Backend):
 
     def update_config(self, config):
         self.config.update(config)
-        with open(self.log_dir + '/run-' + self.start_asc_time + '-' + self.run_id + '.json',
-                  'w') as _cfg:
+        with open(
+            self.log_dir + "/run-" + self.start_asc_time + "-" + self.run_id + ".json", "w",
+        ) as _cfg:
             json.dump(self.config, _cfg)
 
     def log_values(self, values, step=None):
@@ -317,11 +331,14 @@ class _TensorboardXBackend(_Backend):
         step: int, default: None
             Corresponding timestamp for log. Once a step has been incremented, it's not possible
             to log at a previous time step.
+
         """
         if size is not None:
             image = np.array(
-                Image.fromarray(np.uint8(image)).resize((size[-1], size[0]),
-                                                        resample=Image.BILINEAR))
+                Image.fromarray(np.uint8(image)).resize(
+                    (size[-1], size[0]), resample=Image.BILINEAR,
+                ),
+            )
         # Tranpose to (C, H, W) for TensorboardX
         image = image.transpose(2, 0, 1)
         self._increment_step(step)
@@ -333,7 +350,7 @@ class _TensorboardXBackend(_Backend):
 
     def end_log(self):
         duration = time.time() - self.start_time
-        self.update_config({'duration': duration})
+        self.update_config({"duration": duration})
         self.logger.close()
 
 
@@ -345,8 +362,8 @@ def _prepare_image_for_logging(image):
     -------
     image: numpy.ndarray
         np.uint8 image of shape W, H, 3
-    """
 
+    """
     if isinstance(image, torch.Tensor):
         channels, _, _ = image.shape
         assert channels == 3 or channels == 1, "Expecting tensor of shape [C, H, W], C: 3 or 1"
@@ -355,13 +372,15 @@ def _prepare_image_for_logging(image):
 
     elif isinstance(image, np.ndarray):
         _, _, channels = image.shape
-        assert channels == 3 or channels == 1, "Expecting numpy.array of shape [H, W, C], C: 3 or 1"
+        assert channels == 3 or channels == 1, (
+            "Expecting numpy.array of shape [H, W, C], C: 3 or 1"
+        )
 
     elif isinstance(image, Image.Image):
         image = np.array(image)
         _, _, channels = image.shape
     else:
-        assert False, "Type {} of image not accepted".format(type(image))
+        assert False, f"Type {type(image)} of image not accepted"
 
     if channels == 1 or len(image.shape) == 2:
         image = np.stack((image,) * 3, axis=-1)
@@ -370,10 +389,10 @@ def _prepare_image_for_logging(image):
     if float(np.max(image)) > 255:
         image = image / float(np.max(image)) * 255
 
-    return image.astype('uint8')
+    return image.astype("uint8")
 
 
-def _flatten_and_filter_dict(dictionary, parent_key='', sep='.', only_scalars=False):
+def _flatten_and_filter_dict(dictionary, parent_key="", sep=".", only_scalars=False):
     """Helper function that flattens nested dictionaries.
 
     Parameters
@@ -391,17 +410,18 @@ def _flatten_and_filter_dict(dictionary, parent_key='', sep='.', only_scalars=Fa
 
     only_scalars: bool, default: False
         If true, flattened dictionary only accept values that are scalars
+
     """
     items = []
     for k, v in dictionary.items():
         new_key = parent_key + sep + k if parent_key else k
         if isinstance(v, collections.MutableMapping):
             items.extend(
-                _flatten_and_filter_dict(v, new_key, sep=sep, only_scalars=only_scalars).items())
-        else:
-            if only_scalars:
-                if isinstance(v, numbers.Number):
-                    items.append((new_key, v))
-            else:
+                _flatten_and_filter_dict(v, new_key, sep=sep, only_scalars=only_scalars).items(),
+            )
+        elif only_scalars:
+            if isinstance(v, numbers.Number):
                 items.append((new_key, v))
+        else:
+            items.append((new_key, v))
     return dict(items)

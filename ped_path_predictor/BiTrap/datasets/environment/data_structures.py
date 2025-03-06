@@ -1,12 +1,12 @@
+from collections import OrderedDict
+from collections.abc import Sequence
+
 import numpy as np
-import pandas as pd
-from collections import Sequence, OrderedDict
 
 
 class RingBuffer(Sequence):
     def __init__(self, capacity, dtype=float, allow_overwrite=True):
-        """
-        Create a new ring buffer with the given capacity and element type.
+        """Create a new ring buffer with the given capacity and element type.
         Code copy-pasted from: https://github.com/eric-wieser/numpy_ringbuffer
 
         Parameters
@@ -19,6 +19,7 @@ class RingBuffer(Sequence):
         allow_overwrite: bool
             If false, throw an IndexError when trying to append to an already
             full buffer
+
         """
         self._arr = np.full(capacity, np.nan, dtype)
         self._left_index = 0
@@ -27,15 +28,16 @@ class RingBuffer(Sequence):
         self._allow_overwrite = allow_overwrite
 
     def _unwrap(self):
-        """ Copy the data from this buffer into unwrapped form """
-        return np.concatenate((
-            self._arr[self._left_index:min(self._right_index, self._capacity)],
-            self._arr[:max(self._right_index - self._capacity, 0)]
-        ))
+        """Copy the data from this buffer into unwrapped form"""
+        return np.concatenate(
+            (
+                self._arr[self._left_index : min(self._right_index, self._capacity)],
+                self._arr[: max(self._right_index - self._capacity, 0)],
+            ),
+        )
 
     def _fix_indices(self):
-        """
-        Enforce our invariant that 0 <= self._left_index < self._capacity
+        """Enforce our invariant that 0 <= self._left_index < self._capacity
         """
         if self._left_index >= self._capacity:
             self._left_index -= self._capacity
@@ -46,7 +48,7 @@ class RingBuffer(Sequence):
 
     @property
     def is_full(self):
-        """ True if there is no more space in the buffer """
+        """True if there is no more space in the buffer"""
         return len(self) == self._capacity
 
     # numpy compatibility
@@ -69,11 +71,10 @@ class RingBuffer(Sequence):
     def append(self, value):
         if self.is_full:
             if not self._allow_overwrite:
-                raise IndexError('append to a full RingBuffer with overwrite disabled')
-            elif not len(self):
+                raise IndexError("append to a full RingBuffer with overwrite disabled")
+            if not len(self):
                 return
-            else:
-                self._left_index += 1
+            self._left_index += 1
 
         self._arr[self._right_index % self._capacity] = value
         self._right_index += 1
@@ -82,11 +83,10 @@ class RingBuffer(Sequence):
     def appendleft(self, value):
         if self.is_full:
             if not self._allow_overwrite:
-                raise IndexError('append to a full RingBuffer with overwrite disabled')
-            elif not len(self):
+                raise IndexError("append to a full RingBuffer with overwrite disabled")
+            if not len(self):
                 return
-            else:
-                self._right_index -= 1
+            self._right_index -= 1
 
         self._left_index -= 1
         self._fix_indices()
@@ -112,21 +112,23 @@ class RingBuffer(Sequence):
         lv = len(values)
         if len(self) + lv > self._capacity:
             if not self._allow_overwrite:
-                raise IndexError('extend a RingBuffer such that it would overflow, with overwrite disabled')
-            elif not len(self):
+                raise IndexError(
+                    "extend a RingBuffer such that it would overflow, with overwrite disabled",
+                )
+            if not len(self):
                 return
         if lv >= self._capacity:
             # wipe the entire array! - this may not be threadsafe
-            self._arr[...] = values[-self._capacity:]
+            self._arr[...] = values[-self._capacity :]
             self._right_index = self._capacity
             self._left_index = 0
             return
 
         ri = self._right_index % self._capacity
-        sl1 = np.s_[ri:min(ri + lv, self._capacity)]
-        sl2 = np.s_[:max(ri + lv - self._capacity, 0)]
-        self._arr[sl1] = values[:sl1.stop - sl1.start]
-        self._arr[sl2] = values[sl1.stop - sl1.start:]
+        sl1 = np.s_[ri : min(ri + lv, self._capacity)]
+        sl2 = np.s_[: max(ri + lv - self._capacity, 0)]
+        self._arr[sl1] = values[: sl1.stop - sl1.start]
+        self._arr[sl2] = values[sl1.stop - sl1.start :]
         self._right_index += lv
 
         self._left_index = max(self._left_index, self._right_index - self._capacity)
@@ -136,12 +138,14 @@ class RingBuffer(Sequence):
         lv = len(values)
         if len(self) + lv > self._capacity:
             if not self._allow_overwrite:
-                raise IndexError('extend a RingBuffer such that it would overflow, with overwrite disabled')
-            elif not len(self):
+                raise IndexError(
+                    "extend a RingBuffer such that it would overflow, with overwrite disabled",
+                )
+            if not len(self):
                 return
         if lv >= self._capacity:
             # wipe the entire array! - this may not be threadsafe
-            self._arr[...] = values[:self._capacity]
+            self._arr[...] = values[: self._capacity]
             self._right_index = self._capacity
             self._left_index = 0
             return
@@ -149,10 +153,10 @@ class RingBuffer(Sequence):
         self._left_index -= lv
         self._fix_indices()
         li = self._left_index
-        sl1 = np.s_[li:min(li + lv, self._capacity)]
-        sl2 = np.s_[:max(li + lv - self._capacity, 0)]
-        self._arr[sl1] = values[:sl1.stop - sl1.start]
-        self._arr[sl2] = values[sl1.stop - sl1.start:]
+        sl1 = np.s_[li : min(li + lv, self._capacity)]
+        sl2 = np.s_[: max(li + lv - self._capacity, 0)]
+        self._arr[sl1] = values[: sl1.stop - sl1.start]
+        self._arr[sl2] = values[sl1.stop - sl1.start :]
 
         self._right_index = min(self._right_index, self._left_index + self._capacity)
 
@@ -177,13 +181,12 @@ class RingBuffer(Sequence):
 
     # Everything else
     def __repr__(self):
-        return '<RingBuffer of {!r}>'.format(np.asarray(self))
+        return f"<RingBuffer of {np.asarray(self)!r}>"
 
 
-class DoubleHeaderNumpyArray(object):
+class DoubleHeaderNumpyArray:
     def __init__(self, data: np.ndarray, header: list):
-        """
-        Data Structure mirroring some functionality of double indexed pandas DataFrames.
+        """Data Structure mirroring some functionality of double indexed pandas DataFrames.
         Indexing options are:
         [:, (header1, header2)]
         [:, [(header1, header2), (header1, header2)]]
@@ -224,31 +227,33 @@ class DoubleHeaderNumpyArray(object):
                 for h2 in h2s:
                     data_integer_indices.append(self.double_header_lookup[(h1, h2)])
             return self.data[rows, data_integer_indices]
-        elif type(columns) is list:
+        if type(columns) is list:
             for column in columns:
-                assert type(column) is tuple, "If Index is list it hast to be list of double header tuples."
+                assert type(column) is tuple, (
+                    "If Index is list it hast to be list of double header tuples."
+                )
                 data_integer_indices.append(self.double_header_lookup[column])
             return self.data[rows, data_integer_indices]
-        elif type(columns) is tuple:
+        if type(columns) is tuple:
             return self.data[rows, self.double_header_lookup[columns]]
-        else:
-            assert type(item) is str, "Index must be str, list of tuples or dict of tree structure."
-            return self.get_single_header_array(item, rows=rows)
+        assert type(item) is str, (
+            "Index must be str, list of tuples or dict of tree structure."
+        )
+        return self.get_single_header_array(item, rows=rows)
 
     def __getattr__(self, item):
-        if not item.startswith('_'):
+        if not item.startswith("_"):
             if item in self.tree_header_lookup.keys():
                 return self.get_single_header_array(item)
-            else:
-                try:
-                    return self.data.__getattribute__(item)
-                except AttributeError:
-                    return super().__getattribute__(item)
+            try:
+                return self.data.__getattribute__(item)
+            except AttributeError:
+                return super().__getattribute__(item)
         else:
             return super().__getattribute__(item)
 
 
-class SingleHeaderNumpyArray(object):
+class SingleHeaderNumpyArray:
     def __init__(self, data: np.ndarray, header: list):
         self.data = data
         self.header_lookup = OrderedDict({h: i for i, h in enumerate(header)})
@@ -264,13 +269,12 @@ class SingleHeaderNumpyArray(object):
         return self.data[rows, data_integer_indices]
 
     def __getattr__(self, item):
-        if not item.startswith('_'):
+        if not item.startswith("_"):
             if item in self.header_lookup.keys():
                 return self[:, item]
-            else:
-                try:
-                    return self.data.__getattribute__(item)
-                except AttributeError:
-                    return super().__getattribute__(item)
+            try:
+                return self.data.__getattribute__(item)
+            except AttributeError:
+                return super().__getattribute__(item)
         else:
             return super().__getattribute__(item)

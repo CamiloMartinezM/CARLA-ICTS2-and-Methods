@@ -1,4 +1,4 @@
-class NodeType(object):
+class NodeType:
     def __init__(self, name, value):
         self.name = name
         self.value = value
@@ -9,8 +9,7 @@ class NodeType(object):
     def __eq__(self, other):
         if type(other) == str and self.name == other:
             return True
-        else:
-            return isinstance(other, self.__class__) and self.name == other.name
+        return isinstance(other, self.__class__) and self.name == other.name
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -29,7 +28,6 @@ class NodeTypeEnum(list):
         super().__init__(node_types)
 
     def __getattr__(self, name):
-        if not name.startswith('_') and name in object.__getattribute__(self, "node_type_list"):
+        if not name.startswith("_") and name in object.__getattribute__(self, "node_type_list"):
             return self[object.__getattribute__(self, "node_type_list").index(name)]
-        else:
-            return object.__getattribute__(self, name)
+        return object.__getattribute__(self, name)

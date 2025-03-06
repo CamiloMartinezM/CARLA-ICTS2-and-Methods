@@ -1,10 +1,9 @@
-"""
-Author: Dikshant Gupta
+"""Author: Dikshant Gupta
 Time: 22.01.22 12:15
 """
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class TimeDistributed(nn.Module):
@@ -14,7 +13,6 @@ class TimeDistributed(nn.Module):
         self.batch_first = batch_first
 
     def forward(self, x):
-
         if len(x.size()) <= 2:
             return self.module(x)
 

@@ -1,19 +1,18 @@
 import argparse
+import math
 import os
+
 import numpy as np
 import trajnetplusplustools
-import math
 
-
-'''
+"""
 This is only for the synthetic portion of the TrajNet++ dataset. It can be modified to also create files for the real 
 portion.
-'''
+"""
 
 
 def drop_distant(xy, max_num_peds=5):
-    """
-    Only Keep the max_num_peds closest pedestrians
+    """Only Keep the max_num_peds closest pedestrians
     """
     distance_2 = np.sum(np.square(xy - xy[:, 0:1]), axis=2)
     smallest_dist_to_ego = np.nanmin(distance_2, axis=0)
@@ -21,10 +20,9 @@ def drop_distant(xy, max_num_peds=5):
 
 
 def drop_inactive(xy, obs_horizon=9):
+    """Only keep agents that are active at the last timestep in the past.
     """
-    Only keep agents that are active at the last timestep in the past.
-    """
-    return xy[:, ~np.isnan(xy[obs_horizon-1, :, 0])]
+    return xy[:, ~np.isnan(xy[obs_horizon - 1, :, 0])]
 
 
 def shift(xy, center):
@@ -39,7 +37,7 @@ def theta_rotation(xy, theta):
     st = math.sin(theta)
 
     r = np.array([[ct, st], [-st, ct]])
-    return np.einsum('ptc,ci->pti', xy, r)
+    return np.einsum("ptc,ci->pti", xy, r)
 
 
 def center_scene(xy, obs_length=9, ped_id=0):
@@ -65,20 +63,26 @@ def inverse_scene(xy, rotation, center):
 
 def get_args():
     parser = argparse.ArgumentParser(description="TrajNet++ NPY Creator")
-    parser.add_argument("--output-npy-path", type=str, required=True, help="output path to H5 files.")
-    parser.add_argument("--raw-dataset-path", type=str, required=True, help="raw Dataset path to .../synth_data.")
+    parser.add_argument(
+        "--output-npy-path", type=str, required=True, help="output path to H5 files.",
+    )
+    parser.add_argument(
+        "--raw-dataset-path", type=str, required=True, help="raw Dataset path to .../synth_data.",
+    )
     args = parser.parse_args()
     return args
 
 
 def prepare_data(raw_path, out_path):
     N = 6
-    files = [f.split('.')[-2] for f in os.listdir(raw_path) if f.endswith('.ndjson')]
+    files = [f.split(".")[-2] for f in os.listdir(raw_path) if f.endswith(".ndjson")]
     for file in files:
-        reader = trajnetplusplustools.Reader(raw_path + file + '.ndjson', scene_type='tags')
-        scene = [(file, s_id, s_tag, xypaths) for s_id, s_tag, xypaths in reader.scenes(sample=1.0)]
+        reader = trajnetplusplustools.Reader(raw_path + file + ".ndjson", scene_type="tags")
+        scene = [
+            (file, s_id, s_tag, xypaths) for s_id, s_tag, xypaths in reader.scenes(sample=1.0)
+        ]
 
-        val_len = int(len(scene)*0.1)
+        val_len = int(len(scene) * 0.1)
         train_len = len(scene) - val_len
         val_file_data = np.zeros((val_len, 21, N, 2))
         train_file_data = np.zeros((train_len, 21, N, 2))
@@ -87,14 +91,13 @@ def prepare_data(raw_path, out_path):
             curr_scene = drop_distant(curr_scene, max_num_peds=N)
             curr_scene, _, _ = center_scene(curr_scene)
 
-            if curr_scene.shape[1] > largest_num_agents:
-                largest_num_agents = curr_scene.shape[1]
+            largest_num_agents = max(largest_num_agents, curr_scene.shape[1])
 
             if curr_scene.shape[1] < N:
                 # Need to pad array to have shape 21xNx2
                 temp_curr_scene = np.zeros((21, N, 2))
                 temp_curr_scene[:, :, :] = np.nan
-                temp_curr_scene[:, :curr_scene.shape[1], :] = curr_scene
+                temp_curr_scene[:, : curr_scene.shape[1], :] = curr_scene
                 curr_scene = temp_curr_scene.copy()
 
             if scene_i < val_len:
@@ -102,8 +105,8 @@ def prepare_data(raw_path, out_path):
             else:
                 train_file_data[scene_i - val_len] = curr_scene
 
-        np.save(os.path.join(out_path, "val_"+file+".npy"), val_file_data)
-        np.save(os.path.join(out_path, "train_"+file+".npy"), train_file_data)
+        np.save(os.path.join(out_path, "val_" + file + ".npy"), val_file_data)
+        np.save(os.path.join(out_path, "train_" + file + ".npy"), train_file_data)
         del val_file_data
         del train_file_data
         del scene

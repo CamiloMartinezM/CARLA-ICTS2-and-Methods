@@ -2,14 +2,24 @@ import numpy as np
 import torch
 
 from .base import LazyMultiStepMemory
-from .segment_tree import SumTree, MinTree
+from .segment_tree import MinTree, SumTree
 
 
 class LazyPrioritizedMultiStepMemory(LazyMultiStepMemory):
-
-    def __init__(self, capacity, state_shape, device, gamma=0.99,
-                 multi_step=3, alpha=0.6, beta=0.4, beta_steps=2e5,
-                 min_pa=0.0, max_pa=1.0, eps=0.01):
+    def __init__(
+        self,
+        capacity,
+        state_shape,
+        device,
+        gamma=0.99,
+        multi_step=3,
+        alpha=0.6,
+        beta=0.4,
+        beta_steps=2e5,
+        min_pa=0.0,
+        max_pa=1.0,
+        eps=0.01,
+    ):
         super().__init__(capacity, state_shape, device, gamma, multi_step)
 
         self.alpha = alpha
@@ -60,11 +70,11 @@ class LazyPrioritizedMultiStepMemory(LazyMultiStepMemory):
         total_pa = self.it_sum.sum(0, self._n)
         rands = np.random.rand(batch_size) * total_pa
         indices = [self.it_sum.find_prefixsum_idx(r) for r in rands]
-        self.beta = min(1., self.beta + self.beta_diff)
+        self.beta = min(1.0, self.beta + self.beta_diff)
         return indices
 
     def sample(self, batch_size):
-        assert self._cached is None, 'Update priorities before sampling.'
+        assert self._cached is None, "Update priorities before sampling."
 
         self._cached = self._sample_idxes(batch_size)
         batch = self._sample(self._cached, batch_size)
@@ -82,9 +92,9 @@ class LazyPrioritizedMultiStepMemory(LazyMultiStepMemory):
         ps = errors.detach().cpu().abs().numpy().flatten()
         pas = self._pa(ps)
 
-        for index, pa in zip(self._cached, pas):
+        for index, pa in zip(self._cached, pas, strict=False):
             assert 0 <= index < self._n
-            assert 0 < pa
+            assert pa > 0
             self.it_sum[index] = pa
             self.it_min[index] = pa
 

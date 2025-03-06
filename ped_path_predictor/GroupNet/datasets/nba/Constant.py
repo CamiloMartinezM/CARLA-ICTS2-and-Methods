@@ -1,5 +1,6 @@
 class Constant:
     """A class for handling constants"""
+
     NORMALIZATION_COEF = 7
     PLAYER_CIRCLE_SIZE = 12 / NORMALIZATION_COEF
     INTERVAL = 10
@@ -13,4 +14,4 @@ class Constant:
     FONTSIZE = 6
     X_CENTER = X_MAX / 2 - DIFF / 1.5 + 0.10
     Y_CENTER = Y_MAX - DIFF / 1.5 - 0.35
-    MESSAGE = 'You can rerun the script and choose any event from 0 to '
+    MESSAGE = "You can rerun the script and choose any event from 0 to "

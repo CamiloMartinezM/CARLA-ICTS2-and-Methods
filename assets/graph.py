@@ -5,16 +5,17 @@
 # For a copy, see <https://opensource.org/licenses/MIT>.
 
 import math
+
 import numpy as np
 
 
 def string_to_node(string):
-    vec = string.split(',')
+    vec = string.split(",")
     return (int(vec[0]), int(vec[1]))
 
 
 def string_to_floats(string):
-    vec = string.split(',')
+    vec = string.split(",")
     return (float(vec[0]), float(vec[1]), float(vec[2]))
 
 
@@ -23,17 +24,14 @@ def sldist(c1, c2):
 
 
 def sldist3(c1, c2):
-    return math.sqrt((c2[0] - c1[0]) ** 2 + (c2[1] - c1[1])
-                     ** 2 + (c2[2] - c1[2]) ** 2)
+    return math.sqrt((c2[0] - c1[0]) ** 2 + (c2[1] - c1[1]) ** 2 + (c2[2] - c1[2]) ** 2)
 
 
-class Graph(object):
-    """
-    A simple directed, weighted graph
+class Graph:
+    """A simple directed, weighted graph
     """
 
     def __init__(self, graph_file=None, node_density=50):
-
         self._nodes = set()
         self._angles = {}
         self._edges = {}
@@ -41,7 +39,7 @@ class Graph(object):
         self._node_density = node_density
 
         if graph_file is not None:
-            with open(graph_file, 'r') as f:
+            with open(graph_file) as f:
                 # Skipe the first four lines that
                 lines_after_4 = f.readlines()[4:]
 
@@ -49,7 +47,6 @@ class Graph(object):
                 linegraphres = lines_after_4[0]
                 self._resolution = string_to_node(linegraphres)
                 for line in lines_after_4[1:]:
-
                     from_node, to_node, d = line.split()
                     from_node = string_to_node(from_node)
                     to_node = string_to_node(to_node)
@@ -67,15 +64,14 @@ class Graph(object):
         self._nodes.add(value)
 
     def make_orientations(self, node, heading):
-
         import collections
+
         distance_dic = {}
         for node_iter in self._nodes:
             if node_iter != node:
                 distance_dic[sldist(node, node_iter)] = node_iter
 
-        distance_dic = collections.OrderedDict(
-            sorted(distance_dic.items()))
+        distance_dic = collections.OrderedDict(sorted(distance_dic.items()))
 
         self._angles[node] = heading
         for _, v in distance_dic.items():
@@ -95,11 +91,11 @@ class Graph(object):
 
     def get_resolution(self):
         return self._resolution
+
     def get_edges(self):
         return self._edges
 
     def intersection_nodes(self):
-
         intersect_nodes = []
         for node in self._nodes:
             if len(self._edges[node]) > 2:
@@ -110,18 +106,22 @@ class Graph(object):
     # This contains also the non-intersection turns...
 
     def turn_nodes(self):
-
         return self._nodes
 
     def plot_ori(self, c):
+        import matplotlib.pyplot as plt
         from matplotlib import collections as mc
 
-        import matplotlib.pyplot as plt
         line_len = 1
 
-        lines = [[(p[0], p[1]), (p[0] + line_len * self._angles[p][0],
-                                 p[1] + line_len * self._angles[p][1])] for p in self._nodes]
-        lc = mc.LineCollection(lines, linewidth=2, color='green')
+        lines = [
+            [
+                (p[0], p[1]),
+                (p[0] + line_len * self._angles[p][0], p[1] + line_len * self._angles[p][1]),
+            ]
+            for p in self._nodes
+        ]
+        lc = mc.LineCollection(lines, linewidth=2, color="green")
         _, ax = plt.subplots()
         ax.add_collection(lc)
 
@@ -135,6 +135,7 @@ class Graph(object):
 
     def plot(self, c):
         import matplotlib.pyplot as plt
+
         xs = [p[0] for p in self._nodes]
         ys = [p[1] for p in self._nodes]
 

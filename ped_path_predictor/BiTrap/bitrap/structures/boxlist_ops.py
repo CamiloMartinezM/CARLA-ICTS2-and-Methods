@@ -1,7 +1,6 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 import torch
 
-from .bounding_box import BoxList
 
 def boxlist_iou(boxlist1, boxlist2):
     """Compute the intersection over union of two set of boxes.
@@ -16,10 +15,12 @@ def boxlist_iou(boxlist1, boxlist2):
 
     Reference:
       https://github.com/chainer/chainercv/blob/master/chainercv/utils/bbox/bbox_iou.py
+
     """
     if boxlist1.size != boxlist2.size:
         raise RuntimeError(
-                "boxlists should have same image size, got {}, {}".format(boxlist1, boxlist2))
+            f"boxlists should have same image size, got {boxlist1}, {boxlist2}",
+        )
 
     N = len(boxlist1)
     M = len(boxlist2)
@@ -39,5 +40,3 @@ def boxlist_iou(boxlist1, boxlist2):
 
     iou = inter / (area1[:, None] + area2 - inter)
     return iou
-
-

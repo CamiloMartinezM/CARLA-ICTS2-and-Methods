@@ -2,7 +2,6 @@ import operator
 
 
 class SegmentTree:
-
     def __init__(self, size, op, init_val):
         assert size > 0 and size & (size - 1) == 0
         self._size = size
@@ -45,8 +44,7 @@ class SegmentTree:
         idx = idx >> 1
         while idx >= 1:
             left = 2 * idx
-            self._values[idx] = \
-                self._op(self._values[left], self._values[left + 1])
+            self._values[idx] = self._op(self._values[left], self._values[left + 1])
             idx = idx >> 1
 
     def __getitem__(self, idx):
@@ -55,7 +53,6 @@ class SegmentTree:
 
 
 class SumTree(SegmentTree):
-
     def __init__(self, size):
         super().__init__(size, operator.add, 0.0)
 
@@ -78,7 +75,6 @@ class SumTree(SegmentTree):
 
 
 class MinTree(SegmentTree):
-
     def __init__(self, size):
         super().__init__(size, min, float("inf"))
 

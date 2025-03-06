@@ -1,11 +1,10 @@
 import torch
-import torch.nn as nn
+from torch import nn
 
-from P3VI.model import TimeDistributed, LinearReLu
+from P3VI.model import LinearReLu, TimeDistributed
 
 
 class CI3P_BOTH(nn.Module):
-
     def __init__(self, n_observed_frames, n_predict_frames):
         super(CI3P_BOTH, self).__init__()
         self.n_pred = n_predict_frames
@@ -19,22 +18,34 @@ class CI3P_BOTH(nn.Module):
         self.embedder_car = TimeDistributed(LinearReLu(2, embedded), batch_first=True)
 
         # Cross Attention
-        self.mha_traj_x_cf = nn.MultiheadAttention(embed_dim=embedded, num_heads=4, batch_first=True)
-        self.mha_traj_x_car = nn.MultiheadAttention(embed_dim=embedded, num_heads=4, batch_first=True)
+        self.mha_traj_x_cf = nn.MultiheadAttention(
+            embed_dim=embedded, num_heads=4, batch_first=True,
+        )
+        self.mha_traj_x_car = nn.MultiheadAttention(
+            embed_dim=embedded, num_heads=4, batch_first=True,
+        )
 
-        self.mha_cf_x_traj = nn.MultiheadAttention(embed_dim=embedded, num_heads=4, batch_first=True)
-        self.mha_cf_x_car = nn.MultiheadAttention(embed_dim=embedded, num_heads=4, batch_first=True)
+        self.mha_cf_x_traj = nn.MultiheadAttention(
+            embed_dim=embedded, num_heads=4, batch_first=True,
+        )
+        self.mha_cf_x_car = nn.MultiheadAttention(
+            embed_dim=embedded, num_heads=4, batch_first=True,
+        )
 
-        self.mha_car_x_traj = nn.MultiheadAttention(embed_dim=embedded, num_heads=4, batch_first=True)
-        self.mha_car_x_cf = nn.MultiheadAttention(embed_dim=embedded, num_heads=4, batch_first=True)
+        self.mha_car_x_traj = nn.MultiheadAttention(
+            embed_dim=embedded, num_heads=4, batch_first=True,
+        )
+        self.mha_car_x_cf = nn.MultiheadAttention(
+            embed_dim=embedded, num_heads=4, batch_first=True,
+        )
 
         # ENCODER
-        self.traj_gru = nn.GRU(input_size=embedded*2, hidden_size=128, batch_first=True)
-        self.cf_gru = nn.GRU(input_size=embedded*2, hidden_size=128, batch_first=True)
-        self.car_gru = nn.GRU(input_size=embedded*2, hidden_size=128, batch_first=True)
+        self.traj_gru = nn.GRU(input_size=embedded * 2, hidden_size=128, batch_first=True)
+        self.cf_gru = nn.GRU(input_size=embedded * 2, hidden_size=128, batch_first=True)
+        self.car_gru = nn.GRU(input_size=embedded * 2, hidden_size=128, batch_first=True)
 
         # DECODER
-        self.decoder_linear = LinearReLu(3*128, 128)
+        self.decoder_linear = LinearReLu(3 * 128, 128)
         self.decoder_gru = nn.GRU(input_size=128, hidden_size=128, batch_first=True)
 
         self.prediction_head = TimeDistributed(nn.Linear(128, 2), batch_first=True)
@@ -54,7 +65,6 @@ class CI3P_BOTH(nn.Module):
 
         mh_car_x_traj, _ = self.mha_car_x_traj(x_car, x_traj, x_traj)
         mh_car_x_cf, _ = self.mha_car_x_cf(x_car, x_cf, x_cf)
-
 
         # Stacked
         stacked_car = torch.cat([mh_cf_x_car, mh_traj_x_car], dim=-1)

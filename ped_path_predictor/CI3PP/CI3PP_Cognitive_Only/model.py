@@ -1,11 +1,10 @@
 import torch
-import torch.nn as nn
+from torch import nn
 
-from P3VI.model import TimeDistributed, LinearReLu
+from P3VI.model import LinearReLu, TimeDistributed
 
 
 class CI3PP_COG_Only(nn.Module):
-
     def __init__(self, n_observed_frames, n_predict_frames):
         super(CI3PP_COG_Only, self).__init__()
         self.n_pred = n_predict_frames
@@ -18,16 +17,19 @@ class CI3PP_COG_Only(nn.Module):
         self.embedder_cf = TimeDistributed(LinearReLu(2, embedded), batch_first=True)
 
         # Cross Attention
-        self.mha_traj_x_cf = nn.MultiheadAttention(embed_dim=embedded, num_heads=4, batch_first=True)
-        self.mha_cf_x_traj = nn.MultiheadAttention(embed_dim=embedded, num_heads=4, batch_first=True)
-
+        self.mha_traj_x_cf = nn.MultiheadAttention(
+            embed_dim=embedded, num_heads=4, batch_first=True,
+        )
+        self.mha_cf_x_traj = nn.MultiheadAttention(
+            embed_dim=embedded, num_heads=4, batch_first=True,
+        )
 
         # ENCODER
         self.traj_gru = nn.GRU(input_size=embedded, hidden_size=128, batch_first=True)
         self.cf_gru = nn.GRU(input_size=embedded, hidden_size=128, batch_first=True)
 
         # DECODER
-        self.decoder_linear = LinearReLu(2*128, 128)
+        self.decoder_linear = LinearReLu(2 * 128, 128)
         self.decoder_gru = nn.GRU(input_size=128, hidden_size=128, batch_first=True)
 
         self.prediction_head = TimeDistributed(nn.Linear(128, 2), batch_first=True)

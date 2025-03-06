@@ -1,8 +1,10 @@
-
+# config.py
 import numpy as np
+
+
 ## Needed to put it here to do some weired circular import problem
 ## Same class in ped_controller.py
-class ControllerConfig():
+class ControllerConfig:
     def __init__(self, ped_speed=1.0, ped_distance=30.0):
         self.ped_speed = ped_speed
         self.ped_distance = ped_distance
@@ -16,92 +18,111 @@ class ControllerConfig():
         self.char = "yielding"
 
 
-class ScenarioConfig():
-    
+class ScenarioConfig:
     def __init__(self):
         rng = np.random.default_rng(seed=42)
         self.scenes = rng.permutation(self.get_scenes())
         self.n_scenes = len(self.scenes)
-        #self.split = [0.18,0.35,0.55] # 0.2, 0.2, 0.6
-        self.split = [0.5,0.6,1.0]
+        # self.split = [0.18,0.35,0.55] # 0.2, 0.2, 0.6
+        self.split = [0.5, 0.6, 1.0]
+
     def get_scenes(self):
         return []
-    
+
     def get_training(self):
         lower = 0
         upper = int(self.split[0] * self.n_scenes)
         return self.scenes[lower:upper]
-    
+
     def get_validation(self):
         lower = int(self.split[0] * self.n_scenes)
         upper = int(self.split[1] * self.n_scenes)
         return self.scenes[lower:upper]
-    
+
     def get_test(self):
         lower = int(self.split[1] * self.n_scenes)
         upper = int(self.split[2] * self.n_scenes)
-        return self.scenes[lower:upper]    
+        return self.scenes[lower:upper]
 
 
 class IConfig01(ScenarioConfig):
     def __init__(self):
-        #self.ped_speed_range = [1.2,1.6]
-        #self.spwaning_distances = [25,35]
-        self.ped_speed_range = [1.6,2.0] # 1.8
-        self.spwaning_distances = [47.5,55] # 28
-        self.walking_distances = [5,8] # 5
-        self.looking_distances = [0.85,0.85] # 0.85
-        self.crossing_distances = [3,5] # 3
-        self.reenter_distances = [3,4] #8
-        self.op_reenter_distances = [5,5] #5
-        self.character = ["forcing", "yielding"]#, "yielding"]
-        #self.character = ["yielding", "forcing"]
-        super(IConfig01,self).__init__()
+        # self.ped_speed_range = [1.2,1.6]
+        # self.spwaning_distances = [25,35]
+        self.ped_speed_range = [1.6, 2.0]  # 1.8
+        self.spwaning_distances = [47.5, 55]  # 28
+        self.walking_distances = [5, 8]  # 5
+        self.looking_distances = [0.85, 0.85]  # 0.85
+        self.crossing_distances = [3, 5]  # 3
+        self.reenter_distances = [3, 4]  # 8
+        self.op_reenter_distances = [5, 5]  # 5
+        self.character = ["forcing", "yielding"]  # , "yielding"]
+        # self.character = ["yielding", "forcing"]
+        super(IConfig01, self).__init__()
 
     def get_scenes(self):
         scenes = []
-        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1]+0.1,0.1):
-            for spawning_distance in np.arange(self.spwaning_distances[0], self.spwaning_distances[1]+2.5,2.5):
-                for walking_distance in np.arange(self.walking_distances[0], self.walking_distances[1]+1,1):
-                    for looking_distance in np.arange(self.looking_distances[0], self.looking_distances[1]+0.01,0.01):
-                        for crossing_distance in np.arange(self.crossing_distances[0], self.crossing_distances[1]+1,1):
-                            for reenter_distance in np.arange(self.reenter_distances[0], self.reenter_distances[1]+1,1):
-                                #for op_reenter_distance in np.arange(self.op_reenter_distances[0], self.op_reenter_distances[1]+1,1):
-                                    for char in self.character:
-                                        conf = ControllerConfig(speed)
-                                        conf.spawning_distance = int(spawning_distance)
-                                        conf.walking_distance = walking_distance
-                                        conf.looking_distance = looking_distance
-                                        conf.crossing_distance = crossing_distance
-                                        conf.reenter_distance = crossing_distance + reenter_distance
-                                        conf.op_reenter_distance = crossing_distance
-                                        conf.char = char
-                                        scenes.append(("01_int", conf))
-        print('Total scenes count (int-1): ', len(scenes))
+        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1] + 0.1, 0.1):
+            for spawning_distance in np.arange(
+                self.spwaning_distances[0], self.spwaning_distances[1] + 2.5, 2.5,
+            ):
+                for walking_distance in np.arange(
+                    self.walking_distances[0], self.walking_distances[1] + 1, 1,
+                ):
+                    for looking_distance in np.arange(
+                        self.looking_distances[0], self.looking_distances[1] + 0.01, 0.01,
+                    ):
+                        for crossing_distance in np.arange(
+                            self.crossing_distances[0], self.crossing_distances[1] + 1, 1,
+                        ):
+                            for reenter_distance in np.arange(
+                                self.reenter_distances[0], self.reenter_distances[1] + 1, 1,
+                            ):
+                                # for op_reenter_distance in np.arange(self.op_reenter_distances[0], self.op_reenter_distances[1]+1,1):
+                                for char in self.character:
+                                    conf = ControllerConfig(speed)
+                                    conf.spawning_distance = int(spawning_distance)
+                                    conf.walking_distance = walking_distance
+                                    conf.looking_distance = looking_distance
+                                    conf.crossing_distance = crossing_distance
+                                    conf.reenter_distance = crossing_distance + reenter_distance
+                                    conf.op_reenter_distance = crossing_distance
+                                    conf.char = char
+                                    scenes.append(("01_int", conf))
+        print("Total scenes count (int-1): ", len(scenes))
         return scenes
-    
 
 
 class IConfig02(ScenarioConfig):
     def __init__(self):
-        self.ped_speed_range = [1.6,2.0] #1.5
-        self.spwaning_distances = [52.5,60] # 33.5
-        self.walking_distances = [5,8] #5
-        self.looking_distances = [0.85,0.86] #0.85
-        self.crossing_distances = [1,3] #1
-        self.op_reenter_distances = [3,4] #1
-        self.character = ["forcing", "yielding"] #forcing
-        #character = ["yielding", "forcing"]
-        super(IConfig02,self).__init__()
+        self.ped_speed_range = [1.6, 2.0]  # 1.5
+        self.spwaning_distances = [52.5, 60]  # 33.5
+        self.walking_distances = [5, 8]  # 5
+        self.looking_distances = [0.85, 0.86]  # 0.85
+        self.crossing_distances = [1, 3]  # 1
+        self.op_reenter_distances = [3, 4]  # 1
+        self.character = ["forcing", "yielding"]  # forcing
+        # character = ["yielding", "forcing"]
+        super(IConfig02, self).__init__()
 
     def get_scenes(self):
         scenes = []
-        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1]+0.1,0.1):
-            for spawning_distance in np.arange(self.spwaning_distances[0], self.spwaning_distances[1]+2.5,2.5):
-                for walking_distance in np.arange(self.walking_distances[0], self.walking_distances[1]+1,1):
-                    for looking_distance in np.arange(self.looking_distances[0], self.looking_distances[1]+0.1,0.1):
-                        for crossing_distance in np.arange(self.crossing_distances[0], self.crossing_distances[1]+1,1):
-                            for op_reenter_distance in np.arange(self.op_reenter_distances[0], self.op_reenter_distances[1]+1,1):
+        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1] + 0.1, 0.1):
+            for spawning_distance in np.arange(
+                self.spwaning_distances[0], self.spwaning_distances[1] + 2.5, 2.5,
+            ):
+                for walking_distance in np.arange(
+                    self.walking_distances[0], self.walking_distances[1] + 1, 1,
+                ):
+                    for looking_distance in np.arange(
+                        self.looking_distances[0], self.looking_distances[1] + 0.1, 0.1,
+                    ):
+                        for crossing_distance in np.arange(
+                            self.crossing_distances[0], self.crossing_distances[1] + 1, 1,
+                        ):
+                            for op_reenter_distance in np.arange(
+                                self.op_reenter_distances[0], self.op_reenter_distances[1] + 1, 1,
+                            ):
                                 for char in self.character:
                                     conf = ControllerConfig(speed)
                                     conf.spawning_distance = int(spawning_distance)
@@ -111,35 +132,36 @@ class IConfig02(ScenarioConfig):
                                     conf.op_reenter_distance = op_reenter_distance
                                     conf.char = char
                                     scenes.append(("02_int", conf))
-        print('Total scenes count (int-2): ', len(scenes))
+        print("Total scenes count (int-2): ", len(scenes))
         return scenes
 
 
 class IConfig03(ScenarioConfig):
     def __init__(self):
-        self.ped_speed_range = [1.5,2.1] #2
-        self.spwaning_distances = [45,59] #40
-        self.looking_distances = [0.07,0.13]
-        #self.character = ["yielding"]#, "yielding"]
+        self.ped_speed_range = [1.5, 2.1]  # 2
+        self.spwaning_distances = [45, 59]  # 40
+        self.looking_distances = [0.07, 0.13]
+        # self.character = ["yielding"]#, "yielding"]
         self.character = ["forcing", "yielding"]
-        super(IConfig03,self).__init__()
+        super(IConfig03, self).__init__()
 
     def get_scenes(self):
         scenes = []
-        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1]+0.1,0.1):
-            for spawning_distance in np.arange(self.spwaning_distances[0], self.spwaning_distances[1]+1,1):
-                for looking_distance in np.arange(self.looking_distances[0], self.looking_distances[1]+0.01,0.01):
+        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1] + 0.1, 0.1):
+            for spawning_distance in np.arange(
+                self.spwaning_distances[0], self.spwaning_distances[1] + 1, 1,
+            ):
+                for looking_distance in np.arange(
+                    self.looking_distances[0], self.looking_distances[1] + 0.01, 0.01,
+                ):
                     for char in self.character:
                         conf = ControllerConfig(speed)
                         conf.spawning_distance = int(spawning_distance)
                         conf.looking_distance = looking_distance
                         conf.char = char
                         scenes.append(("03_int", conf))
-        print('Total scenes count (int-3): ', len(scenes))
+        print("Total scenes count (int-3): ", len(scenes))
         return scenes
-
-
-
 
 
 class IConfig04(ScenarioConfig):
@@ -163,29 +185,40 @@ class IConfig04(ScenarioConfig):
 
     def get_scenes(self):
         scenes = []
-        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1]+0.1,0.1):
-            for spawning_distance in np.arange(self.spawning_distances[0], self.spawning_distances[1]+2.5,2.5):
-                for walking_distance in np.arange(self.walking_distances[0], self.walking_distances[1]+1, 1):
+        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1] + 0.1, 0.1):
+            for spawning_distance in np.arange(
+                self.spawning_distances[0], self.spawning_distances[1] + 2.5, 2.5,
+            ):
+                for walking_distance in np.arange(
+                    self.walking_distances[0], self.walking_distances[1] + 1, 1,
+                ):
                     # for looking_distance1 in np.arange(self.looking_distance1[0], self.looking_distance1[1]+0.01, 0.01):
                     #     print("ld1")
                     #     print(looking_distance1)
                     #     for looking_distance2 in np.arange(self.looking_distance2[0], self.looking_distance2[1] + 0.01, 0.01):
-                            for walk_back_distance in np.arange(self.walk_back_distances[0], self.walk_back_distances[1]+1, 0.5):
-                                for crossing_distanceX in np.arange(self.crossing_distanceX[0], self.crossing_distanceX[1]+1,1):
-                                    for crossing_distanceY in np.arange(self.crossing_distanceY[0], self.crossing_distanceY[1] + 1, 1):
-                                        for char in self.character:
-                                            conf = ControllerConfig(speed)
-                                            conf.spawning_distance = int(spawning_distance)
-                                            conf.walking_distance = int(walking_distance)
-                                            conf.looking_distance1 = 1.5
-                                            conf.looking_distance2 = 1.0
-                                            conf.walk_back_distance = walk_back_distance
-                                            conf.crossing_distanceX = crossing_distanceX
-                                            conf.crossing_distanceY = crossing_distanceY
-                                            conf.char = char
-                                            scenes.append(("04_int", conf))
-        print('Total scenes count (int-4): ', len(scenes))
+                    for walk_back_distance in np.arange(
+                        self.walk_back_distances[0], self.walk_back_distances[1] + 1, 0.5,
+                    ):
+                        for crossing_distanceX in np.arange(
+                            self.crossing_distanceX[0], self.crossing_distanceX[1] + 1, 1,
+                        ):
+                            for crossing_distanceY in np.arange(
+                                self.crossing_distanceY[0], self.crossing_distanceY[1] + 1, 1,
+                            ):
+                                for char in self.character:
+                                    conf = ControllerConfig(speed)
+                                    conf.spawning_distance = int(spawning_distance)
+                                    conf.walking_distance = int(walking_distance)
+                                    conf.looking_distance1 = 1.5
+                                    conf.looking_distance2 = 1.0
+                                    conf.walk_back_distance = walk_back_distance
+                                    conf.crossing_distanceX = crossing_distanceX
+                                    conf.crossing_distanceY = crossing_distanceY
+                                    conf.char = char
+                                    scenes.append(("04_int", conf))
+        print("Total scenes count (int-4): ", len(scenes))
         return scenes
+
 
 class IConfig05(ScenarioConfig):
     def __init__(self):
@@ -211,12 +244,22 @@ class IConfig05(ScenarioConfig):
 
     def get_scenes(self):
         scenes = []
-        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1]+0.1,0.1):
-            for spawning_distance in np.arange(self.spwaning_distances[0], self.spwaning_distances[1]+2.5,2.5):
-                for walking_distance_X in np.arange(self.walking_distances_X[0], self.walking_distances_X[1]+1,0.5):
-                    for walking_distance_Y in np.arange(self.walking_distances_Y[0], self.walking_distances_Y[1]+1,1):
-                        for crossing_distance in np.arange(self.crossing_distances[0], self.crossing_distances[1]+1,1):
-                            for uncertain_steps in np.arange(self.uncertain_steps[0], self.uncertain_steps[1]+1,1):
+        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1] + 0.1, 0.1):
+            for spawning_distance in np.arange(
+                self.spwaning_distances[0], self.spwaning_distances[1] + 2.5, 2.5,
+            ):
+                for walking_distance_X in np.arange(
+                    self.walking_distances_X[0], self.walking_distances_X[1] + 1, 0.5,
+                ):
+                    for walking_distance_Y in np.arange(
+                        self.walking_distances_Y[0], self.walking_distances_Y[1] + 1, 1,
+                    ):
+                        for crossing_distance in np.arange(
+                            self.crossing_distances[0], self.crossing_distances[1] + 1, 1,
+                        ):
+                            for uncertain_steps in np.arange(
+                                self.uncertain_steps[0], self.uncertain_steps[1] + 1, 1,
+                            ):
                                 for char in self.character:
                                     conf = ControllerConfig(speed)
                                     conf.spawning_distance = int(spawning_distance)
@@ -226,8 +269,9 @@ class IConfig05(ScenarioConfig):
                                     conf.uncertain_steps = uncertain_steps
                                     conf.char = char
                                     scenes.append(("05_int", conf))
-        print('Total scenes count (int-5): ', len(scenes))
+        print("Total scenes count (int-5): ", len(scenes))
         return scenes
+
 
 class IConfig06(ScenarioConfig):
     def __init__(self):
@@ -245,11 +289,17 @@ class IConfig06(ScenarioConfig):
 
     def get_scenes(self):
         scenes = []
-        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1]+0.1,0.1):
-            for spawning_distance in np.arange(self.spwaning_distances[0], self.spwaning_distances[1]+2.5,2.5):
-                for car_avoid_X in np.arange(self.car_avoid_X[0], self.car_avoid_X[1]+0.2,0.2):
-                    for car_avoid_Y in np.arange(self.car_avoid_Y[0], self.car_avoid_Y[1]+0.5,0.5):
-                        for crossing_distance in np.arange(self.crossing_distances[0], self.crossing_distances[1]+1,1):
+        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1] + 0.1, 0.1):
+            for spawning_distance in np.arange(
+                self.spwaning_distances[0], self.spwaning_distances[1] + 2.5, 2.5,
+            ):
+                for car_avoid_X in np.arange(self.car_avoid_X[0], self.car_avoid_X[1] + 0.2, 0.2):
+                    for car_avoid_Y in np.arange(
+                        self.car_avoid_Y[0], self.car_avoid_Y[1] + 0.5, 0.5,
+                    ):
+                        for crossing_distance in np.arange(
+                            self.crossing_distances[0], self.crossing_distances[1] + 1, 1,
+                        ):
                             for char in self.character:
                                 conf = ControllerConfig(speed)
                                 conf.spawning_distance = int(spawning_distance)
@@ -258,29 +308,37 @@ class IConfig06(ScenarioConfig):
                                 conf.car_avoid_Y = car_avoid_Y
                                 conf.char = char
                                 scenes.append(("06_int", conf))
-        print('Total scenes count (int-6): ', len(scenes))
+        print("Total scenes count (int-6): ", len(scenes))
         return scenes
 
 
 class Config01(ScenarioConfig):
     def __init__(self):
-        self.ped_speed_range = [1.6,2.0]
-        self.spwaning_distances = [72.5,85]
-        self.walking_distances = [8,12]
-        self.looking_distances = [0.85,0.89]
-        self.op_reenter_distances = [9.5,12]
+        self.ped_speed_range = [1.6, 2.0]
+        self.spwaning_distances = [72.5, 85]
+        self.walking_distances = [8, 12]
+        self.looking_distances = [0.85, 0.89]
+        self.op_reenter_distances = [9.5, 12]
         self.cross_walk_delta = []
         self.character = ["forcing"]
-        #character = ["yielding", "forcing"]
-        super(Config01,self).__init__()
+        # character = ["yielding", "forcing"]
+        super(Config01, self).__init__()
 
     def get_scenes(self):
         scenes = []
-        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1]+0.1,0.1):
-            for spawning_distance in np.arange(self.spwaning_distances[0], self.spwaning_distances[1]+2.5,2.5):
-                for looking_distance in np.arange(self.looking_distances[0], self.looking_distances[1]+0.01,0.01):
-                    for op_reenter_distance in np.arange(self.op_reenter_distances[0], self.op_reenter_distances[1]+2.5,2.5):
-                        for walking_distance in np.arange(self.walking_distances[0], self.walking_distances[1]+1,1):
+        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1] + 0.1, 0.1):
+            for spawning_distance in np.arange(
+                self.spwaning_distances[0], self.spwaning_distances[1] + 2.5, 2.5,
+            ):
+                for looking_distance in np.arange(
+                    self.looking_distances[0], self.looking_distances[1] + 0.01, 0.01,
+                ):
+                    for op_reenter_distance in np.arange(
+                        self.op_reenter_distances[0], self.op_reenter_distances[1] + 2.5, 2.5,
+                    ):
+                        for walking_distance in np.arange(
+                            self.walking_distances[0], self.walking_distances[1] + 1, 1,
+                        ):
                             for char in self.character:
                                 conf = ControllerConfig(speed)
                                 conf.spawning_distance = int(spawning_distance)
@@ -289,28 +347,37 @@ class Config01(ScenarioConfig):
                                 conf.walking_distance = walking_distance
                                 conf.char = char
                                 scenes.append(("01_non_int", conf))
-        print('Total scenes count (non-int-1): ', len(scenes))
+        print("Total scenes count (non-int-1): ", len(scenes))
         return scenes
+
 
 class Config02(ScenarioConfig):
     def __init__(self):
-        self.ped_speed_range = [1.6,2.0] #6
-        self.spwaning_distances = [82.5,95] #5
-        self.walking_distances = [8,12] #4
-        self.looking_distances = [0.85,0.89] #6
-        self.op_reenter_distances = [9.5,12] #0
+        self.ped_speed_range = [1.6, 2.0]  # 6
+        self.spwaning_distances = [82.5, 95]  # 5
+        self.walking_distances = [8, 12]  # 4
+        self.looking_distances = [0.85, 0.89]  # 6
+        self.op_reenter_distances = [9.5, 12]  # 0
         self.cross_walk_delta = []
         self.character = ["forcing"]
-        #character = ["yielding", "forcing"]
-        super(Config02,self).__init__()
+        # character = ["yielding", "forcing"]
+        super(Config02, self).__init__()
 
     def get_scenes(self):
         scenes = []
-        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1]+0.1,0.1):
-            for spawning_distance in np.arange(self.spwaning_distances[0], self.spwaning_distances[1]+2.5,2.5):
-                for looking_distance in np.arange(self.looking_distances[0], self.looking_distances[1]+0.01,0.01):
-                    for op_reenter_distance in np.arange(self.op_reenter_distances[0], self.op_reenter_distances[1]+2.5,2.5):
-                        for walking_distance in np.arange(self.walking_distances[0], self.walking_distances[1]+1,1):
+        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1] + 0.1, 0.1):
+            for spawning_distance in np.arange(
+                self.spwaning_distances[0], self.spwaning_distances[1] + 2.5, 2.5,
+            ):
+                for looking_distance in np.arange(
+                    self.looking_distances[0], self.looking_distances[1] + 0.01, 0.01,
+                ):
+                    for op_reenter_distance in np.arange(
+                        self.op_reenter_distances[0], self.op_reenter_distances[1] + 2.5, 2.5,
+                    ):
+                        for walking_distance in np.arange(
+                            self.walking_distances[0], self.walking_distances[1] + 1, 1,
+                        ):
                             for char in self.character:
                                 conf = ControllerConfig(speed)
                                 conf.spawning_distance = int(spawning_distance)
@@ -319,28 +386,37 @@ class Config02(ScenarioConfig):
                                 conf.walking_distance = walking_distance
                                 conf.char = char
                                 scenes.append(("02_non_int", conf))
-        print('Total scenes count (non-int-2): ', len(scenes))
+        print("Total scenes count (non-int-2): ", len(scenes))
         return scenes
+
 
 class Config03(ScenarioConfig):
     def __init__(self):
-        self.ped_speed_range =  [1.6,2.0] #6
-        self.spwaning_distances = [47.5,55] #3
-        self.walking_distances = [8,12] #4
-        self.looking_distances = [0.70,0.77] #9
-        self.op_reenter_distances = [9.5,12] #0
+        self.ped_speed_range = [1.6, 2.0]  # 6
+        self.spwaning_distances = [47.5, 55]  # 3
+        self.walking_distances = [8, 12]  # 4
+        self.looking_distances = [0.70, 0.77]  # 9
+        self.op_reenter_distances = [9.5, 12]  # 0
         self.cross_walk_delta = []
         self.character = ["forcing"]
-        #character = ["yielding", "forcing"]
-        super(Config03,self).__init__()
+        # character = ["yielding", "forcing"]
+        super(Config03, self).__init__()
 
     def get_scenes(self):
         scenes = []
-        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1]+0.1,0.1):
-            for spawning_distance in np.arange(self.spwaning_distances[0], self.spwaning_distances[1]+2.5,2.5):
-                for looking_distance in np.arange(self.looking_distances[0], self.looking_distances[1]+0.01,0.01):
-                    for op_reenter_distance in np.arange(self.op_reenter_distances[0], self.op_reenter_distances[1]+2.5,2.5):
-                        for walking_distance in np.arange(self.walking_distances[0], self.walking_distances[1]+1,1):
+        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1] + 0.1, 0.1):
+            for spawning_distance in np.arange(
+                self.spwaning_distances[0], self.spwaning_distances[1] + 2.5, 2.5,
+            ):
+                for looking_distance in np.arange(
+                    self.looking_distances[0], self.looking_distances[1] + 0.01, 0.01,
+                ):
+                    for op_reenter_distance in np.arange(
+                        self.op_reenter_distances[0], self.op_reenter_distances[1] + 2.5, 2.5,
+                    ):
+                        for walking_distance in np.arange(
+                            self.walking_distances[0], self.walking_distances[1] + 1, 1,
+                        ):
                             for char in self.character:
                                 conf = ControllerConfig(speed)
                                 conf.spawning_distance = int(spawning_distance)
@@ -349,28 +425,37 @@ class Config03(ScenarioConfig):
                                 conf.walking_distance = walking_distance
                                 conf.char = char
                                 scenes.append(("03_non_int", conf))
-        print('Total scenes count (non-int-3): ', len(scenes))
+        print("Total scenes count (non-int-3): ", len(scenes))
         return scenes
+
 
 class Config04(ScenarioConfig):
     def __init__(self):
-        self.ped_speed_range =  [1.6,2.0] #6
-        self.spwaning_distances = [1,8.5] #3
-        self.walking_distances = [-1,+1] #4
-        self.looking_distances = [0.70,0.77] #9
-        self.op_reenter_distances = [0,10] #0
+        self.ped_speed_range = [1.6, 2.0]  # 6
+        self.spwaning_distances = [1, 8.5]  # 3
+        self.walking_distances = [-1, +1]  # 4
+        self.looking_distances = [0.70, 0.77]  # 9
+        self.op_reenter_distances = [0, 10]  # 0
         self.cross_walk_delta = []
         self.character = ["forcing"]
-        #character = ["yielding", "forcing"]
-        super(Config04,self).__init__()
+        # character = ["yielding", "forcing"]
+        super(Config04, self).__init__()
 
     def get_scenes(self):
         scenes = []
-        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1]+0.1,0.1):
-            for spawning_distance in np.arange(self.spwaning_distances[0], self.spwaning_distances[1]+2.5,2.5):
-                for looking_distance in np.arange(self.looking_distances[0], self.looking_distances[1]+0.01,0.01):
-                    for op_reenter_distance in np.arange(self.op_reenter_distances[0], self.op_reenter_distances[1]+2.5,2.5):
-                        for walking_distance in np.arange(self.walking_distances[0], self.walking_distances[1]+1,2):
+        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1] + 0.1, 0.1):
+            for spawning_distance in np.arange(
+                self.spwaning_distances[0], self.spwaning_distances[1] + 2.5, 2.5,
+            ):
+                for looking_distance in np.arange(
+                    self.looking_distances[0], self.looking_distances[1] + 0.01, 0.01,
+                ):
+                    for op_reenter_distance in np.arange(
+                        self.op_reenter_distances[0], self.op_reenter_distances[1] + 2.5, 2.5,
+                    ):
+                        for walking_distance in np.arange(
+                            self.walking_distances[0], self.walking_distances[1] + 1, 2,
+                        ):
                             for char in self.character:
                                 conf = ControllerConfig(speed)
                                 conf.spawning_distance = int(spawning_distance)
@@ -379,28 +464,37 @@ class Config04(ScenarioConfig):
                                 conf.walking_distance = walking_distance
                                 conf.char = char
                                 scenes.append(("04_non_int", conf))
-        print('Total scenes count (non-int-4): ', len(scenes))
+        print("Total scenes count (non-int-4): ", len(scenes))
         return scenes
+
 
 class Config05(ScenarioConfig):
     def __init__(self):
-        self.ped_speed_range =  [1.6,2.0] #6
-        self.spwaning_distances = [1,8.5] #3
-        self.walking_distances = [-1,+1] #4
-        self.looking_distances = [0.70,0.77] #9
-        self.op_reenter_distances = [0,10] #0
+        self.ped_speed_range = [1.6, 2.0]  # 6
+        self.spwaning_distances = [1, 8.5]  # 3
+        self.walking_distances = [-1, +1]  # 4
+        self.looking_distances = [0.70, 0.77]  # 9
+        self.op_reenter_distances = [0, 10]  # 0
         self.cross_walk_delta = []
         self.character = ["forcing"]
-        #character = ["yielding", "forcing"]
-        super(Config05,self).__init__()
+        # character = ["yielding", "forcing"]
+        super(Config05, self).__init__()
 
     def get_scenes(self):
         scenes = []
-        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1]+0.1,0.1):
-            for spawning_distance in np.arange(self.spwaning_distances[0], self.spwaning_distances[1]+2.5,2.5):
-                for looking_distance in np.arange(self.looking_distances[0], self.looking_distances[1]+0.01,0.01):
-                    for op_reenter_distance in np.arange(self.op_reenter_distances[0], self.op_reenter_distances[1]+2.5,2.5):
-                        for walking_distance in np.arange(self.walking_distances[0], self.walking_distances[1]+1,2):
+        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1] + 0.1, 0.1):
+            for spawning_distance in np.arange(
+                self.spwaning_distances[0], self.spwaning_distances[1] + 2.5, 2.5,
+            ):
+                for looking_distance in np.arange(
+                    self.looking_distances[0], self.looking_distances[1] + 0.01, 0.01,
+                ):
+                    for op_reenter_distance in np.arange(
+                        self.op_reenter_distances[0], self.op_reenter_distances[1] + 2.5, 2.5,
+                    ):
+                        for walking_distance in np.arange(
+                            self.walking_distances[0], self.walking_distances[1] + 1, 2,
+                        ):
                             for char in self.character:
                                 conf = ControllerConfig(speed)
                                 conf.spawning_distance = int(spawning_distance)
@@ -409,20 +503,21 @@ class Config05(ScenarioConfig):
                                 conf.walking_distance = walking_distance
                                 conf.char = char
                                 scenes.append(("05_non_int", conf))
-        print('Total scenes count (non-int-5): ', len(scenes))
+        print("Total scenes count (non-int-5): ", len(scenes))
         return scenes
+
 
 class Config06(ScenarioConfig):
     def __init__(self):
-        self.ped_speed_range =  [1.2,1.5] #6
-        self.spwaning_distances = [1,8.5] #3
-        self.walking_distances = [-1,+1] #4
-        self.looking_distances = [0.70,0.77] #9
-        self.op_reenter_distances = [0,10] #0
+        self.ped_speed_range = [1.2, 1.5]  # 6
+        self.spwaning_distances = [1, 8.5]  # 3
+        self.walking_distances = [-1, +1]  # 4
+        self.looking_distances = [0.70, 0.77]  # 9
+        self.op_reenter_distances = [0, 10]  # 0
         self.cross_walk_delta = []
         self.character = ["forcing"]
-        #character = ["yielding", "forcing"]
-        super(Config06,self).__init__()
+        # character = ["yielding", "forcing"]
+        super(Config06, self).__init__()
 
         # self.ped_speed_range =  [1.5,1.5] #6
         # self.spwaning_distances = [1,1] #3
@@ -436,11 +531,19 @@ class Config06(ScenarioConfig):
 
     def get_scenes(self):
         scenes = []
-        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1]+0.1,0.1):
-            for spawning_distance in np.arange(self.spwaning_distances[0], self.spwaning_distances[1]+2.5,2.5):
-                for looking_distance in np.arange(self.looking_distances[0], self.looking_distances[1]+0.01,0.01):
-                    for op_reenter_distance in np.arange(self.op_reenter_distances[0], self.op_reenter_distances[1]+2.5,2.5):
-                        for walking_distance in np.arange(self.walking_distances[0], self.walking_distances[1]+1,2):
+        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1] + 0.1, 0.1):
+            for spawning_distance in np.arange(
+                self.spwaning_distances[0], self.spwaning_distances[1] + 2.5, 2.5,
+            ):
+                for looking_distance in np.arange(
+                    self.looking_distances[0], self.looking_distances[1] + 0.01, 0.01,
+                ):
+                    for op_reenter_distance in np.arange(
+                        self.op_reenter_distances[0], self.op_reenter_distances[1] + 2.5, 2.5,
+                    ):
+                        for walking_distance in np.arange(
+                            self.walking_distances[0], self.walking_distances[1] + 1, 2,
+                        ):
                             for char in self.character:
                                 conf = ControllerConfig(speed)
                                 conf.spawning_distance = int(spawning_distance)
@@ -449,7 +552,7 @@ class Config06(ScenarioConfig):
                                 conf.walking_distance = walking_distance
                                 conf.char = char
                                 scenes.append(("06_non_int", conf))
-        print('Total scenes count (non-int-6): ', len(scenes))
+        print("Total scenes count (non-int-6): ", len(scenes))
         return scenes
 
 
@@ -457,32 +560,42 @@ class Config:
     PI = 3.14159
 
     simulation_step = 0.05  # 0.008
-    sensor_simulation_step = '0.5'
+    sensor_simulation_step = "0.5"
     synchronous = True
-    segcam_fov = '90'
-    segcam_image_x = '400'  # '1280'
-    segcam_image_y = '400'  # '720'
+    segcam_fov = "90"
+    segcam_image_x = "400"  # '1280'
+    segcam_image_y = "400"  # '720'
 
     grid_size = 2  # grid size in meters
     speed_limit = 50
     max_steering_angle = 1.22173  # 70 degrees in radians
-    occupancy_grid_width = '1920'
-    occupancy_grid_height = '1080'
+    occupancy_grid_width = "1920"
+    occupancy_grid_height = "1080"
 
     location_threshold = 1.0
 
     ped_speed_range = [1.8, 2.2]
     ped_distance_range = [25, 30]
     # car_speed_range = [6, 9]
-    scenarios = ['01_int','02_int','03_int', '04_int', '05_int', '06_int', '01_non_int','02_non_int','03_non_int']#,'02_non_int','03_non_int']#,'02_non_int']#,"02_int", "03_int"  #, '02', '03', '04', '05', '06', '07', '08', '09']
-    #scenarios = ['01_int','02_int','03_int']
-    #scenarios = ['01','02', '03', '04', '05', '06', '07', '08', '09']
-    val_scenarios = ['06'],# '02', '03', '04', '05', '06', '07', '08', '09']
+    scenarios = [
+        "01_int",
+        "02_int",
+        "03_int",
+        "04_int",
+        "05_int",
+        "06_int",
+        "01_non_int",
+        "02_non_int",
+        "03_non_int",
+    ]  # ,'02_non_int','03_non_int']#,'02_non_int']#,"02_int", "03_int"  #, '02', '03', '04', '05', '06', '07', '08', '09']
+    # scenarios = ['01_int','02_int','03_int']
+    # scenarios = ['01','02', '03', '04', '05', '06', '07', '08', '09']
+    val_scenarios = (["06"],)  # '02', '03', '04', '05', '06', '07', '08', '09']
     val_ped_speed_range = ([0.2, 0.5], [2.1, 2.8])
     val_ped_distance_range = [4.25, 49.25]
     # val_car_speed_range = [6, 9]
 
-    test_scenarios = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10']
+    test_scenarios = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10"]
     test_ped_speed_range = [0.25, 2.85]
     test_ped_distance_range = [4.75, 49.75]
     # test_car_speed_range = [6, 9]
@@ -522,13 +635,13 @@ class Config:
     use_dueling = False
 
     # Simulator Parameters
-    host = '127.0.0.1'
+    host = "127.0.0.1"
     port = 2000
     width = 1920
     height = 1080
     display = False
-    filter = 'vehicle.audi.tt'
-    rolename = 'hero'
+    filter = "vehicle.audi.tt"
+    rolename = "hero"
     gama = 1.7
     despot_port = 1245
     N_DISCRETE_ACTIONS = 3

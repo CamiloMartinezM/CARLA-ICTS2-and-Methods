@@ -1,20 +1,18 @@
-'''
-Adopted from Trajectron++
-'''
+"""Adopted from Trajectron++
+"""
+
 import numpy as np
 import torch
 
 
 def attach_dim(v, n_dim_to_prepend=0, n_dim_to_append=0):
     return v.reshape(
-        torch.Size([1] * n_dim_to_prepend)
-        + v.shape
-        + torch.Size([1] * n_dim_to_append))
+        torch.Size([1] * n_dim_to_prepend) + v.shape + torch.Size([1] * n_dim_to_append),
+    )
 
 
 def block_diag(m):
-    """
-    Make a block diagonal matrix along dim=-3
+    """Make a block diagonal matrix along dim=-3
     EXAMPLE:
     block_diag(torch.ones(4,3,2))
     should give a 12 x 8 matrix with blocks of 3 x 2 ones.
@@ -35,10 +33,12 @@ def block_diag(m):
     return (m2 * eye).reshape(siz0 + torch.Size(torch.tensor(siz1) * n))
 
 
-def tile(a, dim, n_tile, device='cpu'):
+def tile(a, dim, n_tile, device="cpu"):
     init_dim = a.size(dim)
     repeat_idx = [1] * a.dim()
     repeat_idx[dim] = n_tile
     a = a.repeat(*(repeat_idx))
-    order_index = torch.LongTensor(np.concatenate([init_dim * np.arange(n_tile) + i for i in range(init_dim)])).to(device)
+    order_index = torch.LongTensor(
+        np.concatenate([init_dim * np.arange(n_tile) + i for i in range(init_dim)]),
+    ).to(device)
     return torch.index_select(a, dim, order_index)

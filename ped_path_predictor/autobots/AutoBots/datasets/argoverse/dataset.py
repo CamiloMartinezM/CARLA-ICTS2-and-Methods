@@ -1,7 +1,8 @@
 import os
+
 import h5py
-from torch.utils.data import Dataset
 import numpy as np
+from torch.utils.data import Dataset
 
 
 class ArgoH5Dataset(Dataset):
@@ -17,7 +18,7 @@ class ArgoH5Dataset(Dataset):
         self.scene_context_img = True
         self.predict_yaw = False
 
-        dataset = h5py.File(os.path.join(self.data_root, split_name+'_dataset.hdf5'), 'r')
+        dataset = h5py.File(os.path.join(self.data_root, split_name + "_dataset.hdf5"), "r")
         self.dset_len = len(dataset["ego_trajectories"])
 
     def get_input_output_seqs(self, ego_data, agents_data):
@@ -28,26 +29,26 @@ class ArgoH5Dataset(Dataset):
         ego_out = ego_data[in_len:]
 
         # Other agents
-        agents_in = agents_data[:in_len, :self.num_others]
+        agents_in = agents_data[:in_len, : self.num_others]
         return ego_in, ego_out, agents_in
 
     def __getitem__(self, idx: int):
-        dataset = h5py.File(os.path.join(self.data_root, self.split_name + '_dataset.hdf5'), 'r')
-        ego_data = dataset['ego_trajectories'][idx]
-        agents_data = dataset['agents_trajectories'][idx]
+        dataset = h5py.File(os.path.join(self.data_root, self.split_name + "_dataset.hdf5"), "r")
+        ego_data = dataset["ego_trajectories"][idx]
+        agents_data = dataset["agents_trajectories"][idx]
         ego_in, ego_out, agents_in = self.get_input_output_seqs(ego_data, agents_data)
 
         if self.use_map_lanes:
-            roads = dataset['road_pts'][idx]
+            roads = dataset["road_pts"][idx]
         else:
             roads = np.zeros((1, 1))  # dummy
 
         if "test" in self.split_name:
-            extra = dataset['extras'][idx]
+            extra = dataset["extras"][idx]
             return ego_in, agents_in, roads, extra
-        elif self.orig_ego:  # for validation with re-rotation to global coordinates
-            extra = dataset['extras'][idx]
-            ego_data = dataset['orig_egos'][idx]
+        if self.orig_ego:  # for validation with re-rotation to global coordinates
+            extra = dataset["extras"][idx]
+            ego_data = dataset["orig_egos"][idx]
             ego_out = ego_data[20:]
             return ego_in, ego_out, agents_in, roads, extra
 
@@ -57,5 +58,5 @@ class ArgoH5Dataset(Dataset):
         return self.dset_len
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     dst = ArgoH5Dataset(dset_path="/hdd2/argoverse", split_name="train", use_map_lanes=True)

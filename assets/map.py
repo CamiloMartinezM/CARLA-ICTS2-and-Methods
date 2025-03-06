@@ -12,32 +12,30 @@ import os
 try:
     import numpy as np
 except ImportError:
-    raise RuntimeError('cannot import numpy, make sure numpy package is installed')
+    raise RuntimeError("cannot import numpy, make sure numpy package is installed")
 
 try:
     from PIL import Image
 except ImportError:
-    raise RuntimeError('cannot import PIL, make sure pillow package is installed')
+    raise RuntimeError("cannot import PIL, make sure pillow package is installed")
 
-from assets.graph import Graph
-from assets.graph import sldist
-from assets.grid import Grid
 from assets.converter import Converter
+from assets.graph import Graph, sldist
+from assets.grid import Grid
 
 
 def color_to_angle(color):
     return (float(color) / 255.0) * 2 * math.pi
 
 
-class CarlaMap(object):
-
+class CarlaMap:
     def __init__(self, city, pixel_density=0.1643, node_density=50):
         dir_path = os.path.dirname(__file__)
-        city_file = os.path.join(dir_path, city + '.txt')
+        city_file = os.path.join(dir_path, city + ".txt")
 
-        city_map_file = os.path.join(dir_path, city + '.png')
-        city_map_file_lanes = os.path.join(dir_path, city + 'Lanes.png')
-        city_map_file_center = os.path.join(dir_path, city + 'Central.png')
+        city_map_file = os.path.join(dir_path, city + ".png")
+        city_map_file_lanes = os.path.join(dir_path, city + "Lanes.png")
+        city_map_file_center = os.path.join(dir_path, city + "Central.png")
 
         # The built graph. This is the exact same graph that unreal builds. This
         # is a generic structure used for many cases
@@ -75,7 +73,9 @@ class CarlaMap(object):
 
             aspect_ratio = height / float(self.map_image.shape[0])
 
-            img = img.resize((int(aspect_ratio * self.map_image.shape[1]), height), Image.ANTIALIAS)
+            img = img.resize(
+                (int(aspect_ratio * self.map_image.shape[1]), height), Image.ANTIALIAS,
+            )
             img.load()
             return np.asarray(img, dtype="int32")
         return np.fliplr(self.map_image)
@@ -98,49 +98,43 @@ class CarlaMap(object):
         return (-math.cos(ori), -math.sin(ori))
 
     def convert_to_node(self, input_data):
-        """
-        Receives a data type (Can Be Pixel or World )
+        """Receives a data type (Can Be Pixel or World )
         :param input_data: position in some coordinate
         :return: A node object
         """
         return self._converter.convert_to_node(input_data)
 
     def convert_to_pixel(self, input_data):
-        """
-        Receives a data type (Can Be Node or World )
+        """Receives a data type (Can Be Node or World )
         :param input_data: position in some coordinate
         :return: A node object
         """
         return self._converter.convert_to_pixel(input_data)
 
     def convert_to_world(self, input_data):
-        """
-        Receives a data type (Can Be Pixel or Node )
+        """Receives a data type (Can Be Pixel or Node )
         :param input_data: position in some coordinate
         :return: A node object
         """
         return self._converter.convert_to_world(input_data)
 
     def get_walls_directed(self, node_source, source_ori, node_target, target_ori):
-        """
-        This is the most hacky function. Instead of planning on two ways,
+        """This is the most hacky function. Instead of planning on two ways,
         we basically use a one way road and interrupt the other road by adding
         an artificial wall.
 
         """
-
         final_walls = self._grid.get_wall_source(node_source, source_ori, node_target)
 
-        final_walls = final_walls.union(self._grid.get_wall_target(
-            node_target, target_ori, node_source))
+        final_walls = final_walls.union(
+            self._grid.get_wall_target(node_target, target_ori, node_source),
+        )
         return final_walls
 
     def get_walls(self):
-
         return self._grid.get_walls()
 
     def get_distance_closest_node(self, pos):
-
         distance = []
         for node_iter in self._graph.intersection_nodes():
             distance.append(sldist(node_iter, pos))
@@ -150,5 +144,5 @@ class CarlaMap(object):
     def get_intersection_nodes(self):
         return self._graph.intersection_nodes()
 
-    def search_on_grid(self,node):
+    def search_on_grid(self, node):
         return self._grid.search_on_grid(node[0], node[1])

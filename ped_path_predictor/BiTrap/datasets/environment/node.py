@@ -1,13 +1,26 @@
 import random
+
 import numpy as np
 import pandas as pd
 from environment import DoubleHeaderNumpyArray
 from ncls import NCLS
 
 
-class Node(object):
-    def __init__(self, node_type, node_id, data, length=None, width=None, height=None, first_timestep=0,
-                 is_robot=False, description="", frequency_multiplier=1, non_aug_node=None):
+class Node:
+    def __init__(
+        self,
+        node_type,
+        node_id,
+        data,
+        length=None,
+        width=None,
+        height=None,
+        first_timestep=0,
+        is_robot=False,
+        description="",
+        frequency_multiplier=1,
+        non_aug_node=None,
+    ):
         self.type = node_type
         self.id = node_id
         self.length = length
@@ -32,10 +45,11 @@ class Node(object):
         self.forward_in_time_on_next_override = False
 
     def __eq__(self, other):
-        return ((isinstance(other, self.__class__)
-                 or isinstance(self, other.__class__))
-                and self.id == other.id
-                and self.type == other.type)
+        return (
+            (isinstance(other, self.__class__) or isinstance(self, other.__class__))
+            and self.id == other.id
+            and self.type == other.type
+        )
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -44,11 +58,10 @@ class Node(object):
         return hash((self.type, self.id))
 
     def __repr__(self):
-        return '/'.join([self.type.name, self.id])
+        return "/".join([self.type.name, self.id])
 
     def overwrite_data(self, data, forward_in_time_on_next_overwrite=False):
-        """
-        This function hard overwrites the data matrix. When using it you have to make sure that the columns
+        """This function hard overwrites the data matrix. When using it you have to make sure that the columns
         in the new data matrix correspond to the old structure. As well as setting first_timestep.
 
         :param data: New data matrix
@@ -62,8 +75,7 @@ class Node(object):
         self.forward_in_time_on_next_override = forward_in_time_on_next_overwrite
 
     def scene_ts_to_node_ts(self, scene_ts) -> (np.ndarray, int, int):
-        """
-        Transforms timestamp from scene into timeframe of node data.
+        """Transforms timestamp from scene into timeframe of node data.
 
         :param scene_ts: Scene timesteps
         :return: ts: Transformed timesteps, paddingl: Number of timesteps in scene range which are not available in
@@ -72,12 +84,14 @@ class Node(object):
         """
         paddingl = (self.first_timestep - scene_ts[0]).clip(0)
         paddingu = (scene_ts[1] - self.last_timestep).clip(0)
-        ts = np.array(scene_ts).clip(min=self.first_timestep, max=self.last_timestep) - self.first_timestep
+        ts = (
+            np.array(scene_ts).clip(min=self.first_timestep, max=self.last_timestep)
+            - self.first_timestep
+        )
         return ts, paddingl, paddingu
 
     def history_points_at(self, ts) -> int:
-        """
-        Number of history points in trajectory. Timestep is exclusive.
+        """Number of history points in trajectory. Timestep is exclusive.
 
         :param ts: Scene timestep where the number of history points are queried.
         :return: Number of history timesteps.
@@ -85,8 +99,7 @@ class Node(object):
         return ts - self.first_timestep
 
     def get(self, tr_scene, state, padding=np.nan) -> np.ndarray:
-        """
-        Returns a time range of multiple properties of the node.
+        """Returns a time range of multiple properties of the node.
 
         :param tr_scene: The timestep range (inklusive).
         :param state: The state description for which the properties are returned.
@@ -97,15 +110,14 @@ class Node(object):
             tr_scene = np.array([tr_scene[0], tr_scene[0]])
         length = tr_scene[1] - tr_scene[0] + 1  # tr is inclusive
         tr, paddingl, paddingu = self.scene_ts_to_node_ts(tr_scene)
-        data_array = self.data[tr[0]:tr[1] + 1, state]
+        data_array = self.data[tr[0] : tr[1] + 1, state]
         padded_data_array = np.full((length, data_array.shape[1]), fill_value=padding)
-        padded_data_array[paddingl:length - paddingu] = data_array
+        padded_data_array[paddingl : length - paddingu] = data_array
         return padded_data_array, (paddingl, paddingu)
 
     @property
     def timesteps(self) -> int:
-        """
-        Number of available timesteps for node.
+        """Number of available timesteps for node.
 
         :return: Number of available timesteps.
         """
@@ -113,8 +125,7 @@ class Node(object):
 
     @property
     def last_timestep(self) -> int:
-        """
-        Nodes last timestep in the Scene.
+        """Nodes last timestep in the Scene.
 
         :return: Nodes last timestep.
         """
@@ -140,8 +151,7 @@ class MultiNode(Node):
 
     @staticmethod
     def find_non_overlapping_nodes(nodes_list, min_timesteps=1) -> list:
-        """
-        Greedily finds a set of non-overlapping nodes in the provided scene.
+        """Greedily finds a set of non-overlapping nodes in the provided scene.
 
         :return: A list of non-overlapping nodes.
         """
@@ -159,17 +169,18 @@ class MultiNode(Node):
     def get_node_at_timesteps(self, scene_ts) -> Node:
         possible_node_ranges = list(self.interval_tree.find_overlap(scene_ts[0], scene_ts[1] + 1))
         if not possible_node_ranges:
-            return Node(node_type=self.type,
-                        node_id='EMPTY',
-                        data=self.nodes_list[0].data * np.nan,
-                        is_robot=self.is_robot)
+            return Node(
+                node_type=self.type,
+                node_id="EMPTY",
+                data=self.nodes_list[0].data * np.nan,
+                is_robot=self.is_robot,
+            )
 
         node_idx = random.choice(possible_node_ranges)[2]
         return self.nodes_list[node_idx]
 
     def scene_ts_to_node_ts(self, scene_ts) -> (Node, np.ndarray, int, int):
-        """
-        Transforms timestamp from scene into timeframe of node data.
+        """Transforms timestamp from scene into timeframe of node data.
 
         :param scene_ts: Scene timesteps
         :return: ts: Transformed timesteps, paddingl: Number of timesteps in scene range which are not available in
@@ -185,7 +196,10 @@ class MultiNode(Node):
 
         paddingl = (node.first_timestep - scene_ts[0]).clip(0)
         paddingu = (scene_ts[1] - node.last_timestep).clip(0)
-        ts = np.array(scene_ts).clip(min=node.first_timestep, max=node.last_timestep) - node.first_timestep
+        ts = (
+            np.array(scene_ts).clip(min=node.first_timestep, max=node.last_timestep)
+            - node.first_timestep
+        )
         return node, ts, paddingl, paddingu
 
     def get(self, tr_scene, state, padding=np.nan) -> np.ndarray:
@@ -198,9 +212,9 @@ class MultiNode(Node):
             state_length = sum([len(entity_dims) for entity_dims in state.values()])
             return np.full((length, state_length), fill_value=padding)
 
-        data_array = node.data[tr[0]:tr[1] + 1, state]
+        data_array = node.data[tr[0] : tr[1] + 1, state]
         padded_data_array = np.full((length, data_array.shape[1]), fill_value=padding)
-        padded_data_array[paddingl:length - paddingu] = data_array
+        padded_data_array[paddingl : length - paddingu] = data_array
         return padded_data_array, (paddingl, paddingu)
 
     def get_all(self, tr_scene, state, padding=np.nan) -> np.ndarray:
@@ -211,13 +225,12 @@ class MultiNode(Node):
         state_length = sum([len(entity_dims) for entity_dims in state.values()])
         padded_data_array = np.full((length, state_length), fill_value=padding)
         for node in self.nodes_list:
-            padded_data_array[node.first_timestep:node.last_timestep + 1] = node.data[:, state]
+            padded_data_array[node.first_timestep : node.last_timestep + 1] = node.data[:, state]
 
         return padded_data_array
 
     def history_points_at(self, ts) -> int:
-        """
-        Number of history points in trajectory. Timestep is exclusive.
+        """Number of history points in trajectory. Timestep is exclusive.
 
         :param ts: Scene timestep where the number of history points are queried.
         :return: Number of history timesteps.
@@ -228,8 +241,7 @@ class MultiNode(Node):
 
     @property
     def timesteps(self) -> int:
-        """
-        Number of available timesteps for node.
+        """Number of available timesteps for node.
 
         :return: Number of available timesteps.
         """
