@@ -14,7 +14,7 @@ from config import Config
 
 def run(args):
     pre_safe_scenarios = [
-        "01_int",
+        # "01_int",
         "02_int",
         "03_int",
         "04_int",
@@ -73,7 +73,32 @@ def run(args):
             while episode_length < Config.max_episode_length:
                 x, y, icr, son = env.extract_step()
                 ep_data.append((x, y, icr, son))
+                print(episode_length, f"x = {x}, y = {y}, icr = {icr}, son = {son}")
 
+                # * Include radius of 50 m of perception
+                # * Videos (BEV and POV from car and pedestrian) of interactive scenario
+
+                # DIRECTLY AVAILABLE:
+                # Intention to claim the road for pedestrian (ICRped)
+                # Strategy of Negotiation (SN_ped) Avoiding, Yielding, Forcing
+                # Strategy of Negotiation (SN_car) Avoiding, Yielding, Forcing
+                # Acceleration (ACC) Discretized classes
+                # Speed (S) Discretized classes
+                # Distance (D) Discretized classes
+
+                # COULD BE DERIVED:
+                # Approaching (A) Yes, No
+                # Wheel stance (WS) Facing, Averting, Ignoring
+                # Car Body Orientation (CBO) Facing, Averting, Ignoring
+                # Head Orientation (HO) Facing, Averting, Ignoring
+                # Body Orientation (BO) Facing, Averting, Ignoring
+                # Hip Orientation (HIO) Neutral, Slightly leaning forward, Leaning forward
+
+                # TRICKIER / SUBJECTIVE:
+                # Sense of Security (SSEC) Very high, High, Medium, Low, Very low
+                # * Calculate this with ICR_ped in reverse
+                # Intention to claim the road for car (ICRcar)
+                
                 x_c, y_c = env.extract_car_pos()
                 ep_data_car.append((x_c, y_c))
                 episode_length += 1
@@ -115,7 +140,7 @@ def run_server():
         cmd = (
             "cd "
             + carla_p
-            + " && DRI_PRIME=1 ./CarlaUE4.sh -quality-level=Low -carla-server -RenderOffscreen -benchmark -prevernvidia -fps=25"
+            + " && DRI_PRIME=1 ./CarlaUE4.sh -quality-level=Epic -carla-server -benchmark -prevernvidia -fps=25"
             + port
         )
         # pro = subprocess.Popen(cmd, stdout=subprocess.PIPE,

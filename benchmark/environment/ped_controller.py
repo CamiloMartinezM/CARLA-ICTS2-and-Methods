@@ -1,4 +1,3 @@
-# ped_controller.py
 import math
 from enum import Enum
 
