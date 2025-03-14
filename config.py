@@ -639,7 +639,7 @@ class Config:
     port = 2000
     width = 1920
     height = 1080
-    display = False
+    display = True
     filter = "vehicle.audi.tt"
     rolename = "hero"
     gama = 1.7

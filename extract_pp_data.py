@@ -16,16 +16,16 @@ def run(args):
     pre_safe_scenarios = [
         # "01_int",
         "02_int",
-        "03_int",
-        "04_int",
-        "05_int",
-        "06_int",
-        "01_non_int",
-        "02_non_int",
-        "03_non_int",
-        "04_non_int",
-        "05_non_int",
-        "06_non_int",
+        # "03_int",
+        # "04_int",
+        # "05_int",
+        # "06_int",
+        # "01_non_int",
+        # "02_non_int",
+        # "03_non_int",
+        # "04_non_int",
+        # "05_non_int",
+        # "06_non_int",
     ]
 
     for scenario in pre_safe_scenarios:
@@ -98,7 +98,7 @@ def run(args):
                 # Sense of Security (SSEC) Very high, High, Medium, Low, Very low
                 # * Calculate this with ICR_ped in reverse
                 # Intention to claim the road for car (ICRcar)
-                
+
                 x_c, y_c = env.extract_car_pos()
                 ep_data_car.append((x_c, y_c))
                 episode_length += 1
@@ -148,12 +148,7 @@ def run_server():
         p = subprocess.run([cmd], shell=True, check=False)
     else:
         # command = "unset SDL_VIDEODRIVER && ./CarlaUE4.sh  -quality-level="+ Config.qw  +" your arguments" + port # -quality-level=Low
-        command = (
-            "unset SDL_VIDEODRIVER && ./CarlaUE4.sh  -quality-level="
-            + Config.qw
-            + " -quality-level=Low "
-            + port
-        )
+        command = "unset SDL_VIDEODRIVER && ./CarlaUE4.sh  -quality-level=" + Config.qw + " -quality-level=Low " + port
         p = subprocess.run(["cd " + carla_p + " && " + command], shell=True, check=False)
 
     return p
@@ -164,10 +159,7 @@ def run_test_server():
     port = f"-carla-port={Config.port + 100}"
     carla_p = "your path to carla"
     command = (
-        "unset SDL_VIDEODRIVER && ./CarlaUE4.sh  -quality-level="
-        + Config.qw
-        + " your arguments"
-        + port
+        "unset SDL_VIDEODRIVER && ./CarlaUE4.sh  -quality-level=" + Config.qw + " your arguments" + port
     )  # -quality-level=Low
     p = subprocess.run(["cd " + carla_p + " && " + command], shell=True, check=False)
     return p
@@ -176,7 +168,9 @@ def run_test_server():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--config", type=str, default=os.path.join("SAC/sac_discrete/config", "sacd.yaml"),
+        "--config",
+        type=str,
+        default=os.path.join("SAC/sac_discrete/config", "sacd.yaml"),
     )
     parser.add_argument("--shared", action="store_true")
     parser.add_argument("--env_id", type=str, default="GIDASBenchmark")

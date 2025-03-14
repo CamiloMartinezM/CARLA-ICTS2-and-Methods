@@ -5,7 +5,8 @@ Time: 23.03.21 14:27
 
 import random
 import sys
-
+import numpy as np
+import pygame
 import carla
 
 from benchmark.environment.car_controller import CarController
@@ -97,6 +98,47 @@ class World:
         self.dummy_car = False
         self.debug = False
 
+    def create_pov_camera(self):
+        """Create and attach a POV camera inside the car"""
+        # Destroy existing POV camera if any
+        if hasattr(self, "pov_camera") and self.pov_camera is not None:
+            self.pov_camera.destroy()
+
+        # Create camera blueprint
+        camera_bp = self.world.get_blueprint_library().find("sensor.camera.rgb")
+        camera_bp.set_attribute("image_size_x", str(self.hud.dim[0]))
+        camera_bp.set_attribute("image_size_y", str(self.hud.dim[1]))
+        camera_bp.set_attribute("fov", "90")  # Wider field of view
+
+        # Create transform for driver's position
+        relative_transform = carla.Transform(
+            carla.Location(x=0.2, y=0.0, z=1.2),  # Driver's eye position
+            carla.Rotation(pitch=0, yaw=0, roll=0),  # Looking straight ahead
+        )
+
+        # Spawn camera attached to vehicle
+        self.pov_camera = self.world.spawn_actor(
+            camera_bp, relative_transform, attach_to=self.player, attachment_type=carla.AttachmentType.Rigid
+        )
+
+        # Set up image callback
+        def pov_camera_callback(image):
+            """Process camera image"""
+            # Convert image
+            image.convert(carla.ColorConverter.Raw)
+            array = np.frombuffer(image.raw_data, dtype=np.dtype("uint8"))
+            array = np.reshape(array, (image.height, image.width, 4))
+            array = array[:, :, :3]
+            array = array[:, :, ::-1]
+
+            # Store image for rendering
+            self.camera_manager.array = array.copy()
+            self.camera_manager.surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
+
+        # Set up camera listener
+        self.pov_camera.listen(pov_camera_callback)
+        print("Created POV camera inside vehicle")
+
     def get_car_blueprint(self):
         blueprint = random.choice(self.world.get_blueprint_library().filter(self._actor_filter))
         blueprint.set_attribute("role_name", self.actor_role_name)
@@ -174,12 +216,8 @@ class World:
         # Keep same camera config if the camera manager exists.
         cam_index = self.camera_manager.index if self.camera_manager is not None else 0
         semseg_index = self.semseg_sensor.index if self.semseg_sensor is not None else 5
-        cam_pos_index = (
-            self.camera_manager.transform_index if self.camera_manager is not None else 5
-        )
-        semseg_pos_index = (
-            self.semseg_sensor.transform_index if self.semseg_sensor is not None else 5
-        )
+        cam_pos_index = self.camera_manager.transform_index if self.camera_manager is not None else 5
+        semseg_pos_index = self.semseg_sensor.transform_index if self.semseg_sensor is not None else 5
 
         # Spawn the player.
         start = self.scenario[3]
@@ -211,7 +249,9 @@ class World:
             self.setup_01_int(obstacles, conf)
             cam_transform = carla.Transform(
                 carla.Location(
-                    spawn_point.location.x, spawn_point.location.y - 25, spawn_point.location.z + 7,
+                    spawn_point.location.x,
+                    spawn_point.location.y - 25,
+                    spawn_point.location.z + 7,
                 ),
                 carla.Rotation(-30, 270, 0),
             )
@@ -228,7 +268,9 @@ class World:
             # print(spawn_point.location)
             cam_transform = carla.Transform(
                 carla.Location(
-                    spawn_point.location.x, spawn_point.location.y - 35, spawn_point.location.z + 7,
+                    spawn_point.location.x,
+                    spawn_point.location.y - 35,
+                    spawn_point.location.z + 7,
                 ),
                 carla.Rotation(-30, 270, 0),
             )
@@ -241,7 +283,9 @@ class World:
             self.setup_03_int(obstacles, conf)
             cam_transform = carla.Transform(
                 carla.Location(
-                    spawn_point.location.x, spawn_point.location.y - 20, spawn_point.location.z + 7,
+                    spawn_point.location.x,
+                    spawn_point.location.y - 20,
+                    spawn_point.location.z + 7,
                 ),
                 carla.Rotation(-30, 270, 0),
             )
@@ -253,7 +297,9 @@ class World:
             self.setup_04_int(obstacles, conf)
             cam_transform = carla.Transform(
                 carla.Location(
-                    spawn_point.location.x, spawn_point.location.y - 25, spawn_point.location.z + 7,
+                    spawn_point.location.x,
+                    spawn_point.location.y - 25,
+                    spawn_point.location.z + 7,
                 ),
                 carla.Rotation(-30, 270, 0),
             )
@@ -269,7 +315,9 @@ class World:
             self.setup_05_int(obstacles, conf)
             cam_transform = carla.Transform(
                 carla.Location(
-                    spawn_point.location.x, spawn_point.location.y - 25, spawn_point.location.z + 7,
+                    spawn_point.location.x,
+                    spawn_point.location.y - 25,
+                    spawn_point.location.z + 7,
                 ),
                 carla.Rotation(-30, 270, 0),
             )
@@ -285,7 +333,9 @@ class World:
             self.setup_06_int(obstacles, conf)
             cam_transform = carla.Transform(
                 carla.Location(
-                    spawn_point.location.x, spawn_point.location.y - 25, spawn_point.location.z + 7,
+                    spawn_point.location.x,
+                    spawn_point.location.y - 25,
+                    spawn_point.location.z + 7,
                 ),
                 carla.Rotation(-30, 270, 0),
             )
@@ -317,7 +367,9 @@ class World:
             self.setup_02_non_int(obstacles, conf)
             cam_transform = carla.Transform(
                 carla.Location(
-                    spawn_point.location.x, spawn_point.location.y + 5, spawn_point.location.z + 15,
+                    spawn_point.location.x,
+                    spawn_point.location.y + 5,
+                    spawn_point.location.z + 15,
                 ),
                 carla.Rotation(-30, 270, 0),
             )
@@ -394,7 +446,9 @@ class World:
             self.walker.apply_control(carla.WalkerControl(carla.Vector3D(0, self.ped_speed, 0), 1))
             cam_transform = carla.Transform(
                 carla.Location(
-                    spawn_point.location.x, spawn_point.location.y + 5, spawn_point.location.z + 15,
+                    spawn_point.location.x,
+                    spawn_point.location.y + 5,
+                    spawn_point.location.z + 15,
                 ),
                 carla.Rotation(-30, 270, 0),
             )
@@ -431,7 +485,8 @@ class World:
                 parked_car = None
                 while parked_car is None:
                     parked_car = self.world.try_spawn_actor(
-                        self.get_random_blueprint(), car_spawn_point,
+                        self.get_random_blueprint(),
+                        car_spawn_point,
                     )
                 self.parked_cars.append(parked_car)
         elif scenario_type == 12:
@@ -505,9 +560,9 @@ class World:
         elif self.scenario[0] == 9:
             self.walker.apply_control(carla.WalkerControl(carla.Vector3D(0, self.ped_speed, 0), 1))
         if self.scenario[0] == 10:
-            flag = (
-                0 < (self.walker.get_location().y - self.incoming_car.get_location().y) < 5
-            ) and (self.walker.get_location().x > -4.4)
+            flag = (0 < (self.walker.get_location().y - self.incoming_car.get_location().y) < 5) and (
+                self.walker.get_location().x > -4.4
+            )
             if self.incoming_car.get_location().y > 250 or flag:
                 self.incoming_car.set_target_velocity(carla.Vector3D(0, 0, 0))
             else:
@@ -542,9 +597,7 @@ class World:
                 if status == "Done":
                     self.path_controller_2.step()
             elif l2_distance(self.walker.get_location(), self.desc_p) < 0.1:
-                distance = (
-                    y_distance(self.walker.get_location(), self.player.get_location()) - 2
-                )
+                distance = y_distance(self.walker.get_location(), self.player.get_location()) - 2
                 # distance = l2_distance(self.walker.get_location(), self.player.get_location())
                 # print(distance)
                 # self.compute_collision_point()
@@ -555,7 +608,7 @@ class World:
                 else:
                     self.choice = "Right"
                     self.walker.icr = ICR.GOING_TO
-                        # self.walker.con = SON.YIELDING
+                    # self.walker.con = SON.YIELDING
             self.relaxer.step()
             self.iss_crossed.step()
 
@@ -591,9 +644,7 @@ class World:
                     self.iss_crossed.step()
             elif self.choice is None:
                 if l2_distance(self.walker.get_location(), self.desc_p) < 0.1:
-                    distance = (
-                        y_distance(self.walker.get_location(), self.player.get_location()) - 2
-                    )
+                    distance = y_distance(self.walker.get_location(), self.player.get_location()) - 2
                     # distance = l2_distance(self.walker.get_location(), self.player.get_location())
                     # print(distance)
                     # self.compute_collision_point()
@@ -638,9 +689,7 @@ class World:
                         self.stopped = True
                         # print("Stopped")
                     elif status == "Done":
-                        distance = (
-                            y_distance(self.walker.get_location(), self.player.get_location()) + 10
-                        )
+                        distance = y_distance(self.walker.get_location(), self.player.get_location()) + 10
                         if self.second_decider(distance, 10):
                             self.walker.blend_pose(0)
                             self.path_controller_2.cur_speed = self.ped_speed
@@ -651,22 +700,17 @@ class World:
                     # self.walker.blend_pose(0)
                     self.path_controller_2.step()
                 else:
-                    if (
-                        l2_distance(self.walker.get_location(), self.flip_p) < 0.1
-                        and self.flip_choice is None
-                    ):
-                        distance = (
-                            y_distance(self.walker.get_location(), self.player.get_location()) - 2
-                        )
+                    if l2_distance(self.walker.get_location(), self.flip_p) < 0.1 and self.flip_choice is None:
+                        distance = y_distance(self.walker.get_location(), self.player.get_location()) - 2
 
                         if self.decision_trigger(
-                            distance, self.slow_db, without_speed=True,
+                            distance,
+                            self.slow_db,
+                            without_speed=True,
                         ):  # distance >=self.slow_db[0] and distance <= self.slow_db[1]:
                             self.flip_choice = "Error"
                             self.set_walker_speed_relative(0.7)
-                            self.path_controller_1.cur_speed = (
-                                self.path_controller_1.cur_speed * 0.7
-                            )
+                            self.path_controller_1.cur_speed = self.path_controller_1.cur_speed * 0.7
                             self.turn_head.relax_spine()
                             self.walker.icr = ICR.INTERESTED
                             self.walker.son = SON.YIELDING
@@ -674,25 +718,18 @@ class World:
                             self.flip_choice = "StandardAcc"
                             # print(self.flip_choice)
                             self.set_walker_speed_relative(1.1)
-                            self.path_controller_1.cur_speed = (
-                                self.path_controller_1.cur_speed * 1.1
-                            )
+                            self.path_controller_1.cur_speed = self.path_controller_1.cur_speed * 1.1
                             self.turn_head.lean_forward(1.2)
                             self.walker.icr = ICR.PLANNING_TO
 
-                    if (
-                        l2_distance(self.walker.get_location(), self.acc_p) < 0.1
-                        and self.flip_choice == "Error"
-                    ):
-                        distance = (
-                            y_distance(self.walker.get_location(), self.player.get_location()) - 2
-                        )
+                    if l2_distance(self.walker.get_location(), self.acc_p) < 0.1 and self.flip_choice == "Error":
+                        distance = y_distance(self.walker.get_location(), self.player.get_location()) - 2
                         if self.decision_trigger(
-                            distance, self.acc_db, without_speed=True,
+                            distance,
+                            self.acc_db,
+                            without_speed=True,
                         ):  # distance >=self.acc_db[0] and distance <= self.acc_db[1]:
-                            self.path_controller_1.cur_speed = (
-                                self.path_controller_1.cur_speed * 1.0 / 0.7 * 1.2
-                            )
+                            self.path_controller_1.cur_speed = self.path_controller_1.cur_speed * 1.0 / 0.7 * 1.2
                             self.set_walker_speed_relative(1.0 / 0.7 * 1.2)
                             self.turn_head.lean_forward(1)
                             self.flip_choice = "Accelerated"
@@ -703,18 +740,15 @@ class World:
                             self.flip_choice = "Keep"
                         # print(self.flip_choice)
                     if l2_distance(self.walker.get_location(), self.desc_p) < 0.1:
-                        distance = (
-                            y_distance(self.walker.get_location(), self.player.get_location()) - 2
-                        )
+                        distance = y_distance(self.walker.get_location(), self.player.get_location()) - 2
                         # print("Desc_p")
                         if self.decision_trigger(
-                            distance, self.db,
+                            distance,
+                            self.db,
                         ):  # distance >=self.db[0] and distance <= self.db[1]:
                             self.choice = "Stop"
                             self.cur_speed = self.path_controller_1.cur_speed
-                            self.path_controller_1.cur_speed = (
-                                self.path_controller_1.cur_speed * 0.8
-                            )
+                            self.path_controller_1.cur_speed = self.path_controller_1.cur_speed * 0.8
                             self.path_controller_1.speed_schedule = self.speed_schedule_stop
                             self.path_controller_1.set_walker_speed_relative(0.8)
                             self.turn_head.relax_spine()
@@ -736,9 +770,7 @@ class World:
                         self.stopped = True
                         # print("Stopped")
                     elif status == "Done":
-                        distance = (
-                            y_distance(self.walker.get_location(), self.player.get_location()) + 10
-                        )
+                        distance = y_distance(self.walker.get_location(), self.player.get_location()) + 10
                         if self.second_decider(distance, 20):  # distance < 0:
                             self.walker.blend_pose(0)
                             self.path_controller_2.cur_speed = self.ped_speed
@@ -749,17 +781,14 @@ class World:
                     # self.walker.blend_pose(0)
                     self.path_controller_2.step()
                 elif l2_distance(self.walker.get_location(), self.desc_p) < 0.1:
-                    distance = (
-                        y_distance(self.walker.get_location(), self.player.get_location()) - 2
-                    )
+                    distance = y_distance(self.walker.get_location(), self.player.get_location()) - 2
                     if self.decision_trigger(
-                        distance, self.db,
+                        distance,
+                        self.db,
                     ):  # distance >=self.db[0] and distance <= self.db[1]:
                         self.choice = "Stop"
                         self.cur_speed = self.path_controller_1.cur_speed
-                        self.path_controller_1.cur_speed = (
-                            self.path_controller_1.cur_speed * 0.95
-                        )
+                        self.path_controller_1.cur_speed = self.path_controller_1.cur_speed * 0.95
                         self.path_controller_1.speed_schedule = self.speed_schedule_stop
                         self.path_controller_1.set_walker_speed_relative(0.95)
                         self.turn_head.relax_spine()
@@ -802,7 +831,8 @@ class World:
                         # make walker run backwards
                         self.walker.set_transform(
                             carla.Transform(
-                                self.walker.get_transform().location, carla.Rotation(0, 0, 0),
+                                self.walker.get_transform().location,
+                                carla.Rotation(0, 0, 0),
                             ),
                         )
                         status3 = self.path_controller_4.step()
@@ -828,10 +858,7 @@ class World:
                     # self.choice = "Continue"
                     # self.walker.icr = ICR.GOING_TO
                     elif l2_distance(self.walker.get_location(), self.desc_p) < 0.2:
-                        distance = (
-                            y_distance(self.walker.get_location(), self.player.get_location())
-                            - 2
-                        )
+                        distance = y_distance(self.walker.get_location(), self.player.get_location()) - 2
                         # distance = l2_distance(self.walker.get_location(), self.player.get_location())
                         # print(distance)
                         # self.compute_collision_point()
@@ -865,10 +892,7 @@ class World:
                         self.path_controller_1.cur_speed = 0.0
                         self.set_walker_speed_relative(0.0)
                     elif l2_distance(self.walker.get_location(), self.desc_p) < 0.2:
-                        distance = (
-                            y_distance(self.walker.get_location(), self.player.get_location())
-                            - 2
-                        )
+                        distance = y_distance(self.walker.get_location(), self.player.get_location()) - 2
                         if self.decision_trigger(distance, self.db):
                             self.choice = "Stop"
                             self.walker.icr = ICR.VERY_LOW
@@ -905,9 +929,7 @@ class World:
                 #     self.walker.icr = ICR.PLANNING_TO
 
                 elif l2_distance(self.walker.get_location(), self.desc_p) < 0.2:
-                    distance = (
-                        y_distance(self.walker.get_location(), self.player.get_location()) - 2
-                    )
+                    distance = y_distance(self.walker.get_location(), self.player.get_location()) - 2
                     if self.decision_trigger(distance, self.db):
                         self.choice = "Avoid"
                         self.walker.icr = ICR.GOING_TO
@@ -1025,7 +1047,8 @@ class World:
         # print(spawn_loc)
         # print(obstacles[0][1].location)
         self.walker = self.world.try_spawn_actor(
-            obstacles[0][0], carla.Transform(spawn_loc, obstacles[0][1].rotation),
+            obstacles[0][0],
+            carla.Transform(spawn_loc, obstacles[0][1].rotation),
         )
         self.walker.apply_control(carla.WalkerControl(carla.Vector3D(0, 0, 0), self.ped_speed))
         self.world.tick()
@@ -1037,7 +1060,9 @@ class World:
         ]
 
         path_1 = self._compute_plans(
-            offsets_1, base_loc, color=carla.Color(r=255, g=0, b=0) if self.debug else None,
+            offsets_1,
+            base_loc,
+            color=carla.Color(r=255, g=0, b=0) if self.debug else None,
         )
 
         self.path_controller_1 = PathController(self.world, self.walker, path_1, self.ped_speed)
@@ -1052,11 +1077,17 @@ class World:
 
         self.walker.initial_son = SON.YIELDING if conf.char == "yielding" else SON.FORCING
         self.iss_crossed = InternalStateSetter(
-            self.walker, path_1[0], icr=ICR.VERY_LOW, son=SON.AVERTING,
+            self.walker,
+            path_1[0],
+            icr=ICR.VERY_LOW,
+            son=SON.AVERTING,
         )
         if self.dummy_car:
             self.car_controller = CarController(
-                self.player, braking_point=None, speed=8, yielding=False,
+                self.player,
+                braking_point=None,
+                speed=8,
+                yielding=False,
             )
 
     def setup_05_non_int(
@@ -1077,7 +1108,8 @@ class World:
         # print(spawn_loc)
         # print(obstacles[0][1].location)
         self.walker = self.world.try_spawn_actor(
-            obstacles[0][0], carla.Transform(spawn_loc, obstacles[0][1].rotation),
+            obstacles[0][0],
+            carla.Transform(spawn_loc, obstacles[0][1].rotation),
         )
         self.walker.apply_control(carla.WalkerControl(carla.Vector3D(0, 0, 0), self.ped_speed))
         self.world.tick()
@@ -1089,7 +1121,9 @@ class World:
         ]
 
         path_1 = self._compute_plans(
-            offsets_1, base_loc, color=carla.Color(r=255, g=0, b=0) if self.debug else None,
+            offsets_1,
+            base_loc,
+            color=carla.Color(r=255, g=0, b=0) if self.debug else None,
         )
 
         self.path_controller_1 = PathController(self.world, self.walker, path_1, self.ped_speed)
@@ -1104,12 +1138,18 @@ class World:
         self.lean_forward = LeanForward(self.walker, self.turning_point)
         if self.dummy_car:
             self.car_controller = CarController(
-                self.player, braking_point=None, speed=8, yielding=False,
+                self.player,
+                braking_point=None,
+                speed=8,
+                yielding=False,
             )
 
         self.walker.initial_son = SON.YIELDING if conf.char == "yielding" else SON.FORCING
         self.iss_crossed = InternalStateSetter(
-            self.walker, path_1[0], icr=ICR.VERY_LOW, son=SON.AVERTING,
+            self.walker,
+            path_1[0],
+            icr=ICR.VERY_LOW,
+            son=SON.AVERTING,
         )
 
     def setup_06_non_int(
@@ -1130,7 +1170,8 @@ class World:
         # print(spawn_loc)
         # print(obstacles[0][1].location)
         self.walker = self.world.try_spawn_actor(
-            obstacles[0][0], carla.Transform(spawn_loc, obstacles[0][1].rotation),
+            obstacles[0][0],
+            carla.Transform(spawn_loc, obstacles[0][1].rotation),
         )
         self.walker.apply_control(carla.WalkerControl(carla.Vector3D(0, 0, 0), self.ped_speed))
         self.world.tick()
@@ -1142,7 +1183,9 @@ class World:
         ]
 
         path_1 = self._compute_plans(
-            offsets_1, base_loc, color=carla.Color(r=255, g=0, b=0) if self.debug else None,
+            offsets_1,
+            base_loc,
+            color=carla.Color(r=255, g=0, b=0) if self.debug else None,
         )
 
         self.path_controller_1 = PathController(self.world, self.walker, path_1, self.ped_speed)
@@ -1157,11 +1200,17 @@ class World:
 
         self.walker.initial_son = SON.YIELDING if conf.char == "yielding" else SON.FORCING
         self.iss_crossed = InternalStateSetter(
-            self.walker, path_1[0], icr=ICR.VERY_LOW, son=SON.AVERTING,
+            self.walker,
+            path_1[0],
+            icr=ICR.VERY_LOW,
+            son=SON.AVERTING,
         )
         if self.dummy_car:
             self.car_controller = CarController(
-                self.player, braking_point=None, speed=5, yielding=False,
+                self.player,
+                braking_point=None,
+                speed=5,
+                yielding=False,
             )
 
     def setup_03_non_int(
@@ -1180,7 +1229,8 @@ class World:
         # print(spawn_loc)
         # print(obstacles[0][1].location)
         self.walker = self.world.try_spawn_actor(
-            obstacles[0][0], carla.Transform(spawn_loc, obstacles[0][1].rotation),
+            obstacles[0][0],
+            carla.Transform(spawn_loc, obstacles[0][1].rotation),
         )
         self.walker.apply_control(carla.WalkerControl(carla.Vector3D(0, 0, 0), self.ped_speed))
         self.world.tick()
@@ -1191,7 +1241,9 @@ class World:
             (street_dist, +walking_distance + op_reenter_distance + 50),
         ]
         path_1 = self._compute_plans(
-            offsets_1, base_loc, color=carla.Color(r=255, g=0, b=0) if self.debug else None,
+            offsets_1,
+            base_loc,
+            color=carla.Color(r=255, g=0, b=0) if self.debug else None,
         )
 
         self.path_controller_1 = PathController(self.world, self.walker, path_1, self.ped_speed)
@@ -1203,11 +1255,17 @@ class World:
         # self.turning_point = self.get_p_from_vector( path_1[0], path_1[1], 0.05)
         self.walker.initial_son = SON.YIELDING if conf.char == "yielding" else SON.FORCING
         self.iss_crossed = InternalStateSetter(
-            self.walker, path_1[1], icr=ICR.VERY_LOW, son=SON.AVERTING,
+            self.walker,
+            path_1[1],
+            icr=ICR.VERY_LOW,
+            son=SON.AVERTING,
         )
         if self.dummy_car:
             self.car_controller = CarController(
-                self.player, braking_point=None, speed=4, yielding=False,
+                self.player,
+                braking_point=None,
+                speed=4,
+                yielding=False,
             )
 
     def setup_02_non_int(self, obstacles, conf):
@@ -1220,7 +1278,8 @@ class World:
         base_loc = obstacles[0][1].location + carla.Location(0, -spawning_distance, 0)
         spawn_loc = base_loc + carla.Location(-1, 0, 0)
         self.walker = self.world.try_spawn_actor(
-            obstacles[0][0], carla.Transform(spawn_loc, obstacles[0][1].rotation),
+            obstacles[0][0],
+            carla.Transform(spawn_loc, obstacles[0][1].rotation),
         )
         self.walker.apply_control(carla.WalkerControl(carla.Vector3D(0, 0, 0), self.ped_speed))
         self.world.tick()
@@ -1231,7 +1290,9 @@ class World:
             (street_dist, -walking_distance - op_reenter_distance - 5),
         ]
         path_1 = self._compute_plans(
-            offsets_1, base_loc, color=carla.Color(r=255, g=0, b=0) if self.debug else None,
+            offsets_1,
+            base_loc,
+            color=carla.Color(r=255, g=0, b=0) if self.debug else None,
         )
 
         self.path_controller_1 = PathController(self.world, self.walker, path_1, self.ped_speed)
@@ -1240,23 +1301,34 @@ class World:
 
         self.turning_point = self.get_p_from_vector(spawn_loc, path_1[0], looking_distance)
         self.look_behind_left = LookBehindLeftSpine(
-            self.walker, self.turning_point, char="forcing",
+            self.walker,
+            self.turning_point,
+            char="forcing",
         )
 
         self.turning_point = self.get_p_from_vector(path_1[0], path_1[1], 0.1)
         self.reset = ResetPose(self.walker, self.turning_point)
         self.going_to = InternalStateSetter(
-            self.walker, path_1[0], icr=ICR.GOING_TO, son=SON.FORCING,
+            self.walker,
+            path_1[0],
+            icr=ICR.GOING_TO,
+            son=SON.FORCING,
         )
 
         self.walker.initial_son = SON.YIELDING if conf.char == "yielding" else SON.FORCING
         self.iss_crossed = InternalStateSetter(
-            self.walker, path_1[1], icr=ICR.VERY_LOW, son=SON.AVERTING,
+            self.walker,
+            path_1[1],
+            icr=ICR.VERY_LOW,
+            son=SON.AVERTING,
         )
 
         if self.dummy_car:
             self.car_controller = CarController(
-                self.player, braking_point=None, speed=3, yielding=False,
+                self.player,
+                braking_point=None,
+                speed=3,
+                yielding=False,
             )
 
     def setup_01_non_int(self, obstacles, conf):
@@ -1269,7 +1341,8 @@ class World:
         base_loc = obstacles[0][1].location + carla.Location(0, -spawning_distance, 0)
         spawn_loc = base_loc + carla.Location(1, 0, 0)
         self.walker = self.world.try_spawn_actor(
-            obstacles[0][0], carla.Transform(spawn_loc, obstacles[0][1].rotation),
+            obstacles[0][0],
+            carla.Transform(spawn_loc, obstacles[0][1].rotation),
         )
         self.walker.apply_control(carla.WalkerControl(carla.Vector3D(0, 0, 0), self.ped_speed))
         self.world.tick()
@@ -1280,7 +1353,9 @@ class World:
             (street_dist, -walking_distance - op_reenter_distance - 5),
         ]
         path_1 = self._compute_plans(
-            offsets_1, base_loc, color=carla.Color(r=255, g=0, b=0) if self.debug else None,
+            offsets_1,
+            base_loc,
+            color=carla.Color(r=255, g=0, b=0) if self.debug else None,
         )
 
         self.path_controller_1 = PathController(self.world, self.walker, path_1, self.ped_speed)
@@ -1289,22 +1364,34 @@ class World:
 
         self.turning_point = self.get_p_from_vector(spawn_loc, path_1[0], looking_distance)
         self.look_behind_right = LookBehindRight(
-            self.walker, self.turning_point, char="forcing", scenario="01_non_int",
+            self.walker,
+            self.turning_point,
+            char="forcing",
+            scenario="01_non_int",
         )
         self.turning_point = self.get_p_from_vector(path_1[0], path_1[1], 0.1)
         self.reset = ResetPose(self.walker, self.turning_point)
         self.going_to = InternalStateSetter(
-            self.walker, path_1[0], icr=ICR.GOING_TO, son=SON.FORCING,
+            self.walker,
+            path_1[0],
+            icr=ICR.GOING_TO,
+            son=SON.FORCING,
         )
 
         self.walker.initial_son = SON.YIELDING if conf.char == "yielding" else SON.FORCING
         self.iss_crossed = InternalStateSetter(
-            self.walker, path_1[1], icr=ICR.VERY_LOW, son=SON.AVERTING,
+            self.walker,
+            path_1[1],
+            icr=ICR.VERY_LOW,
+            son=SON.AVERTING,
         )
 
         if self.dummy_car:
             self.car_controller = CarController(
-                self.player, braking_point=None, speed=3, yielding=False,
+                self.player,
+                braking_point=None,
+                speed=3,
+                yielding=False,
             )
 
     def setup_03_int(self, obstacles, conf):
@@ -1321,7 +1408,8 @@ class World:
         base_loc = obstacles[0][1].location + carla.Location(0, -spawning_distance, 0)
         spawn_loc = base_loc
         self.walker = self.world.try_spawn_actor(
-            obstacles[0][0], carla.Transform(spawn_loc, obstacles[0][1].rotation),
+            obstacles[0][0],
+            carla.Transform(spawn_loc, obstacles[0][1].rotation),
         )
         self.walker.apply_control(carla.WalkerControl(carla.Vector3D(0, 0, 0), self.ped_speed))
         self.world.tick()
@@ -1330,7 +1418,9 @@ class World:
         street_x = 95
         offsets_1 = [(street_x - spawn_loc.x, 0)]
         path_1 = self._compute_plans(
-            offsets_1, base_loc, color=carla.Color(r=255, g=0, b=0) if self.debug else None,
+            offsets_1,
+            base_loc,
+            color=carla.Color(r=255, g=0, b=0) if self.debug else None,
         )
         self.path_controller_1 = PathController(self.world, self.walker, path_1, self.ped_speed)
         if self.debug:
@@ -1338,10 +1428,15 @@ class World:
 
         offsets_2 = [(-21, 0)]
         self.path_2 = self._compute_plans(
-            offsets_2, base_loc, color=carla.Color(r=255, g=0, b=0) if self.debug else None,
+            offsets_2,
+            base_loc,
+            color=carla.Color(r=255, g=0, b=0) if self.debug else None,
         )
         self.path_controller_2 = PathController(
-            self.world, self.walker, self.path_2, self.ped_speed,
+            self.world,
+            self.walker,
+            self.path_2,
+            self.ped_speed,
         )
         if conf.char == "forcing":
             self.desc_p = self.get_p_from_vector(spawn_loc, path_1[0], 0.88)
@@ -1367,12 +1462,13 @@ class World:
             char=conf.char,
         )
         self.relaxer = Relaxer(self.walker, self.player, self.flip_p)
-        self.speed_schedule_stop = [
-            (self.get_p_from_vector(spawn_loc, path_1[0], per), 0.85) for per in [0.87, 0.92]
-        ]
+        self.speed_schedule_stop = [(self.get_p_from_vector(spawn_loc, path_1[0], per), 0.85) for per in [0.87, 0.92]]
         self.walker.initial_son = SON.YIELDING if conf.char == "yielding" else SON.FORCING
         self.iss_crossed = InternalStateSetter(
-            self.walker, self.path_2[0], icr=ICR.VERY_LOW, son=SON.AVERTING,
+            self.walker,
+            self.path_2[0],
+            icr=ICR.VERY_LOW,
+            son=SON.AVERTING,
         )
 
         player_loc = self.player.get_location()
@@ -1405,7 +1501,8 @@ class World:
         base_loc = obstacles[0][1].location + carla.Location(0, -spawning_distance, 0)
         spawn_loc = base_loc
         self.walker = self.world.try_spawn_actor(
-            obstacles[0][0], carla.Transform(spawn_loc, obstacles[0][1].rotation),
+            obstacles[0][0],
+            carla.Transform(spawn_loc, obstacles[0][1].rotation),
         )
         self.walker.apply_control(carla.WalkerControl(carla.Vector3D(0, 0, 0), self.ped_speed))
         self.world.tick()
@@ -1414,7 +1511,9 @@ class World:
 
         offsets_1 = [(0, walking_distance), (street_delta, walking_distance + crossing_distance)]
         path_1 = self._compute_plans(
-            offsets_1, base_loc, color=carla.Color(r=255, g=0, b=0) if self.debug else None,
+            offsets_1,
+            base_loc,
+            color=carla.Color(r=255, g=0, b=0) if self.debug else None,
         )
         self.path_controller_1 = PathController(self.world, self.walker, path_1, self.ped_speed)
 
@@ -1424,10 +1523,15 @@ class World:
             (10.5, walking_distance + crossing_distance + op_reenter_distance + 10),
         ]
         self.path_2 = self._compute_plans(
-            offsets_2, base_loc, color=carla.Color(r=0, g=255, b=0) if self.debug else None,
+            offsets_2,
+            base_loc,
+            color=carla.Color(r=0, g=255, b=0) if self.debug else None,
         )
         self.path_controller_2 = PathController(
-            self.world, self.walker, self.path_2, self.ped_speed,
+            self.world,
+            self.walker,
+            self.path_2,
+            self.ped_speed,
         )
 
         turn_p = self.get_point((0, looking_distance * walking_distance))
@@ -1439,9 +1543,7 @@ class World:
         vec = path_1[1] - path_1[0]
         self.desc_p = path_1[0] + 0.9 * vec
 
-        self.path_controller_1.speed_schedule = [
-            (path_1[0] + per * vec, 0.93) for per in [0.0, 0.2, 0.4]
-        ]
+        self.path_controller_1.speed_schedule = [(path_1[0] + per * vec, 0.93) for per in [0.0, 0.2, 0.4]]
 
         vec_2 = self.path_2[0] - path_1[1]
         self.speed_schedule_stop = [(path_1[1] + per * vec_2, 1.355) for per in [0.0, 0.05, 0.075]]
@@ -1457,7 +1559,10 @@ class World:
         self.relaxer = Relaxer(self.walker, self.player, path_1[0] + 0.2 * vec)
         self.walker.initial_son = SON.YIELDING if conf.char == "yielding" else SON.FORCING
         self.iss_crossed = InternalStateSetter(
-            self.walker, self.path_2[0], icr=ICR.VERY_LOW, son=SON.AVERTING,
+            self.walker,
+            self.path_2[0],
+            icr=ICR.VERY_LOW,
+            son=SON.AVERTING,
         )
 
         player_loc = self.player.get_location()
@@ -1493,14 +1598,17 @@ class World:
         base_loc = obstacles[0][1].location + carla.Location(0, -spawning_distance, 0)
         spawn_loc = base_loc  # + carla.Location(-5,0,0)
         self.walker = self.world.try_spawn_actor(
-            obstacles[0][0], carla.Transform(spawn_loc, obstacles[0][1].rotation),
+            obstacles[0][0],
+            carla.Transform(spawn_loc, obstacles[0][1].rotation),
         )
         self.walker.apply_control(carla.WalkerControl(carla.Vector3D(0, 0, 0), self.ped_speed))
         self.world.tick()
 
         offsets_1 = [(0, walking_distance), (street_delta, walking_distance + crossing_distance)]
         path_1 = self._compute_plans(
-            offsets_1, base_loc, color=carla.Color(r=255, g=0, b=0) if self.debug else None,
+            offsets_1,
+            base_loc,
+            color=carla.Color(r=255, g=0, b=0) if self.debug else None,
         )
         self.path_controller_1 = PathController(self.world, self.walker, path_1, self.ped_speed)
 
@@ -1510,16 +1618,23 @@ class World:
             (10.5, walking_distance + crossing_distance + op_reenter_distance + 20),
         ]
         self.path_2 = self._compute_plans(
-            offsets_2, base_loc, color=carla.Color(r=0, g=255, b=0) if self.debug else None,
+            offsets_2,
+            base_loc,
+            color=carla.Color(r=0, g=255, b=0) if self.debug else None,
         )
         self.path_controller_2 = PathController(
-            self.world, self.walker, self.path_2, self.ped_speed * mult,
+            self.world,
+            self.walker,
+            self.path_2,
+            self.ped_speed * mult,
         )
 
         reenter = walking_distance + crossing_distance + reenter_distance
         offsets_3 = [(0, reenter), (0, reenter + 5)]
         path_3 = self._compute_plans(
-            offsets_3, base_loc, color=carla.Color(r=0, g=0, b=255) if self.debug else None,
+            offsets_3,
+            base_loc,
+            color=carla.Color(r=0, g=0, b=255) if self.debug else None,
         )
         self.path_controller_3 = PathController(self.world, self.walker, path_3, self.ped_speed)
 
@@ -1534,14 +1649,15 @@ class World:
         self.desc_p = path_1[0] + 0.95 * vec
         # self.db = [2,10]
         if conf.char == "forcing":
-            self.path_controller_1.speed_schedule = [
-                (path_1[0] + per * vec, 1.1) for per in [0.0, 0.2, 0.4]
-            ]
+            self.path_controller_1.speed_schedule = [(path_1[0] + per * vec, 1.1) for per in [0.0, 0.2, 0.4]]
 
         # self._draw_db_circle()
         if self.debug:
             self.world.debug.draw_point(
-                path_1[0] + 0.2 * vec, size=0.1, color=carla.Color(r=0, g=255, b=255), life_time=0,
+                path_1[0] + 0.2 * vec,
+                size=0.1,
+                color=carla.Color(r=0, g=255, b=255),
+                life_time=0,
             )
             self._draw_grid()
             self._draw_db()
@@ -1549,7 +1665,10 @@ class World:
 
         self.walker.initial_son = SON.YIELDING if conf.char == "yielding" else SON.FORCING
         self.iss_crossed = InternalStateSetter(
-            self.walker, self.path_2[0], icr=ICR.VERY_LOW, son=SON.AVERTING,
+            self.walker,
+            self.path_2[0],
+            icr=ICR.VERY_LOW,
+            son=SON.AVERTING,
         )
 
         player_loc = self.player.get_location()
@@ -1588,7 +1707,8 @@ class World:
         base_loc = obstacles[0][1].location + carla.Location(0, -spawning_distance, 0)
         spawn_loc = base_loc  # + carla.Location(-5,0,0)
         self.walker = self.world.try_spawn_actor(
-            obstacles[0][0], carla.Transform(spawn_loc, obstacles[0][1].rotation),
+            obstacles[0][0],
+            carla.Transform(spawn_loc, obstacles[0][1].rotation),
         )
         self.walker.apply_control(carla.WalkerControl(carla.Vector3D(0, 0, 0), self.ped_speed))
         self.world.tick()
@@ -1596,17 +1716,24 @@ class World:
         # The first path: To the edge of the curb
         offsets_1 = [(0, walking_distance), (1, walking_distance + crossing_distanceY)]
         path_1 = self._compute_plans(
-            offsets_1, base_loc, color=carla.Color(r=255, g=100, b=0) if self.debug else None,
+            offsets_1,
+            base_loc,
+            color=carla.Color(r=255, g=100, b=0) if self.debug else None,
         )
         self.path_controller_1 = PathController(self.world, self.walker, path_1, self.ped_speed)
 
         # The second path: Crossing the street to red marker
         offsets_2 = [(crossing_distanceX, walking_distance + crossing_distanceY)]
         self.path_2 = self._compute_plans(
-            offsets_2, base_loc, color=carla.Color(r=255, g=0, b=0) if self.debug else None,
+            offsets_2,
+            base_loc,
+            color=carla.Color(r=255, g=0, b=0) if self.debug else None,
         )
         self.path_controller_2 = PathController(
-            self.world, self.walker, self.path_2, self.ped_speed * mult,
+            self.world,
+            self.walker,
+            self.path_2,
+            self.ped_speed * mult,
         )
 
         # The third path: fully crossing the street to the other side
@@ -1615,7 +1742,9 @@ class World:
             (12, walking_distance + crossing_distanceY + 5),
         ]
         path_3 = self._compute_plans(
-            offsets_3, base_loc, color=carla.Color(r=0, g=0, b=255) if self.debug else None,
+            offsets_3,
+            base_loc,
+            color=carla.Color(r=0, g=0, b=255) if self.debug else None,
         )
         self.path_controller_3 = PathController(self.world, self.walker, path_3, self.ped_speed)
 
@@ -1627,7 +1756,9 @@ class World:
             ),
         ]
         path_4 = self._compute_plans(
-            offsets_4, base_loc, color=carla.Color(r=255, g=100, b=0) if self.debug else None,
+            offsets_4,
+            base_loc,
+            color=carla.Color(r=255, g=100, b=0) if self.debug else None,
         )
         self.path_controller_4 = PathController(self.world, self.walker, path_4, self.ped_speed)
 
@@ -1660,10 +1791,14 @@ class World:
         # self._draw_db_circle()
         if self.debug:
             self.world.debug.draw_point(
-                reset_ld1_p, color=carla.Color(r=0, g=255, b=255), life_time=0,
+                reset_ld1_p,
+                color=carla.Color(r=0, g=255, b=255),
+                life_time=0,
             )
             self.world.debug.draw_point(
-                second_turn_p, color=carla.Color(r=0, g=255, b=255), life_time=0,
+                second_turn_p,
+                color=carla.Color(r=0, g=255, b=255),
+                life_time=0,
             )
             # self.world.debug.draw_point(path_1[0] + 0.2 * vec, size=0.1, color=carla.Color(r=0, g=255, b=255),
             #                             life_time=0)
@@ -1673,14 +1808,23 @@ class World:
 
         self.walker.initial_son = SON.YIELDING if conf.char == "yielding" else SON.FORCING
         self.iss_crossed = InternalStateSetter(
-            self.walker, path_3[0], icr=ICR.VERY_LOW, son=SON.AVERTING,
+            self.walker,
+            path_3[0],
+            icr=ICR.VERY_LOW,
+            son=SON.AVERTING,
         )
         self.starts_crossing = InternalStateSetter(
-            self.walker, path_1[-1], icr=ICR.GOING_TO, son=self.walker.initial_son,
+            self.walker,
+            path_1[-1],
+            icr=ICR.GOING_TO,
+            son=self.walker.initial_son,
         )
         self.lean_forward = LeanForward(self.walker, path_1[-1])
         self.curd_stat = InternalStateSetter(
-            self.walker, path_1[0], icr=ICR.PLANNING_TO, son=self.walker.initial_son,
+            self.walker,
+            path_1[0],
+            icr=ICR.PLANNING_TO,
+            son=self.walker.initial_son,
         )
 
         player_loc = self.player.get_location()
@@ -1719,7 +1863,8 @@ class World:
         base_loc = obstacles[0][1].location + carla.Location(0, -spawning_distance, 0)
         spawn_loc = base_loc  # + carla.Location(-5,0,0)
         self.walker = self.world.try_spawn_actor(
-            obstacles[0][0], carla.Transform(spawn_loc, obstacles[0][1].rotation),
+            obstacles[0][0],
+            carla.Transform(spawn_loc, obstacles[0][1].rotation),
         )
         self.walker.apply_control(carla.WalkerControl(carla.Vector3D(0, 0, 0), self.ped_speed))
         self.world.tick()
@@ -1727,17 +1872,24 @@ class World:
         # Walk to the curb
         offsets_1 = [(walking_distance_X, -walking_distance_Y)]
         path_1 = self._compute_plans(
-            offsets_1, base_loc, color=carla.Color(r=255, g=100, b=0) if self.debug else None,
+            offsets_1,
+            base_loc,
+            color=carla.Color(r=255, g=100, b=0) if self.debug else None,
         )
         self.path_controller_1 = PathController(self.world, self.walker, path_1, self.ped_speed)
 
         # Walk to the middle of the road
         offsets_2 = [(walking_distance_X + crossing_distance, -walking_distance_Y)]
         self.path_2 = self._compute_plans(
-            offsets_2, base_loc, color=carla.Color(r=255, g=0, b=0) if self.debug else None,
+            offsets_2,
+            base_loc,
+            color=carla.Color(r=255, g=0, b=0) if self.debug else None,
         )
         self.path_controller_2 = PathController(
-            self.world, self.walker, self.path_2, self.ped_speed * mult,
+            self.world,
+            self.walker,
+            self.path_2,
+            self.ped_speed * mult,
         )
 
         delta = crossing_distance / (uncertain_steps + 1)
@@ -1759,7 +1911,9 @@ class World:
         # Continue Crossing Road
         offsets_3 = [(12, -walking_distance_Y), (12, 0)]
         path_3 = self._compute_plans(
-            offsets_3, base_loc, color=carla.Color(r=0, g=0, b=255) if self.debug else None,
+            offsets_3,
+            base_loc,
+            color=carla.Color(r=0, g=0, b=255) if self.debug else None,
         )
         self.path_controller_3 = PathController(self.world, self.walker, path_3, self.ped_speed)
 
@@ -1799,7 +1953,10 @@ class World:
 
         self.walker.initial_son = SON.YIELDING if conf.char == "yielding" else SON.FORCING
         self.iss_crossed = InternalStateSetter(
-            self.walker, path_3[0], icr=ICR.VERY_LOW, son=SON.AVERTING,
+            self.walker,
+            path_3[0],
+            icr=ICR.VERY_LOW,
+            son=SON.AVERTING,
         )
 
         player_loc = self.player.get_location()
@@ -1843,7 +2000,8 @@ class World:
         base_loc = obstacles[0][1].location + carla.Location(0, -spawning_distance, 0)
         spawn_loc = base_loc  # + carla.Location(-5,0,0)
         self.walker = self.world.try_spawn_actor(
-            obstacles[0][0], carla.Transform(spawn_loc, obstacles[0][1].rotation),
+            obstacles[0][0],
+            carla.Transform(spawn_loc, obstacles[0][1].rotation),
         )
         self.walker.apply_control(carla.WalkerControl(carla.Vector3D(0, 0, 0), self.ped_speed))
         self.world.tick()
@@ -1851,17 +2009,24 @@ class World:
         # Walk to the middel of the road
         offsets_1 = [(crossing_distance, 0)]
         path_1 = self._compute_plans(
-            offsets_1, base_loc, color=carla.Color(r=255, g=0, b=0) if self.debug else None,
+            offsets_1,
+            base_loc,
+            color=carla.Color(r=255, g=0, b=0) if self.debug else None,
         )
         self.path_controller_1 = PathController(self.world, self.walker, path_1, self.ped_speed)
 
         # Walk to the other side of the road
         offsets_2 = [(12, 0), (12, 20)]
         self.path_2 = self._compute_plans(
-            offsets_2, base_loc, color=carla.Color(r=0, g=255, b=0) if self.debug else None,
+            offsets_2,
+            base_loc,
+            color=carla.Color(r=0, g=255, b=0) if self.debug else None,
         )
         self.path_controller_2 = PathController(
-            self.world, self.walker, self.path_2, self.ped_speed * mult,
+            self.world,
+            self.walker,
+            self.path_2,
+            self.ped_speed * mult,
         )
 
         # Avoid the car
@@ -1871,10 +2036,15 @@ class World:
             (12, -car_avoid_Y + 20),
         ]
         self.path_3 = self._compute_plans(
-            offsets_3, base_loc, color=carla.Color(r=0, g=0, b=255) if self.debug else None,
+            offsets_3,
+            base_loc,
+            color=carla.Color(r=0, g=0, b=255) if self.debug else None,
         )
         self.path_controller_3 = PathController(
-            self.world, self.walker, self.path_3, self.ped_speed,
+            self.world,
+            self.walker,
+            self.path_3,
+            self.ped_speed,
         )
 
         turn_p = self.get_point((0, 0))
@@ -1896,13 +2066,11 @@ class World:
         # self.db = [2,10]
         if conf.char == "forcing":
             self.path_controller_2.speed_schedule = [
-                (path_1[0] + per * path_1[0] - carla.Location(1, 0, 0), 10.9)
-                for per in [0.0, 0.2, 0.4]
+                (path_1[0] + per * path_1[0] - carla.Location(1, 0, 0), 10.9) for per in [0.0, 0.2, 0.4]
             ]
         if conf.char == ("yielding"):
             self.path_controller_1.speed_schedule = [
-                (path_1[0] - per * path_1[0] - carla.Location(1, 0, 0), 0.8)
-                for per in [0.0, 0.2, 0.4]
+                (path_1[0] - per * path_1[0] - carla.Location(1, 0, 0), 0.8) for per in [0.0, 0.2, 0.4]
             ]
         # self._draw_db_circle()
         if self.debug:
@@ -1914,10 +2082,16 @@ class World:
 
         self.walker.initial_son = SON.YIELDING if conf.char == "yielding" else SON.FORCING
         self.iss_crossed = InternalStateSetter(
-            self.walker, self.path_3[1], icr=ICR.VERY_LOW, son=SON.AVERTING,
+            self.walker,
+            self.path_3[1],
+            icr=ICR.VERY_LOW,
+            son=SON.AVERTING,
         )
         self.iss_crossed_2 = InternalStateSetter(
-            self.walker, self.path_2[0], icr=ICR.VERY_LOW, son=SON.AVERTING,
+            self.walker,
+            self.path_2[0],
+            icr=ICR.VERY_LOW,
+            son=SON.AVERTING,
         )
 
         player_loc = self.player.get_location()
@@ -1983,7 +2157,10 @@ class World:
             color=carla.Color(255, 255, 255),
         )
         self.world.debug.draw_line(
-            car_loc, car_loc + 2 * car_vel, thickness=0.05, color=carla.Color(255, 255, 255),
+            car_loc,
+            car_loc + 2 * car_vel,
+            thickness=0.05,
+            color=carla.Color(255, 255, 255),
         )
 
     def _draw_db_circle(self):
@@ -2002,7 +2179,10 @@ class World:
         offsets_2 = [(15, 12)]
         self.path_2 = self._compute_plans(offsets=offsets_2, color=carla.Color(r=0, g=255, b=0))
         self.path_controller_2 = PathController(
-            self.world, self.walker, self.path_2, self.ped_speed,
+            self.world,
+            self.walker,
+            self.path_2,
+            self.ped_speed,
         )
 
         offsets_3 = [(1.5, 15), (0, 25)]
@@ -2019,10 +2199,16 @@ class World:
         self.db = [3, 15]
         self._draw_db()
         self.world.debug.draw_point(
-            self.desc_p, size=0.1, color=carla.Color(r=0, g=255, b=255), life_time=0,
+            self.desc_p,
+            size=0.1,
+            color=carla.Color(r=0, g=255, b=255),
+            life_time=0,
         )
         self.world.debug.draw_point(
-            turn_p, size=0.1, color=carla.Color(r=0, g=255, b=255), life_time=0,
+            turn_p,
+            size=0.1,
+            color=carla.Color(r=0, g=255, b=255),
+            life_time=0,
         )
         self.choice = None
 
@@ -2100,3 +2286,7 @@ class World:
             if self.parked_cars is not None:
                 for car in self.parked_cars:
                     car.destroy()
+
+        # Destroy POV camera if it exists
+        if hasattr(self, "pov_camera") and self.pov_camera is not None:
+            self.pov_camera.destroy()
