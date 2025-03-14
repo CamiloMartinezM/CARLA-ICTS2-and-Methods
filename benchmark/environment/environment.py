@@ -37,7 +37,10 @@ class GIDASBenchmark(gym.Env):
         height = int(Config.segcam_image_x)
         width = int(Config.segcam_image_y)
         self.observation_space = gym.spaces.Box(
-            low=0, high=255, shape=(height, width, 3), dtype=np.uint8,
+            low=0,
+            high=255,
+            shape=(height, width, 3),
+            dtype=np.uint8,
         )
         self.fig = plt.figure()
         pygame.init()
@@ -62,7 +65,8 @@ class GIDASBenchmark(gym.Env):
         hud = HUD(Config.width, Config.height)
         with open("./assets/Town01_my.xodr") as odr:
             self.world = self.client.generate_opendrive_world(
-                odr.read(), carla.OpendriveGenerationParameters(2.0, 50.0, 0.0, 200.0, False, True),
+                odr.read(),
+                carla.OpendriveGenerationParameters(2.0, 50.0, 0.0, 200.0, False, True),
             )
 
         # self.client.load_world('Town01_Opt', carla.MapLayer.Buildings)
@@ -168,10 +172,14 @@ class GIDASBenchmark(gym.Env):
             else:
                 # Used for backwards compatibility
                 for speed in np.arange(
-                    Config.ped_speed_range[0], Config.ped_speed_range[1] + 0.1, 0.1,
+                    Config.ped_speed_range[0],
+                    Config.ped_speed_range[1] + 0.1,
+                    0.1,
                 ):
                     for distance in np.arange(
-                        Config.ped_distance_range[0], Config.ped_distance_range[1] + 1, 1,
+                        Config.ped_distance_range[0],
+                        Config.ped_distance_range[1] + 1,
+                        1,
                     ):
                         conf = ControllerConfig(speed, distance)
                         self.episodes.append((scenario, conf))
@@ -188,18 +196,26 @@ class GIDASBenchmark(gym.Env):
     def _get_special_scenes(self):
         for scenario in Config.val_scenarios:
             for speed in np.arange(
-                Config.val_ped_speed_range[0][0], Config.val_ped_speed_range[0][1] + 0.1, 0.1,
+                Config.val_ped_speed_range[0][0],
+                Config.val_ped_speed_range[0][1] + 0.1,
+                0.1,
             ):
                 for distance in np.arange(
-                    Config.val_ped_distance_range[0], Config.ped_distance_range[1] + 1, 1,
+                    Config.val_ped_distance_range[0],
+                    Config.ped_distance_range[1] + 1,
+                    1,
                 ):
                     self.episodes.append((scenario, speed, distance))
                     # TODO has to be adapted for new config interface
             for speed in np.arange(
-                Config.val_ped_speed_range[1][0], Config.val_ped_speed_range[1][1] + 0.1, 0.1,
+                Config.val_ped_speed_range[1][0],
+                Config.val_ped_speed_range[1][1] + 0.1,
+                0.1,
             ):
                 for distance in np.arange(
-                    Config.val_ped_distance_range[0], Config.ped_distance_range[1] + 1, 1,
+                    Config.val_ped_distance_range[0],
+                    Config.ped_distance_range[1] + 1,
+                    1,
                 ):
                     self.episodes.append((scenario, speed, distance))
         # episodes = [(scenario, 1.3, 40.0), (scenario, 1.5, 40.0), (scenario, 1.7, 36.0), (scenario, 2.0, 32.0),
@@ -354,6 +370,25 @@ class GIDASBenchmark(gym.Env):
 
         return x, y, icr, son
 
+    def extract_dbn_step(self, prev_data=None):
+        """
+        Extract all observables needed for the DBN in CI3P model.
+
+        Args:
+            prev_data: Previous frame data for calculating derivatives
+
+        Returns:
+            Dictionary with all observables for the current timestep
+        """
+        self.world.tick(self.clock)
+        if Config.synchronous:
+            frame_num = self.client.get_world().tick()
+
+        # Calculate all observables
+        data = self.world.calculate_derived_observables(prev_data)
+
+        return data
+
     def extract_car_pos(self):
         self.world.tick(self.clock)
         if Config.synchronous:
@@ -469,7 +504,8 @@ class GIDASBenchmark(gym.Env):
     def render(self, mode="human"):
         if self.display is None:
             self.display = pygame.display.set_mode(
-                (Config.width, Config.height), pygame.HWSURFACE | pygame.DOUBLEBUF,
+                (Config.width, Config.height),
+                pygame.HWSURFACE | pygame.DOUBLEBUF,
             )
             self.display.fill((0, 0, 0))
             pygame.display.flip()
@@ -511,10 +547,14 @@ class GIDASBenchmark(gym.Env):
                     episodes.append((scenario, speed, 0))
             else:
                 for speed in np.arange(
-                    Config.test_ped_speed_range[0], Config.test_ped_speed_range[1] + 0.1, 0.1,
+                    Config.test_ped_speed_range[0],
+                    Config.test_ped_speed_range[1] + 0.1,
+                    0.1,
                 ):
                     for distance in np.arange(
-                        Config.test_ped_distance_range[0], Config.test_ped_distance_range[1] + 1, 1,
+                        Config.test_ped_distance_range[0],
+                        Config.test_ped_distance_range[1] + 1,
+                        1,
                     ):
                         episodes.append((scenario, speed, distance))
         self.episodes = episodes[current_episode:]

@@ -10,6 +10,13 @@ import numpy as np
 
 from benchmark.environment import GIDASBenchmark
 from config import Config
+from utils.printing import display_iteration_data, display_simulation_data
+
+
+def enum_to_str(enum_val):
+    if enum_val is None:
+        return "None"
+    return enum_val.name if hasattr(enum_val, "name") else str(enum_val)
 
 
 def run(args):
@@ -44,15 +51,38 @@ def run(args):
         # file = f"./P3VI/data/ICTS2_non_int_{datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.npy"
 
         print(file)
+
         # Create environments.
         env = GIDASBenchmark(port=Config.port)
+
         # agent = SAC(env.world, env.map, env.scene)
         # env.reset_agent(agent)
         # test_env = GIDASBenchmark(port=Config.port + 100, setting="special")
         env.world.random = False
         env.world.dummy_car = True
-
         env.extract = True
+
+        all_episodes_data = []
+        dbn_variables = [
+            "SN_car",
+            "SN_ped",
+            "ICR_car",
+            "ICR_ped",
+            "SSEC",
+            "A_car",
+            "WS_car",
+            "CBO_car",
+            "ACC_car",
+            "S_car",
+            "D",
+            "HO_ped",
+            "BO_ped",
+            "HIO_ped",
+            "A_ped",
+            "ACC_ped",
+            "S_ped",
+        ]
+
         data = []
         data_car = []
         start_time = time.time()
@@ -69,11 +99,18 @@ def run(args):
 
             ep_data = []
             ep_data_car = []
+            prev_data = None
 
             while episode_length < Config.max_episode_length:
-                x, y, icr, son = env.extract_step()
-                ep_data.append((x, y, icr, son))
-                print(episode_length, f"x = {x}, y = {y}, icr = {icr}, son = {son}")
+                # x, y, icr, son = env.extract_step()
+                # ep_data.append((x, y, icr, son))
+                # print(episode_length, f"x = {x}, y = {y}, icr = {icr}, son = {son}")
+
+                data = env.extract_dbn_step(prev_data)
+                ep_data.append(data)
+                prev_data = data
+
+                display_iteration_data(data, episode_length)
 
                 # * Include radius of 50 m of perception
                 # * Videos (BEV and POV from car and pedestrian) of interactive scenario
@@ -98,7 +135,7 @@ def run(args):
                 # Sense of Security (SSEC) Very high, High, Medium, Low, Very low
                 # * Calculate this with ICR_ped in reverse
                 # Intention to claim the road for car (ICRcar)
-                
+
                 x_c, y_c = env.extract_car_pos()
                 ep_data_car.append((x_c, y_c))
                 episode_length += 1
@@ -148,12 +185,7 @@ def run_server():
         p = subprocess.run([cmd], shell=True, check=False)
     else:
         # command = "unset SDL_VIDEODRIVER && ./CarlaUE4.sh  -quality-level="+ Config.qw  +" your arguments" + port # -quality-level=Low
-        command = (
-            "unset SDL_VIDEODRIVER && ./CarlaUE4.sh  -quality-level="
-            + Config.qw
-            + " -quality-level=Low "
-            + port
-        )
+        command = "unset SDL_VIDEODRIVER && ./CarlaUE4.sh  -quality-level=" + Config.qw + " -quality-level=Low " + port
         p = subprocess.run(["cd " + carla_p + " && " + command], shell=True, check=False)
 
     return p
@@ -164,10 +196,7 @@ def run_test_server():
     port = f"-carla-port={Config.port + 100}"
     carla_p = "your path to carla"
     command = (
-        "unset SDL_VIDEODRIVER && ./CarlaUE4.sh  -quality-level="
-        + Config.qw
-        + " your arguments"
-        + port
+        "unset SDL_VIDEODRIVER && ./CarlaUE4.sh  -quality-level=" + Config.qw + " your arguments" + port
     )  # -quality-level=Low
     p = subprocess.run(["cd " + carla_p + " && " + command], shell=True, check=False)
     return p
@@ -176,7 +205,9 @@ def run_test_server():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--config", type=str, default=os.path.join("SAC/sac_discrete/config", "sacd.yaml"),
+        "--config",
+        type=str,
+        default=os.path.join("SAC/sac_discrete/config", "sacd.yaml"),
     )
     parser.add_argument("--shared", action="store_true")
     parser.add_argument("--env_id", type=str, default="GIDASBenchmark")
