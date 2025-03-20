@@ -533,7 +533,8 @@ class LeanForward:
         new_pose = []
         for bone in bones.bone_transforms:
             if bone.name == "crl_spine__C":  # Added new
-                bone.relative.rotation.roll += 70  # self.spine_roll
+                # TODO: Based on this angle, do Hip Orientation (HIO)
+                bone.relative.rotation.roll += 70  # self.spine_roll 
                 new_pose.append((bone.name, bone.relative))
             else:
                 pass

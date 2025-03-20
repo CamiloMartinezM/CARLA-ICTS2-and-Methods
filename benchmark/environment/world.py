@@ -987,6 +987,10 @@ class World:
         speed = (vel.x**2 + vel.y**2) ** 0.5
 
         # Precise head orientation based on active controllers
+        # Head Orientation (HO) = {Facing, Averting, Ignoring}
+        # [x] TODO: Introduce "Averting"
+        # * Avert: Faced in the past and moved head away from it 
+        # * Ignoring: Not faced in the past and not looking at it
         ho_ped = "Ignoring"  # Default
         if (
             hasattr(self, "look_behind_right")
@@ -999,7 +1003,7 @@ class World:
         ):
             ho_ped = "Facing"
         elif hasattr(self, "turn_head") and hasattr(self.turn_head, "done") and self.turn_head.done:
-            ho_ped = "Facing"
+            ho_ped = "Facing" # TODO: Check this
 
         # Calculate relative to car
         walker_rotation = self.walker.get_transform().rotation.yaw
@@ -1016,6 +1020,8 @@ class World:
             bo_ped = "Ignoring"  # Default
 
         # Hip orientation based on specific animation controllers
+        # Hip Orientation (HIO) = {Neutral, Slightly leaning forward, Leaning forward}
+        # TODO: Find the other states
         hio_ped = "Neutral"  # Default
         if hasattr(self, "lean_forward") and hasattr(self.lean_forward, "done") and self.lean_forward.done:
             hio_ped = "Leaning forward"
@@ -1102,43 +1108,85 @@ class World:
             if hasattr(control, "steer"):
                 steering_value = abs(control.steer)
 
-        # Car's strategy of negotiation - directly from car_controller if available
-        # TODO: Introduce "Avoiding", as Strategy of Negotiation (SN) = {Avoiding, Yielding, Forcing}
-        if hasattr(self, "car_controller") and hasattr(self.car_controller, "choice"):
-            sn_car = "Yielding" if self.car_controller.choice else "Forcing"
+        # Calculate distance to pedestrian
+        distance = l2_distance(loc, self.walker.get_location())
+
+        # Calculate SN_car (Strategy of Negotiation)
+        # Using De Dreu et al. model:
+        # - Avoiding: Low concern for self, low concern for other
+        # - Yielding: Low concern for self, high concern for other
+        # - Forcing: High concern for self, low concern for other
+
+        # First check if car_controller has a direct setting
+        if hasattr(self, "car_controller") and hasattr(self.car_controller, "choice") and self.car_controller.choice:
+            sn_car = "Yielding"  # Explicitly yielding
         else:
-            # Infer based on behavior
-            if speed < 2.0 and hasattr(self.player, "get_acceleration"):
-                accel = self.player.get_acceleration()
-                accel_magnitude = (accel.x**2 + accel.y**2) ** 0.5
-                sn_car = "Yielding" if accel_magnitude < 0 else "Forcing"
-            else:
-                sn_car = "Forcing" if speed > 6.0 else "Yielding"
+            # If no explicit setting, infer from behavior
+
+            # Avoiding: significant lateral movement/steering
+            if (lateral_movement or steering_value > 0.3):
+                sn_car = "Avoiding"
+            # Yielding: decelerating or slow speed near pedestrian
+            elif is_decelerating: # TODO: Check if only is_decelerating is enough
+                sn_car = "Yielding"
+            # Forcing: accelerating or high speed  
+            elif is_accelerating:
+                sn_car = "Forcing"
+            
+            # Correct for distance
+            # When far away, high speed doesn't necessarily mean forcing
+            # NOTE: Remove this, independant of distance
+            if distance > 15:
+                sn_car = "Avoiding"
+
+        if hasattr(self, "car_controller") and hasattr(self.car_controller, "speed"):
+            # TODO: Check if this is always equal to my calculated speed
+            # If it's not, it could be that this target speed is set first in order for the current speed to accelerate
+            # or decelerate to it (which would imply 'forcing' behaviour if accelerating)
+            target_speed = self.car_controller.speed 
+        else:
+            target_speed = speed 
 
         # Car's intention to claim the road (map from car_controller.py speed and yielding)
-        if hasattr(self, "car_controller") and hasattr(self.car_controller, "speed"):
-            target_speed = self.car_controller.speed
-            if target_speed < 1.0 or (self.car_controller.choice and speed < 1.0):
-                icr_car = "Very low"
-            elif target_speed < 3.0 or (self.car_controller.choice and speed < 3.0):
-                icr_car = "Low"
-            elif target_speed < 6.0:
-                icr_car = "Interested"
-            elif target_speed < 9.0:
-                icr_car = "Planning to"
-            else:
-                icr_car = "Going to"
+        # Intention to claim th road for car (ICR_car) = {Very low, Low, Interested, Planning to, Going to}
+
+        # First version: SIMPLE
+        # TODO: Check if speed-based is enough
+        # * Decelerating AND Yielding = Very low
+        if target_speed < 1.0 or (self.car_controller.choice): # Or it's YIELDING
+            icr_car = "Very low"
+        elif target_speed < 3.0 or (self.car_controller.choice): # Or it's YIELDING
+            icr_car = "Low"
+        elif target_speed < 6.0: 
+            icr_car = "Interested"
+        elif target_speed < 9.0: 
+            icr_car = "Planning to"
         else:
-            # Fallback to speed-based estimation
+            icr_car = "Going to"
+
+        # Second version: MORE COMPLEX (taking into account SN)
+            
+        # Adjust based on speed and acceleration
+        if sn_car == "Avoiding":
+            # TODO: Check this, because if it avoids the pedestrian by steering but not by speed, 
+            # then the car is actually claiming the road
             if speed < 1.0:
+                icr_car = "Very low"
+            else:
+                icr_car = "Low"
+        elif sn_car == "Yielding":
+            if speed < 1.0 or is_decelerating:
                 icr_car = "Very low"
             elif speed < 3.0:
                 icr_car = "Low"
-            elif speed < 6.0:
-                icr_car = "Interested"
-            elif speed < 9.0:
-                icr_car = "Planning to"
             else:
+                icr_car = "Interested"
+        else:  # Forcing
+            if speed < 3.0:
+                icr_car = "Interested"
+            elif speed < 6.0 or not is_accelerating: # It's NOT actively accelerating, TODO: Check whether "or", "and"
+                icr_car = "Planning to"
+            else: # It's actively accelerating AND going fast
                 icr_car = "Going to"
 
         # Car orientation observables
@@ -1146,9 +1194,17 @@ class World:
         car_rotation = car_transform.rotation.yaw
         walker_loc = self.walker.get_location()
         car_loc = self.player.get_location()
+
+        # Calculate the compass angle (in degrees) from car to pedestrian using arctangent of the vector components 
+        # between their positions
         angle_to_walker = math.atan2(walker_loc.y - car_loc.y, walker_loc.x - car_loc.x) * 180 / math.pi
+
+        # Calculate the absolute angular difference between car's facing direction and direction to pedestrian. 
+        # Formula normalizes the result to [0,180] degrees, where 0° means directly facing and 180° means directly 
+        # facing away.
         angle_diff = abs((car_rotation - angle_to_walker + 180) % 360 - 180)
 
+        # TODO: Find Wheel Stance (WS) state, instead of putting it as the same as Car Body Orientation (CBO)
         if angle_diff < 45:
             ws_car = "Facing"
             cbo_car = "Facing"
