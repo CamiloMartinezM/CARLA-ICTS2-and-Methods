@@ -3,9 +3,9 @@ requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "carla-ci3p-pgmpy"
+name = "carla-icts2"
 version = "0.0.1"
-description = "CI3P+ trained on pgmpy with CARLA-ICTS2"
+description = "CARLA-ICTS2"
 authors = [{ name = "Camilo Martínez M.", email = "cama02@dfki.de" }]
 license = { file = "LICENSE" }
 readme = "README.md"
@@ -24,11 +24,16 @@ select = [
     "ALL", # include all the rules, including new ones
 ]
 ignore = [
-    "D400", # First line should end with a period
-    "D415",  
-    "D205", # Multi-line docstring summary should start at the first line
-    "D212", 
-    "ERA001", # Found commented-out code
+    "D413",
+    "TRY003",  # Avoid specifying long messages outside the exception class
+    "EM102",   # Exception must not use an f-string literal, assign to variable first
+    "SIM108",  # Use ternary operator `prev_timestamp = value[-1] if isinstance(value, list) else value` instead of `if`-`else`-block
+    "PLR5501", # Use `elif` instead of `else` then `if`, to reduce indentation
+    "ERA001",  # Found commented-out code
+    "T201",    # `print` found
+    "BLE001",  # Do not catch blind exception: `Exception`
+    "C901",    # `add_sequential_seconds` is too complex (13 > 10)
+    "PLR0912", # Too many branches (13 > 12)
 ]
 
 [tool.ruff.format]

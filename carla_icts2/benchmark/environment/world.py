@@ -7,9 +7,11 @@ import random
 import sys
 
 import carla
+import numpy as np
+import pygame
 
-from benchmark.environment.car_controller import CarController
-from benchmark.environment.ped_controller import (
+from carla_icts2.benchmark.environment.car_controller import CarController
+from carla_icts2.benchmark.environment.ped_controller import (
     ICR,
     SON,
     ControllerConfig,
@@ -31,8 +33,9 @@ from benchmark.environment.ped_controller import (
     l2_length,
     y_distance,
 )
-from benchmark.environment.sensors import *
-from benchmark.environment.utils import find_weather_presets
+from carla_icts2.benchmark.environment.sensors import *
+from carla_icts2.benchmark.environment.utils import find_weather_presets
+from carla_icts2.config import logger
 
 
 class World:
@@ -42,9 +45,9 @@ class World:
         try:
             self.map = self.world.get_map()
         except RuntimeError as error:
-            print(f"RuntimeError: {error}")
-            print("  The server could not send the OpenDRIVE (.xodr) file:")
-            print("  Make sure it exists, has the same name of your town, and is correct.")
+            logger.error(f"RuntimeError: {error}")
+            logger.error("  The server could not send the OpenDRIVE (.xodr) file:")
+            logger.error("  Make sure it exists, has the same name of your town, and is correct.")
             sys.exit(1)
         self.hud = hud
         self.scenario = None
@@ -96,6 +99,88 @@ class World:
         self.random = False
         self.dummy_car = False
         self.debug = False
+
+        # Variables needed to set up the spectator camera
+        self.update_camera_func = None
+        self.update_camera_args = None
+        self.already_spawned_bev_camera = False
+
+        # Define the functions to update the camera based on the provided specifications
+        self.define_camera_based_on_specs(camera_specs=args.camera)
+
+    def define_camera_based_on_specs(self, camera_specs: list[str]) -> None:
+        """Define the function to update the camera based on the provided specifications.
+
+        Specifically, it defines the `self.update_camera_func` and `self.update_camera_args` attrs
+        which will be called in the `tick` method.
+
+        Args:
+            camera_specs (list[str]): A list of camera specifications. Could be:
+                - "pedestrian_pov"
+                - "vehicle_pov"
+                - "bev_static"
+                - "bev_follow_vehicle"
+        """
+        if camera_specs == ["pedestrian_pov"]:
+            self.update_camera_func = self.update_walker_pov_camera
+        elif camera_specs == ["vehicle_pov"]:
+            self.update_camera_func = self.update_player_pov_camera
+        elif camera_specs == ["bev_static"]:
+            self.update_camera_func = self.update_bev_camera
+            self.update_camera_args = {"follow_player": False}
+        elif camera_specs == ["bev_follow_vehicle"]:
+            self.update_camera_func = self.update_bev_camera
+            self.update_camera_args = {"follow_player": True}
+
+    def update_bev_camera(self, *, follow_player: bool = False) -> None:
+        """Create and attach a Bird's Eye View (BEV) camera.
+
+        Args:
+            follow_player (bool): If True, the camera will follow the vehicle. Default is False.
+        """
+        if follow_player or not self.already_spawned_bev_camera:
+            transform = self.player.get_transform()
+            location = carla.Location(x=transform.location.x, y=transform.location.y, z=70)
+            self.world.get_spectator().set_transform(
+                carla.Transform(location, carla.Rotation(yaw=180.0, pitch=-90.0))
+            )
+            self.already_spawned_bev_camera = True
+
+    def update_player_pov_camera(self) -> None:
+        """Create and attach a POV camera inside the car."""
+        offset = carla.Location(x=0.3, y=0.0, z=1.5)
+
+        # Compute the offset in the vehicle's local frame.
+        # Here we rotate the offset vector by the vehicle's yaw.
+        # Using the forward and right vectors ensures the offset follows the car.
+        forward = self.player.get_transform().get_forward_vector()
+        right = self.player.get_transform().get_right_vector()
+
+        offset_world = carla.Location(
+            x=offset.x * forward.x + offset.y * right.x,
+            y=offset.x * forward.y + offset.y * right.y,
+            z=offset.z,
+        )
+        new_location = self.player.get_transform().location + offset_world
+
+        # Match the rotation of the vehicle
+        new_rotation = self.player.get_transform().rotation
+        new_transform = carla.Transform(new_location, new_rotation)
+        self.world.get_spectator().set_transform(new_transform)
+
+    def update_walker_pov_camera(self) -> None:
+        """Create and attach a POV camera at the pedestrian's eye level."""
+        offset = carla.Location(x=0.0, y=0.0, z=1.7)
+
+        # Adjust the camera position to be at the pedestrian’s eye level
+        new_location = self.walker.get_transform().location + offset
+
+        # Keep the rotation aligned with the pedestrian's rotation
+        new_rotation = self.walker.get_transform().rotation
+
+        # Update the spectator view
+        new_transform = carla.Transform(new_location, new_rotation)
+        self.world.get_spectator().set_transform(new_transform)
 
     def get_car_blueprint(self):
         blueprint = random.choice(self.world.get_blueprint_library().filter(self._actor_filter))
@@ -477,7 +562,9 @@ class World:
         self.lane_invasion_sensor = LaneInvasionSensor(self.player, self.hud)
         self.gnss_sensor = GnssSensor(self.player)
         self.imu_sensor = IMUSensor(self.player)
+
         if self.camera:
+            print("Current cam_pos_index is", cam_pos_index)
             self.camera_manager = CameraManager(self.player, self.hud, self._gamma)
             self.camera_manager.transform_index = cam_pos_index
             self.camera_manager.set_sensor(cam_index, notify=True, force_respawn=True)
@@ -496,6 +583,15 @@ class World:
         car_speed = np.sqrt(car_velocity.x**2 + car_velocity.y**2)
         if not self.drawn:
             self.drawn = True
+
+        # Run the camera update function if it is defined. If it's not defined, then the default
+        # camera will be used
+        if self.update_camera_func is not None:
+            if self.update_camera_args is not None:
+                self.update_camera_func(**self.update_camera_args)
+            else:
+                self.update_camera_func()
+
         # if dist_walker < self.ped_distance:  # and car_speed > 0:
         if self.scenario[0] in [1, 2, 3]:
             self.walker.apply_control(carla.WalkerControl(carla.Vector3D(self.ped_speed, 0, 0), 1))
@@ -816,7 +912,13 @@ class World:
                     # self.choice = "Continue"
                     # self.walker.icr = ICR.GOING_TO
                     elif l2_distance(self.walker.get_location(), self.desc_p) < 0.2:
+<<<<<<< HEAD:benchmark/environment/world.py
                         distance = y_distance(self.walker.get_location(), self.player.get_location()) - 2
+=======
+                        distance = (
+                            y_distance(self.walker.get_location(), self.player.get_location()) - 2
+                        )
+>>>>>>> 8d62ffc3ed161365e612863305473996eba3be46:carla_icts2/benchmark/environment/world.py
                         # distance = l2_distance(self.walker.get_location(), self.player.get_location())
                         # print(distance)
                         # self.compute_collision_point()
@@ -850,7 +952,13 @@ class World:
                         self.path_controller_1.cur_speed = 0.0
                         self.set_walker_speed_relative(0.0)
                     elif l2_distance(self.walker.get_location(), self.desc_p) < 0.2:
+<<<<<<< HEAD:benchmark/environment/world.py
                         distance = y_distance(self.walker.get_location(), self.player.get_location()) - 2
+=======
+                        distance = (
+                            y_distance(self.walker.get_location(), self.player.get_location()) - 2
+                        )
+>>>>>>> 8d62ffc3ed161365e612863305473996eba3be46:carla_icts2/benchmark/environment/world.py
                         if self.decision_trigger(distance, self.db):
                             self.choice = "Stop"
                             self.walker.icr = ICR.VERY_LOW
@@ -2538,3 +2646,7 @@ class World:
             if self.parked_cars is not None:
                 for car in self.parked_cars:
                     car.destroy()
+
+        # Destroy POV camera if it exists
+        if hasattr(self, "pov_camera") and self.pov_camera is not None:
+            self.pov_camera.destroy()

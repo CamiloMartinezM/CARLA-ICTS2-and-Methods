@@ -19,9 +19,9 @@ try:
 except ImportError:
     raise RuntimeError("cannot import PIL, make sure pillow package is installed")
 
-from assets.converter import Converter
-from assets.graph import Graph, sldist
-from assets.grid import Grid
+from carla_icts2.assets.converter import Converter
+from carla_icts2.assets.graph import Graph, sldist
+from carla_icts2.assets.grid import Grid
 
 
 def color_to_angle(color):
@@ -74,7 +74,8 @@ class CarlaMap:
             aspect_ratio = height / float(self.map_image.shape[0])
 
             img = img.resize(
-                (int(aspect_ratio * self.map_image.shape[1]), height), Image.ANTIALIAS,
+                (int(aspect_ratio * self.map_image.shape[1]), height),
+                Image.ANTIALIAS,
             )
             img.load()
             return np.asarray(img, dtype="int32")

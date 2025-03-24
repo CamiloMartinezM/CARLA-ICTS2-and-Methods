@@ -1,4 +1,5 @@
-# extract_pp_data.py
+"""Extract pedestrian and car data from the CARLA simulator using the GIDAS benchmark."""
+
 import argparse
 import os
 import subprocess
@@ -8,36 +9,17 @@ from multiprocessing import Process
 
 import numpy as np
 
-from benchmark.environment import GIDASBenchmark
-from config import Config
-from utils.printing import display_iteration_data, display_simulation_data
+from carla_icts2.benchmark.environment import GIDASBenchmark
+from carla_icts2.config import logger
+from carla_icts2.scenarios_config import Config
+from carla_icts2.utils.loading import load_yaml
+from carla_icts2.utils.run import run_server_command
 
 
-def enum_to_str(enum_val):
-    if enum_val is None:
-        return "None"
-    return enum_val.name if hasattr(enum_val, "name") else str(enum_val)
-
-
-def run(args):
-    pre_safe_scenarios = [
-        # "01_int",
-        "02_int",
-        "03_int",
-        "04_int",
-        "05_int",
-        "06_int",
-        "01_non_int",
-        "02_non_int",
-        "03_non_int",
-        "04_non_int",
-        "05_non_int",
-        "06_non_int",
-    ]
-
-    for scenario in pre_safe_scenarios:
+def run_during(config: dict) -> None:
+    """Run during the simulation (execution of CARLA)."""
+    for scenario in config["scenarios"]:
         Config.scenarios = [scenario]
-        print(Config.scenarios)
 
         # if args.int:
         #     # file = f"./P3VI/data/ICTS2_int_{datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.npy"
@@ -48,51 +30,26 @@ def run(args):
         # file = "./P3VI/data/01_non_int_prelim.npy"
         file = f"./P3VI/data/{Config.scenarios[0]}.npy"
         car_file = f"./P3VI/data/{Config.scenarios[0]}_car.npy"
-        # file = f"./P3VI/data/ICTS2_non_int_{datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.npy"
 
         print(file)
 
-        # Create environments.
+        # Create environments
         env = GIDASBenchmark(port=Config.port)
-
-        # agent = SAC(env.world, env.map, env.scene)
-        # env.reset_agent(agent)
-        # test_env = GIDASBenchmark(port=Config.port + 100, setting="special")
         env.world.random = False
         env.world.dummy_car = True
         env.extract = True
 
-        all_episodes_data = []
-        dbn_variables = [
-            "SN_car",
-            "SN_ped",
-            "ICR_car",
-            "ICR_ped",
-            "SSEC",
-            "A_car",
-            "WS_car",
-            "CBO_car",
-            "ACC_car",
-            "S_car",
-            "D",
-            "HO_ped",
-            "BO_ped",
-            "HIO_ped",
-            "A_ped",
-            "ACC_ped",
-            "S_ped",
-        ]
-
         data = []
         data_car = []
         start_time = time.time()
+
         # if args.int:
         #     iterations = 2 * len(env.episodes)
         # else:
         #     iterations = len(env.episodes)
-        iterations = len(env.episodes) + len(env.test_episodes) + len(env.val_episodes)
 
-        print(iterations)
+        iterations = len(env.episodes) + len(env.test_episodes) + len(env.val_episodes)
+        logger.info(f"Running scenario: {scenario} for {iterations} iterations")
         for i in range(iterations):
             state = env.reset_extract()
             episode_length = 0
@@ -165,71 +122,35 @@ def run(args):
         env.close()
 
 
-def run_server():
-    # train environment
-    port = f"-carla-port={Config.port}"
-    carla_p = "/home/camilo/Applications/carla-0-9-15-linux"
-    if not Config.server:
-        print("Running Carla in server mode")
-        # carla_p = "your path to carla"
-        # p = subprocess.run(['cd '+carla_p+' && ./CarlaUE4.sh your arguments' + port], shell=True)
-        # -RenderOffScreen
-        cmd = (
-            "cd "
-            + carla_p
-            + " && DRI_PRIME=1 ./CarlaUE4.sh -quality-level=Epic -carla-server -benchmark -prevernvidia -fps=25"
-            + port
-        )
-        # pro = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-        #                   shell=True, preexec_fn=os.setsid)
-        p = subprocess.run([cmd], shell=True, check=False)
-    else:
-        # command = "unset SDL_VIDEODRIVER && ./CarlaUE4.sh  -quality-level="+ Config.qw  +" your arguments" + port # -quality-level=Low
-        command = "unset SDL_VIDEODRIVER && ./CarlaUE4.sh  -quality-level=" + Config.qw + " -quality-level=Low " + port
-        p = subprocess.run(["cd " + carla_p + " && " + command], shell=True, check=False)
-
-    return p
+def run_server(config: dict) -> subprocess.CompletedProcess:
+    """Run the Carla server with the given `config`."""
+    cmd = run_server_command(config)
+    return subprocess.run([cmd], shell=True, check=True)  # noqa: S602
 
 
-def run_test_server():
-    # test environment
-    port = f"-carla-port={Config.port + 100}"
-    carla_p = "your path to carla"
-    command = (
-        "unset SDL_VIDEODRIVER && ./CarlaUE4.sh  -quality-level=" + Config.qw + " your arguments" + port
-    )  # -quality-level=Low
-    p = subprocess.run(["cd " + carla_p + " && " + command], shell=True, check=False)
-    return p
+def run_afterwards() -> None:
+    """Run after the main function even if there is a `KeyboardInterrupt`."""
+    # Kill the Carla server
+    logger.info("Killing CarlaUE4-Linux-Shipping process")
+    subprocess.run(["kill -9 $(pidof CarlaUE4-Linux-Shipping)"], check=True, shell=True)  # noqa: S602, S607
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config",
-        type=str,
-        default=os.path.join("SAC/sac_discrete/config", "sacd.yaml"),
-    )
-    parser.add_argument("--shared", action="store_true")
-    parser.add_argument("--env_id", type=str, default="GIDASBenchmark")
-    parser.add_argument("--cuda", action="store_true")
-    parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--port", type=int, default=2000)
-    parser.add_argument("--server", action="store_true")
-    parser.add_argument("--qw", type=str, default="Low")
-    parser.add_argument("--int", action="store_true")
-    args = parser.parse_args()
-    Config.server = args.server
-    Config.port = args.port
-    print(f"Env. port: {Config.port}")
-    Config.port = args.port
-    Config.qw = args.qw
-    print(Config.scenarios)
-    p = Process(target=run_server)
-    p.start()
-    t.sleep(20)
+    run_config = load_yaml("run_config.yaml")
 
-    # p2 = Process(target=run_test_server)
-    # p2.start()
-    # time.sleep(5)
-    run(args)
-    # subprocess.run(["kill -9 $(pidof CarlaUE4-Linux-Shipping)"], shell=True)
+    # Add necessary run config parameters to the Config class
+    Config.port = run_config["carla"]["port"]
+    Config.scenarios = run_config["scenarios"]
+    Config.camera = run_config["camera"]
+
+    logger.info(f"Env. port: {Config.port}")
+    logger.info(f"Scenarios: {Config.scenarios}")
+
+    p = Process(target=run_server, args=(run_config,))
+    p.start()
+    t.sleep(10)
+
+    try:
+        run_during(run_config)
+    except KeyboardInterrupt:
+        run_afterwards()

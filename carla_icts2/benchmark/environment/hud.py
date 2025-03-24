@@ -8,7 +8,7 @@ import math
 import carla
 import pygame
 
-from benchmark.environment.utils import get_actor_display_name
+from carla_icts2.benchmark.environment.utils import get_actor_display_name
 
 
 class HUD:
@@ -142,7 +142,8 @@ class HUD:
                         f = (item[1] - item[2]) / (item[3] - item[2])
                         if item[2] < 0.0:
                             rect = pygame.Rect(
-                                (bar_h_offset + f * (bar_width - 6), v_offset + 8), (6, 6),
+                                (bar_h_offset + f * (bar_width - 6), v_offset + 8),
+                                (6, 6),
                             )
                         else:
                             rect = pygame.Rect((bar_h_offset, v_offset + 8), (f * bar_width, 6))

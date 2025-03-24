@@ -1,0 +1,30 @@
+# Runtime Configuration
+carla:
+  path: "/home/camilo/Applications/carla-0-9-15-linux"
+  quality: "Epic" # Options: "Low"
+  port: 2000
+  server_mode: true # Whether to launch CARLA in server mode
+  fps: 25
+  prevernvidia: true
+  benchmark: true
+  carla_server: true
+  set_variables: ["DRI_PRIME=1"]
+
+# Logic Configuration
+scenarios: [
+    "01_int",
+    # "02_int",
+    # "03_int",
+    # "04_int",
+    # "05_int",
+    # "06_int",
+    # "01_non_int",
+    # "02_non_int",
+    # "03_non_int",
+    # "04_non_int",
+    # "05_non_int",
+    # "06_non_int",
+  ]
+
+# Camera Configuration
+camera: ["vehicle_pov"] # Possible are: ["pedestrian_pov", "vehicle_pov", "bev_static", "bev_follow_vehicle", "default"]

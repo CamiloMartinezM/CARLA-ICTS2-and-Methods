@@ -11,7 +11,7 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 
-from assets.occupancy_grid import OccupancyGrid
+from carla_icts2.assets.occupancy_grid import OccupancyGrid
 
 
 # total cost f(n) = actual cost g(n) + heuristic cost h(n)
@@ -181,10 +181,14 @@ class HybridAStar:
                     velocity = speed_inputs[j]
 
                     cost_to_neighbour_from_start = chosen_node_total_cost - self.hgcost(
-                        chosen_d_node, end, occupancy_grid,
+                        chosen_d_node,
+                        end,
+                        occupancy_grid,
                     )
                     neighbour_x_cts, neighbour_y_cts, neighbour_theta_cts = self.next_node(
-                        chosen_c_node, delta, velocity,
+                        chosen_c_node,
+                        delta,
+                        velocity,
                     )
                     neighbour_theta_cts = math.degrees(neighbour_theta_cts)
 
@@ -207,7 +211,9 @@ class HybridAStar:
                         and (self.min_y <= neighbour_y_d <= self.max_y)
                     ):
                         heurestic = self.hgcost(
-                            (neighbour_x_d, neighbour_y_d, neighbour_theta_d), end, occupancy_grid,
+                            (neighbour_x_d, neighbour_y_d, neighbour_theta_d),
+                            end,
+                            occupancy_grid,
                         )
                         # adding the unit action cost and distance travelled
                         action_cost = 1.0
@@ -322,7 +328,12 @@ def main():
 
     t0 = time.time()
     paths = hy_a_star.find_path(
-        (sx, sy, stheta), (gx, gy, gtheta), relaxed_g, [], speed=3.0, weight=0.9,
+        (sx, sy, stheta),
+        (gx, gy, gtheta),
+        relaxed_g,
+        [],
+        speed=3.0,
+        weight=0.9,
     )
     if paths:
         path = paths[0]

@@ -1,4 +1,5 @@
 import random
+from pathlib import Path
 
 import carla
 import gym
@@ -7,12 +8,13 @@ import numpy as np
 import pygame
 from PIL import Image
 
-from benchmark.environment.hud import HUD
-from benchmark.environment.ped_controller import ControllerConfig
-from benchmark.environment.world import World
-from benchmark.learner_example import Learner
-from benchmark.scenarios.scenario import Scenario
-from config import (
+from carla_icts2.benchmark.environment.hud import HUD
+from carla_icts2.benchmark.environment.ped_controller import ControllerConfig
+from carla_icts2.benchmark.environment.world import World
+from carla_icts2.benchmark.learner_example import Learner
+from carla_icts2.benchmark.scenarios.scenario import Scenario
+from carla_icts2.config import ASSETS_DIR
+from carla_icts2.scenarios_config import (
     Config,
     Config01,
     Config02,
@@ -63,7 +65,7 @@ class GIDASBenchmark(gym.Env):
         self.clock = pygame.time.Clock()
         print("Load World")
         hud = HUD(Config.width, Config.height)
-        with open("./assets/Town01_my.xodr") as odr:
+        with Path(ASSETS_DIR / "Town01_my.xodr").open("r") as odr:
             self.world = self.client.generate_opendrive_world(
                 odr.read(),
                 carla.OpendriveGenerationParameters(2.0, 50.0, 0.0, 200.0, False, True),
@@ -239,6 +241,7 @@ class GIDASBenchmark(gym.Env):
         func = "self.scene_generator.scenario" + scenario_id
         scenario = eval(func + "()")
         self.world.restart(scenario, conf)
+
         self.planner_agent.update_scenario(scenario)
 
         self.world.world.tick()
@@ -262,6 +265,7 @@ class GIDASBenchmark(gym.Env):
         func = "self.scene_generator.scenario" + scenario_id
         scenario = eval(func + "()")
         self.world.restart(scenario, conf)
+
         self.planner_agent.update_scenario(scenario)
 
         self.world.world.tick()
@@ -273,6 +277,27 @@ class GIDASBenchmark(gym.Env):
                 print(i)
         return self.world.get_walker_state()
 
+    def process_inputs(self):
+        """Process keyboard inputs for camera toggling"""
+        for event in pygame.event.get():
+            print("EVENT: ", event)
+            if event.type == pygame.QUIT:
+                return True  # Exit
+            elif event.type == pygame.KEYUP:
+                # Camera controls
+                if event.key == pygame.K_TAB:  # TAB key - toggle camera position
+                    self.world.camera_manager.toggle_camera()
+                    print("Camera position changed")
+                elif event.key == pygame.K_c:  # C key - cycle through camera types
+                    self.world.camera_manager.next_sensor()
+                    print("Camera type changed")
+                elif event.key == pygame.K_p:  # P key - switch to POV camera
+                    self.enable_pov_camera()
+                    print("Switched to POV camera")
+                elif event.key == pygame.K_ESCAPE:  # ESC key - exit
+                    return True  # Exit
+        return False  # Continue
+
     def _get_observation(self):
         control, observation, risk, ped_observable = self.planner_agent.run_step()
         x, y, icr, son = self.world.get_walker_state()
@@ -281,6 +306,12 @@ class GIDASBenchmark(gym.Env):
         return observation, risk, ped_observable
 
     def step(self, action):
+        # Process any keyboard inputs
+        should_exit = self.process_inputs()
+        if should_exit:
+            self.close()
+            return None, 0, True, {}
+
         self.world.tick(self.clock)
         velocity = self.world.player.get_velocity()
         speed = (velocity.x * velocity.x + velocity.y * velocity.y) ** 0.5
