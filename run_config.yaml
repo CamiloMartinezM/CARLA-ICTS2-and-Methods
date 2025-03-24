@@ -27,4 +27,4 @@ scenarios: [
   ]
 
 # Camera Configuration
-camera: ["vehicle_pov"] # Possible are: ["pedestrian_pov", "vehicle_pov", "bev_static", "bev_follow_vehicle", "default"]
+camera: ["bev_follow_vehicle"] # Possible are: ["pedestrian_pov", "vehicle_pov", "bev_static", "bev_follow_vehicle", "default"]

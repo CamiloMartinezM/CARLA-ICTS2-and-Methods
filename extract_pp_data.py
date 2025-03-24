@@ -128,10 +128,19 @@ def run_server(config: dict) -> subprocess.CompletedProcess:
     return subprocess.run([cmd], shell=True, check=True)  # noqa: S602
 
 
+def run_before() -> None:
+    """Run before the main function."""
+    kill_carla_server()
+
+
 def run_afterwards() -> None:
     """Run after the main function even if there is a `KeyboardInterrupt`."""
-    # Kill the Carla server
-    logger.info("Killing CarlaUE4-Linux-Shipping process")
+    kill_carla_server()
+
+
+def kill_carla_server() -> None:
+    """Kill the Carla server process."""
+    logger.info("Killing previous CarlaUE4-Linux-Shipping process")
     subprocess.run(["kill -9 $(pidof CarlaUE4-Linux-Shipping)"], check=True, shell=True)  # noqa: S602, S607
 
 
@@ -146,6 +155,9 @@ if __name__ == "__main__":
     logger.info(f"Env. port: {Config.port}")
     logger.info(f"Scenarios: {Config.scenarios}")
 
+    # Run commands before the execution of CARLA
+    run_before()
+
     p = Process(target=run_server, args=(run_config,))
     p.start()
     t.sleep(10)
@@ -153,4 +165,5 @@ if __name__ == "__main__":
     try:
         run_during(run_config)
     except KeyboardInterrupt:
+        # Run commands after the execution of CARLA
         run_afterwards()
