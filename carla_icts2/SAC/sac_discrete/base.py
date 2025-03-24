@@ -8,7 +8,7 @@ from matplotlib import pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
 
 from benchmark.environment.ped_controller import l2_distance
-from config import Config
+from carla_icts2.scenarios_config import Config
 from SAC.sac_discrete.sacd.memory import LazyMultiStepMemory, LazyPrioritizedMultiStepMemory
 from SAC.sac_discrete.sacd.utils import RunningMeanStats, update_params
 

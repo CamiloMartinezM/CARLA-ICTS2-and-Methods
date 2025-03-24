@@ -1,4 +1,5 @@
 import random
+from pathlib import Path
 
 import carla
 import gym
@@ -7,12 +8,13 @@ import numpy as np
 import pygame
 from PIL import Image
 
-from benchmark.environment.hud import HUD
-from benchmark.environment.ped_controller import ControllerConfig
-from benchmark.environment.world import World
-from benchmark.learner_example import Learner
-from benchmark.scenarios.scenario import Scenario
-from config import (
+from carla_icts2.benchmark.environment.hud import HUD
+from carla_icts2.benchmark.environment.ped_controller import ControllerConfig
+from carla_icts2.benchmark.environment.world import World
+from carla_icts2.benchmark.learner_example import Learner
+from carla_icts2.benchmark.scenarios.scenario import Scenario
+from carla_icts2.config import ASSETS_DIR
+from carla_icts2.scenarios_config import (
     Config,
     Config01,
     Config02,
@@ -37,7 +39,10 @@ class GIDASBenchmark(gym.Env):
         height = int(Config.segcam_image_x)
         width = int(Config.segcam_image_y)
         self.observation_space = gym.spaces.Box(
-            low=0, high=255, shape=(height, width, 3), dtype=np.uint8,
+            low=0,
+            high=255,
+            shape=(height, width, 3),
+            dtype=np.uint8,
         )
         self.fig = plt.figure()
         pygame.init()
@@ -60,9 +65,10 @@ class GIDASBenchmark(gym.Env):
         self.clock = pygame.time.Clock()
         print("Load World")
         hud = HUD(Config.width, Config.height)
-        with open("./assets/Town01_my.xodr") as odr:
+        with Path(ASSETS_DIR / "Town01_my.xodr").open("r") as odr:
             self.world = self.client.generate_opendrive_world(
-                odr.read(), carla.OpendriveGenerationParameters(2.0, 50.0, 0.0, 200.0, False, True),
+                odr.read(),
+                carla.OpendriveGenerationParameters(2.0, 50.0, 0.0, 200.0, False, True),
             )
 
         # self.client.load_world('Town01_Opt', carla.MapLayer.Buildings)
@@ -168,10 +174,14 @@ class GIDASBenchmark(gym.Env):
             else:
                 # Used for backwards compatibility
                 for speed in np.arange(
-                    Config.ped_speed_range[0], Config.ped_speed_range[1] + 0.1, 0.1,
+                    Config.ped_speed_range[0],
+                    Config.ped_speed_range[1] + 0.1,
+                    0.1,
                 ):
                     for distance in np.arange(
-                        Config.ped_distance_range[0], Config.ped_distance_range[1] + 1, 1,
+                        Config.ped_distance_range[0],
+                        Config.ped_distance_range[1] + 1,
+                        1,
                     ):
                         conf = ControllerConfig(speed, distance)
                         self.episodes.append((scenario, conf))
@@ -188,18 +198,26 @@ class GIDASBenchmark(gym.Env):
     def _get_special_scenes(self):
         for scenario in Config.val_scenarios:
             for speed in np.arange(
-                Config.val_ped_speed_range[0][0], Config.val_ped_speed_range[0][1] + 0.1, 0.1,
+                Config.val_ped_speed_range[0][0],
+                Config.val_ped_speed_range[0][1] + 0.1,
+                0.1,
             ):
                 for distance in np.arange(
-                    Config.val_ped_distance_range[0], Config.ped_distance_range[1] + 1, 1,
+                    Config.val_ped_distance_range[0],
+                    Config.ped_distance_range[1] + 1,
+                    1,
                 ):
                     self.episodes.append((scenario, speed, distance))
                     # TODO has to be adapted for new config interface
             for speed in np.arange(
-                Config.val_ped_speed_range[1][0], Config.val_ped_speed_range[1][1] + 0.1, 0.1,
+                Config.val_ped_speed_range[1][0],
+                Config.val_ped_speed_range[1][1] + 0.1,
+                0.1,
             ):
                 for distance in np.arange(
-                    Config.val_ped_distance_range[0], Config.ped_distance_range[1] + 1, 1,
+                    Config.val_ped_distance_range[0],
+                    Config.ped_distance_range[1] + 1,
+                    1,
                 ):
                     self.episodes.append((scenario, speed, distance))
         # episodes = [(scenario, 1.3, 40.0), (scenario, 1.5, 40.0), (scenario, 1.7, 36.0), (scenario, 2.0, 32.0),
@@ -223,6 +241,7 @@ class GIDASBenchmark(gym.Env):
         func = "self.scene_generator.scenario" + scenario_id
         scenario = eval(func + "()")
         self.world.restart(scenario, conf)
+
         self.planner_agent.update_scenario(scenario)
 
         self.world.world.tick()
@@ -246,6 +265,7 @@ class GIDASBenchmark(gym.Env):
         func = "self.scene_generator.scenario" + scenario_id
         scenario = eval(func + "()")
         self.world.restart(scenario, conf)
+
         self.planner_agent.update_scenario(scenario)
 
         self.world.world.tick()
@@ -257,6 +277,27 @@ class GIDASBenchmark(gym.Env):
                 print(i)
         return self.world.get_walker_state()
 
+    def process_inputs(self):
+        """Process keyboard inputs for camera toggling"""
+        for event in pygame.event.get():
+            print("EVENT: ", event)
+            if event.type == pygame.QUIT:
+                return True  # Exit
+            elif event.type == pygame.KEYUP:
+                # Camera controls
+                if event.key == pygame.K_TAB:  # TAB key - toggle camera position
+                    self.world.camera_manager.toggle_camera()
+                    print("Camera position changed")
+                elif event.key == pygame.K_c:  # C key - cycle through camera types
+                    self.world.camera_manager.next_sensor()
+                    print("Camera type changed")
+                elif event.key == pygame.K_p:  # P key - switch to POV camera
+                    self.enable_pov_camera()
+                    print("Switched to POV camera")
+                elif event.key == pygame.K_ESCAPE:  # ESC key - exit
+                    return True  # Exit
+        return False  # Continue
+
     def _get_observation(self):
         control, observation, risk, ped_observable = self.planner_agent.run_step()
         x, y, icr, son = self.world.get_walker_state()
@@ -265,6 +306,12 @@ class GIDASBenchmark(gym.Env):
         return observation, risk, ped_observable
 
     def step(self, action):
+        # Process any keyboard inputs
+        should_exit = self.process_inputs()
+        if should_exit:
+            self.close()
+            return None, 0, True, {}
+
         self.world.tick(self.clock)
         velocity = self.world.player.get_velocity()
         speed = (velocity.x * velocity.x + velocity.y * velocity.y) ** 0.5
@@ -469,7 +516,8 @@ class GIDASBenchmark(gym.Env):
     def render(self, mode="human"):
         if self.display is None:
             self.display = pygame.display.set_mode(
-                (Config.width, Config.height), pygame.HWSURFACE | pygame.DOUBLEBUF,
+                (Config.width, Config.height),
+                pygame.HWSURFACE | pygame.DOUBLEBUF,
             )
             self.display.fill((0, 0, 0))
             pygame.display.flip()
@@ -511,10 +559,14 @@ class GIDASBenchmark(gym.Env):
                     episodes.append((scenario, speed, 0))
             else:
                 for speed in np.arange(
-                    Config.test_ped_speed_range[0], Config.test_ped_speed_range[1] + 0.1, 0.1,
+                    Config.test_ped_speed_range[0],
+                    Config.test_ped_speed_range[1] + 0.1,
+                    0.1,
                 ):
                     for distance in np.arange(
-                        Config.test_ped_distance_range[0], Config.test_ped_distance_range[1] + 1, 1,
+                        Config.test_ped_distance_range[0],
+                        Config.test_ped_distance_range[1] + 1,
+                        1,
                     ):
                         episodes.append((scenario, speed, distance))
         self.episodes = episodes[current_episode:]

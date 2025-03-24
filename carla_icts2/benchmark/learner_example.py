@@ -1,4 +1,4 @@
-from benchmark.rlagent import RLAgent
+from carla_icts2.benchmark.rlagent import RLAgent
 
 
 class Learner(RLAgent):
