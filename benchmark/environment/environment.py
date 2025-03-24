@@ -241,10 +241,6 @@ class GIDASBenchmark(gym.Env):
         scenario = eval(func + "()")
         self.world.restart(scenario, conf)
 
-        # Enable POV camera for interactive scenarios
-        if isinstance(scenario_id, str) and scenario_id.endswith("_int"):
-            self.enable_pov_camera()
-
         self.planner_agent.update_scenario(scenario)
 
         self.world.world.tick()
@@ -269,10 +265,6 @@ class GIDASBenchmark(gym.Env):
         scenario = eval(func + "()")
         self.world.restart(scenario, conf)
 
-        # Enable POV camera for interactive scenarios
-        if isinstance(scenario_id, str) and scenario_id.endswith("_int"):
-            self.enable_pov_camera()
-
         self.planner_agent.update_scenario(scenario)
 
         self.world.world.tick()
@@ -283,33 +275,6 @@ class GIDASBenchmark(gym.Env):
             if i > 100:
                 print(i)
         return self.world.get_walker_state()
-
-    def enable_pov_camera(self):
-        """Enable the driver's POV camera"""
-        # Create camera blueprint
-        camera_bp = self.world.world.get_blueprint_library().find("sensor.camera.rgb")
-        camera_bp.set_attribute("image_size_x", str(self.world.hud.dim[0]))
-        camera_bp.set_attribute("image_size_y", str(self.world.hud.dim[1]))
-        camera_bp.set_attribute("fov", "90")
-
-        # Create transform for driver's position
-        relative_transform = carla.Transform(
-            carla.Location(x=0.2, y=0.0, z=1.2),  # Driver's eye position
-            carla.Rotation(pitch=0, yaw=0, roll=0),
-        )
-
-        # Destroy existing camera sensor
-        if self.world.camera_manager.sensor is not None:
-            self.world.camera_manager.sensor.destroy()
-
-        # Spawn new camera attached to vehicle
-        self.world.camera_manager.sensor = self.world.world.spawn_actor(
-            camera_bp, relative_transform, attach_to=self.world.player, attachment_type=carla.AttachmentType.Rigid
-        )
-
-        # Set up weak reference for callback
-        weak_self = weakref.ref(self.world.camera_manager)
-        self.world.camera_manager.sensor.listen(lambda image: self.world.camera_manager._parse_image(weak_self, image))
 
     def process_inputs(self):
         """Process keyboard inputs for camera toggling"""

@@ -14,8 +14,8 @@ from config import Config
 
 def run(args):
     pre_safe_scenarios = [
-        # "01_int",
-        "02_int",
+        "01_int",
+        # "02_int",
         # "03_int",
         # "04_int",
         # "05_int",
