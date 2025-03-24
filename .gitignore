@@ -29,3 +29,8 @@ ISDESPOT/isdespot-ped-pred/is-despot/problems/isdespotp_car/cmake-build-debug/
 cp_debug/
 #*.npy
 *.mp4
+
+# Output
+output/
+output/*/*.jpg
+output/*/*.png
