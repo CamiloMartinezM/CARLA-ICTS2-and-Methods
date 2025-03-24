@@ -1,19 +1,20 @@
 import random
+from pathlib import Path
 
 import carla
 import gym
 import matplotlib.pyplot as plt
 import numpy as np
 import pygame
-import weakref
 from PIL import Image
 
-from benchmark.environment.hud import HUD
-from benchmark.environment.ped_controller import ControllerConfig
-from benchmark.environment.world import World
-from benchmark.learner_example import Learner
-from benchmark.scenarios.scenario import Scenario
-from config import (
+from carla_icts2.benchmark.environment.hud import HUD
+from carla_icts2.benchmark.environment.ped_controller import ControllerConfig
+from carla_icts2.benchmark.environment.world import World
+from carla_icts2.benchmark.learner_example import Learner
+from carla_icts2.benchmark.scenarios.scenario import Scenario
+from carla_icts2.config import ASSETS_DIR
+from carla_icts2.scenarios_config import (
     Config,
     Config01,
     Config02,
@@ -64,7 +65,7 @@ class GIDASBenchmark(gym.Env):
         self.clock = pygame.time.Clock()
         print("Load World")
         hud = HUD(Config.width, Config.height)
-        with open("./assets/Town01_my.xodr") as odr:
+        with Path(ASSETS_DIR / "Town01_my.xodr").open("r") as odr:
             self.world = self.client.generate_opendrive_world(
                 odr.read(),
                 carla.OpendriveGenerationParameters(2.0, 50.0, 0.0, 200.0, False, True),

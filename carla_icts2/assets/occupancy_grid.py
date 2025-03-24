@@ -5,7 +5,7 @@ Time: 03.08.21 13:22
 import matplotlib.pyplot as plt
 import numpy as np
 
-from assets.map import CarlaMap
+from carla_icts2.assets.map import CarlaMap
 
 
 class OccupancyGrid:

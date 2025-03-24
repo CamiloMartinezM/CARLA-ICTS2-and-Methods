@@ -12,8 +12,8 @@ import numpy as np
 import pygame
 from carla import ColorConverter as cc
 
-from benchmark.environment.utils import get_actor_display_name
-from config import Config
+from carla_icts2.benchmark.environment.utils import get_actor_display_name
+from carla_icts2.scenarios_config import Config
 
 
 class CollisionSensor:
@@ -94,7 +94,9 @@ class GnssSensor:
         world = self._parent.get_world()
         bp = world.get_blueprint_library().find("sensor.other.gnss")
         self.sensor = world.spawn_actor(
-            bp, carla.Transform(carla.Location(x=1.0, z=2.8)),attach_to=self._parent,
+            bp,
+            carla.Transform(carla.Location(x=1.0, z=2.8)),
+            attach_to=self._parent,
         )
         # We need to pass the lambda a weak reference to self to avoid circular
         # reference.

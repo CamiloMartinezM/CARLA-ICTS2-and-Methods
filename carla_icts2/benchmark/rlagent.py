@@ -11,11 +11,11 @@ import carla
 import matplotlib.pyplot as plt
 import numpy as np
 
-from assets.occupancy_grid import OccupancyGrid
-from benchmark.agent import Agent
-from benchmark.path_planner.hybridastar import HybridAStar
-from benchmark.risk.risk_aware_path import PathPlanner
-from config import Config
+from carla_icts2.assets.occupancy_grid import OccupancyGrid
+from carla_icts2.benchmark.agent import Agent
+from carla_icts2.benchmark.path_planner.hybridastar import HybridAStar
+from carla_icts2.benchmark.risk.risk_aware_path import PathPlanner
+from carla_icts2.scenarios_config import Config
 
 
 class RLAgent(Agent):
@@ -69,7 +69,12 @@ class RLAgent(Agent):
         self.min_y = -10
         self.max_y = 300
         self.path_planner = HybridAStar(
-            self.min_x, self.max_x, self.min_y, self.max_y, obstacle, self.vehicle_length,
+            self.min_x,
+            self.max_x,
+            self.min_y,
+            self.max_y,
+            obstacle,
+            self.vehicle_length,
         )
         self.path_planner.mult = mult
         """
@@ -327,7 +332,11 @@ class RLAgent(Agent):
                 # scale penalty by impact speed
                 # hit = True
                 scaling = self.linmap(
-                    0, Config.max_speed, 0, 1, min(speed * 0.27778, Config.max_speed),
+                    0,
+                    Config.max_speed,
+                    0,
+                    1,
+                    min(speed * 0.27778, Config.max_speed),
                 )  # in m/s
                 collision_reward = Config.hit_penalty * (scaling + 0.1)
                 # if collision_reward >= 700:
@@ -445,7 +454,13 @@ class RLAgent(Agent):
                 self.world.walker.get_location().y,
             )
             ped_hit = self.in_rectangle(
-                start[0], start[1], start[2], walker_x, walker_y, front_margin=2, side_margin=1.2,
+                start[0],
+                start[1],
+                start[2],
+                walker_x,
+                walker_y,
+                front_margin=2,
+                side_margin=1.2,
             )
 
             if ped_hit:
@@ -500,7 +515,13 @@ class RLAgent(Agent):
             return -1000, goal, hit, near_miss
         # in near miss area
         near_miss = self.in_rectangle(
-            start[0], start[1], start[2], walker_x, walker_y, front_margin=1.5, side_margin=0.5,
+            start[0],
+            start[1],
+            start[2],
+            walker_x,
+            walker_y,
+            front_margin=1.5,
+            side_margin=0.5,
         )
 
         # TODO: Collision with incoming or static car
@@ -535,7 +556,9 @@ class RLAgent(Agent):
         world_points = np.array(path)
         world_points = world_points[:, :2]
         world_points = np.c_[
-            world_points, np.zeros(world_points.shape[0]), np.ones(world_points.shape[0]),
+            world_points,
+            np.zeros(world_points.shape[0]),
+            np.ones(world_points.shape[0]),
         ].T
         sensor_points = np.dot(world_to_camera, world_points)
         point_in_camera_coords = np.array(
@@ -552,7 +575,11 @@ class RLAgent(Agent):
         K[1, 2] = image_h / 2.0
         points_2d = np.dot(K, point_in_camera_coords)
         points_2d = np.array(
-            [points_2d[0, :] / points_2d[2, :], points_2d[1, :] / points_2d[2, :], points_2d[2, :]],
+            [
+                points_2d[0, :] / points_2d[2, :],
+                points_2d[1, :] / points_2d[2, :],
+                points_2d[2, :],
+            ],
         )
         points_2d = points_2d.T
         points_in_canvas_mask = (
@@ -848,25 +875,31 @@ class RLAgent(Agent):
             self.ped_history.append(
                 [walker_x, walker_y, self.world.walker.icr.value, self.world.walker.son.value],
             )
-            if (self.scenario[0] == 3 and walker_x >= self.world.incoming_car.get_location().x) or (
-                self.scenario[0] in [7, 8] and walker_x <= self.world.incoming_car.get_location().x
-            ) or self.scenario[0] in [
-                1,
-                2,
-                4,
-                5,
-                6,
-                9,
-                10,
-                "01_int",
-                "02_int",
-                "03_int",
-                "04_int",
-                "05_int",
-                "01_non_int",
-                "02_non_int",
-                "03_non_int",
-            ]:
+            if (
+                (self.scenario[0] == 3 and walker_x >= self.world.incoming_car.get_location().x)
+                or (
+                    self.scenario[0] in [7, 8]
+                    and walker_x <= self.world.incoming_car.get_location().x
+                )
+                or self.scenario[0]
+                in [
+                    1,
+                    2,
+                    4,
+                    5,
+                    6,
+                    9,
+                    10,
+                    "01_int",
+                    "02_int",
+                    "03_int",
+                    "04_int",
+                    "05_int",
+                    "01_non_int",
+                    "02_non_int",
+                    "03_non_int",
+                ]
+            ):
                 obstacles.append((int(walker_x), int(walker_y)))
                 self.pedestrian_observable = True
         if not walker_flag:

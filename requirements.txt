@@ -30,3 +30,11 @@ tensorboard
 # For linting
 ruff
 mypy
+
+# For logging, environment variables
+loguru
+dotenv
+tqdm
+
+# Current project in development
+-e .

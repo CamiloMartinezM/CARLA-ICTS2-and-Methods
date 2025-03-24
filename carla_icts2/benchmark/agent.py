@@ -3,8 +3,8 @@
 # This work is licensed under the terms of the MIT license.
 # For a copy, see <https://opensource.org/licenses/MIT>.
 
-"""This module implements an agent that roams around a track following random
-waypoints and avoiding other vehicles.
+"""Implements an agent that roams around a track following random waypoints and avoiding other vehicles.
+
 The agent also responds to traffic lights.
 """
 
@@ -14,12 +14,15 @@ from enum import Enum
 
 import carla
 
-from benchmark.misc import compute_distance, is_within_distance, is_within_distance_ahead
+from carla_icts2.benchmark.misc import (
+    compute_distance,
+    is_within_distance,
+    is_within_distance_ahead,
+)
 
 
 class AgentState(Enum):
-    """AGENT_STATE represents the possible states of a roaming agent
-    """
+    """AGENT_STATE represents the possible states of a roaming agent"""
 
     NAVIGATING = 1
     BLOCKED_BY_VEHICLE = 2
@@ -109,12 +112,10 @@ class Agent:
         return (False, None)
 
     def _get_trafficlight_trigger_location(self, traffic_light):  # pylint: disable=no-self-use
-        """Calculates the yaw of the waypoint that represents the trigger volume of the traffic light
-        """
+        """Calculates the yaw of the waypoint that represents the trigger volume of the traffic light"""
 
         def rotate_point(point, radians):
-            """Rotate a given point by a given angle
-            """
+            """Rotate a given point by a given angle"""
             rotated_x = math.cos(radians) * point.x - math.sin(radians) * point.y
             rotated_y = math.sin(radians) * point.x - math.cos(radians) * point.y
 

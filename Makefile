@@ -2,7 +2,7 @@
 # GLOBALS                                                                       #
 #################################################################################
 
-PROJECT_NAME = carla-ci3p-pgmpy
+PROJECT_NAME = carla-icts2
 PYTHON_VERSION = 3.10
 PYTHON_INTERPRETER = python${PYTHON_VERSION}
 VENV_PATH = $$HOME/.virtualenvs/$(PROJECT_NAME)/bin
@@ -57,6 +57,11 @@ setup_envars:
 	@chmod +x "$(VENV_PATH)/postactivate" "$(VENV_PATH)/predeactivate"
 	@echo -e "\033[34m🛈\033[0m \033[1mINFO\033[0m: Environment variable setup scripts have been created and made executable."
 
+## Kill all running Carla processes
+.PHONY: kill_carla
+kill_carla:
+	@ps aux | grep carla | awk '{print $$2}' | xargs kill -9
+	
 
 #################################################################################
 # PROJECT RULES                                                                 #

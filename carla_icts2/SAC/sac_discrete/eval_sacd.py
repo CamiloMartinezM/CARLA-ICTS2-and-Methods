@@ -8,7 +8,7 @@ import numpy as np
 import torch
 
 from benchmark.environment.ped_controller import l2_distance
-from config import Config
+from carla_icts2.scenarios_config import Config
 from SAC.sac_discrete.sacd.model import CateoricalPolicy, DQNBase, TwinnedQNetwork
 
 from .base import BaseAgent
