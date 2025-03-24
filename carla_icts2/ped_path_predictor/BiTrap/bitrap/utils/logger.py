@@ -45,18 +45,22 @@ class Logger(logging.Logger):
         if torch.distributed.is_initialized():
             if torch.distributed.get_rank() == 0:
                 coloredlogs.install(
-                    fmt="%(asctime)s %(hostname)s %(levelname)s %(message)s", logger=self,
+                    fmt="%(asctime)s %(hostname)s %(levelname)s %(message)s",
+                    logger=self,
                 )
             else:
                 self.disabled = True
         else:
             coloredlogs.install(
-                fmt="%(asctime)s %(hostname)s %(levelname)s %(message)s", logger=self,
+                fmt="%(asctime)s %(hostname)s %(levelname)s %(message)s",
+                logger=self,
             )
 
         self.project = project
         if viz_backend is not None and not self.disabled:
-            assert viz_backend in BACKENDS, f"Please specify either None or a backend in {BACKENDS}"
+            assert viz_backend in BACKENDS, (
+                f"Please specify either None or a backend in {BACKENDS}"
+            )
             self._create_backend(config, project, viz_backend, sync)
             self.run_id = self.backend.run_id
         else:
@@ -256,7 +260,8 @@ class _WandBBackend(_Backend):
         if size is not None:
             image = np.array(
                 Image.fromarray(image.astype("uint8")).resize(
-                    (size[-1], size[0]), resample=Image.BILINEAR,
+                    (size[-1], size[0]),
+                    resample=Image.BILINEAR,
                 ),
             )
         self._increment_step(step)
@@ -297,7 +302,8 @@ class _TensorboardXBackend(_Backend):
     def update_config(self, config):
         self.config.update(config)
         with open(
-            self.log_dir + "/run-" + self.start_asc_time + "-" + self.run_id + ".json", "w",
+            self.log_dir + "/run-" + self.start_asc_time + "-" + self.run_id + ".json",
+            "w",
         ) as _cfg:
             json.dump(self.config, _cfg)
 
@@ -336,7 +342,8 @@ class _TensorboardXBackend(_Backend):
         if size is not None:
             image = np.array(
                 Image.fromarray(np.uint8(image)).resize(
-                    (size[-1], size[0]), resample=Image.BILINEAR,
+                    (size[-1], size[0]),
+                    resample=Image.BILINEAR,
                 ),
             )
         # Tranpose to (C, H, W) for TensorboardX

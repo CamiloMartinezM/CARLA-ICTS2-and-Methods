@@ -3,25 +3,22 @@ import math
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torch import nn
-
 from ped_path_predictor.autobots.AutoBots.models.context_encoders import (
     MapEncoderCNN,
     MapEncoderPts,
 )
+from torch import nn
 
 
 def init(module, weight_init, bias_init, gain=1):
-    """This function provides weight and bias initializations for linear layers.
-    """
+    """This function provides weight and bias initializations for linear layers."""
     weight_init(module.weight.data, gain=gain)
     bias_init(module.bias.data)
     return module
 
 
 class PositionalEncoding(nn.Module):
-    """Standard positional encoding.
-    """
+    """Standard positional encoding."""
 
     def __init__(self, d_model, dropout=0.1, max_len=60):
         super(PositionalEncoding, self).__init__()
@@ -51,7 +48,10 @@ class OutputModel(nn.Module):
         super(OutputModel, self).__init__()
         self.d_k = d_k
         init_ = lambda m: init(
-            m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2),
+            m,
+            nn.init.xavier_normal_,
+            lambda x: nn.init.constant_(x, 0),
+            np.sqrt(2),
         )
         self.observation_model = nn.Sequential(
             init_(nn.Linear(d_k, d_k)),
@@ -66,7 +66,9 @@ class OutputModel(nn.Module):
         T = agent_decoder_state.shape[0]
         BK = agent_decoder_state.shape[1]
         pred_obs = self.observation_model(agent_decoder_state.reshape(-1, self.d_k)).reshape(
-            T, BK, -1,
+            T,
+            BK,
+            -1,
         )
 
         x_mean = pred_obs[:, :, 0]
@@ -78,8 +80,7 @@ class OutputModel(nn.Module):
 
 
 class AutoBotEgoCogV2(nn.Module):
-    """AutoBot-Ego Class.
-    """
+    """AutoBot-Ego Class."""
 
     def __init__(
         self,
@@ -100,7 +101,10 @@ class AutoBotEgoCogV2(nn.Module):
         super(AutoBotEgoCogV2, self).__init__()
 
         init_ = lambda m: init(
-            m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2),
+            m,
+            nn.init.xavier_normal_,
+            lambda x: nn.init.constant_(x, 0),
+            np.sqrt(2),
         )
 
         self.map_attr = map_attr
@@ -147,12 +151,16 @@ class AutoBotEgoCogV2(nn.Module):
         if self.use_map_img:
             self.map_encoder = MapEncoderCNN(d_k=d_k, dropout=self.dropout)
             self.emb_state_map = nn.Sequential(
-                init_(nn.Linear(2 * d_k, d_k)), nn.ReLU(), init_(nn.Linear(d_k, d_k)),
+                init_(nn.Linear(2 * d_k, d_k)),
+                nn.ReLU(),
+                init_(nn.Linear(d_k, d_k)),
             )
         elif self.use_map_lanes:
             self.map_encoder = MapEncoderPts(d_k=d_k, map_attr=map_attr, dropout=self.dropout)
             self.map_attn_layers = nn.MultiheadAttention(
-                self.d_k, num_heads=self.num_heads, dropout=0.3,
+                self.d_k,
+                num_heads=self.num_heads,
+                dropout=0.3,
             )
 
         # ============================== AutoBot-Ego DECODER ==============================
@@ -191,7 +199,9 @@ class AutoBotEgoCogV2(nn.Module):
             self.mode_map_attn = nn.MultiheadAttention(self.d_k, num_heads=self.num_heads)
 
         self.prob_decoder = nn.MultiheadAttention(
-            self.d_k * 2, num_heads=self.num_heads, dropout=self.dropout,
+            self.d_k * 2,
+            num_heads=self.num_heads,
+            dropout=self.dropout,
         )
         self.prob_predictor = init_(nn.Linear(self.d_k * 2, 1))
 
@@ -235,7 +245,8 @@ class AutoBotEgoCogV2(nn.Module):
 
         # Agents stuff
         temp_masks = torch.cat(
-            (torch.ones_like(env_masks_orig.unsqueeze(-1)), agents[:, :, :, -1]), dim=-1,
+            (torch.ones_like(env_masks_orig.unsqueeze(-1)), agents[:, :, :, -1]),
+            dim=-1,
         )
         opps_masks = (
             (1.0 - temp_masks).type(torch.BoolTensor).to(agents.device)
@@ -289,7 +300,8 @@ class AutoBotEgoCogV2(nn.Module):
 
         # Encode all input observations (k_attr --> d_k)
         ego_tensor, _agents_tensor, opps_masks, env_masks = self.process_observations(
-            ego_in, agents_in,
+            ego_in,
+            agents_in,
         )
 
         agents_tensor = torch.cat((ego_tensor.unsqueeze(2), _agents_tensor), dim=2)
@@ -326,16 +338,21 @@ class AutoBotEgoCogV2(nn.Module):
         # Process through AutoBot's encoder
         for i in range(self.L_enc):
             agents_emb = self.temporal_attn_fn(
-                agents_emb, opps_masks, layer=self.temporal_attn_layers[i],
+                agents_emb,
+                opps_masks,
+                layer=self.temporal_attn_layers[i],
             )
             agents_emb = self.social_attn_fn(
-                agents_emb, opps_masks, layer=self.social_attn_layers[i],
+                agents_emb,
+                opps_masks,
+                layer=self.social_attn_layers[i],
             )
 
         ego_soctemp_emb = agents_emb[:, :, 0]  # take ego-agent encodings only.
 
         ego_soctemp_emb = torch.concat(
-            (ego_soctemp_emb, decoded_lin), dim=-1,
+            (ego_soctemp_emb, decoded_lin),
+            dim=-1,
         )  # add the cognitive encoding
 
         # Process map information
@@ -373,14 +390,19 @@ class AutoBotEgoCogV2(nn.Module):
                 )[0]
                 out_seq = out_seq + ego_dec_emb_map
             out_seq = self.tx_decoder[d](
-                out_seq, context, tgt_mask=time_masks, memory_key_padding_mask=env_masks,
+                out_seq,
+                context,
+                tgt_mask=time_masks,
+                memory_key_padding_mask=env_masks,
             )
         out_dists = self.output_model(out_seq).reshape(self.T, B, self.c, -1).permute(2, 0, 1, 3)
 
         # Mode prediction
         mode_params_emb = self.P.repeat(1, B, 1)
         mode_params_emb = self.prob_decoder(
-            query=mode_params_emb, key=ego_soctemp_emb, value=ego_soctemp_emb,
+            query=mode_params_emb,
+            key=ego_soctemp_emb,
+            value=ego_soctemp_emb,
         )[0]
         if self.use_map_img:
             mode_params_emb = self.modemap_net(
@@ -397,7 +419,8 @@ class AutoBotEgoCogV2(nn.Module):
                 + mode_params_emb
             )
         mode_probs = F.softmax(self.prob_predictor(mode_params_emb).squeeze(-1), dim=0).transpose(
-            0, 1,
+            0,
+            1,
         )
 
         # return  [c, T, B, 5], [B, c]

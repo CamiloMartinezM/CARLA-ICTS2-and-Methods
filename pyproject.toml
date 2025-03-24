@@ -34,6 +34,7 @@ ignore = [
     "BLE001",  # Do not catch blind exception: `Exception`
     "C901",    # `add_sequential_seconds` is too complex (13 > 10)
     "PLR0912", # Too many branches (13 > 12)
+    "PLR0915", # Too many statements (51 > 50)
 ]
 
 [tool.ruff.format]

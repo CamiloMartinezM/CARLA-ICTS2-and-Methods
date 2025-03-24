@@ -77,7 +77,12 @@ def do_train(cfg, epoch, model, optimizer, dataloader, device, logger=None, lr_s
 
             if cfg.VISUALIZE and iters % max(int(len(dataloader) / 5), 1) == 0:
                 ret = post_process(
-                    cfg, X_global, y_global, pred_traj, pred_goal=pred_goal, dist_goal=dist_goal,
+                    cfg,
+                    X_global,
+                    y_global,
+                    pred_traj,
+                    pred_goal=pred_goal,
+                    dist_goal=dist_goal,
                 )
                 X_global, y_global, pred_goal, pred_traj, dist_traj, dist_goal = ret
                 viz_results(
@@ -155,7 +160,14 @@ def do_val(cfg, epoch, model, dataloader, device, logger=None):
 
 
 def inference(
-    cfg, epoch, model, dataloader, device, logger=None, eval_kde_nll=False, test_mode=False,
+    cfg,
+    epoch,
+    model,
+    dataloader,
+    device,
+    logger=None,
+    eval_kde_nll=False,
+    test_mode=False,
 ):
     model.eval()
     all_img_paths = []
@@ -282,7 +294,8 @@ def inference(
             if not os.path.exists(cfg.OUT_DIR):
                 os.makedirs(cfg.OUT_DIR)
             output_file = os.path.join(
-                cfg.OUT_DIR, f"{cfg.MODEL.LATENT_DIST}_{cfg.DATASET.NAME}.pkl",
+                cfg.OUT_DIR,
+                f"{cfg.MODEL.LATENT_DIST}_{cfg.DATASET.NAME}.pkl",
             )
             print("Writing outputs to: ", output_file)
             pkl.dump(outputs, open(output_file, "wb"))
@@ -347,7 +360,8 @@ def inference_kde_nll(cfg, epoch, model, dataloader, device, logger=None):
             X_global, y_global, pred_goal, pred_traj, dist_traj, dist_goal = ret
             for i in range(len(pred_traj)):
                 KDE_NLL, KDE_NLL_PER_STEP = compute_kde_nll(
-                    pred_traj[i : i + 1], y_global[i : i + 1],
+                    pred_traj[i : i + 1],
+                    y_global[i : i + 1],
                 )
                 all_kde_nll.append(KDE_NLL)
                 all_per_step_kde_nll.append(KDE_NLL_PER_STEP)

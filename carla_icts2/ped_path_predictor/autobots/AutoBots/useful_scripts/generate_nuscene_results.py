@@ -45,7 +45,10 @@ def recompute_probs(pred_trajs, probs):
     distances = np.array(distances)
 
     agg = AgglomerativeClustering(
-        affinity="precomputed", linkage="complete", distance_threshold=None, n_clusters=6,
+        affinity="precomputed",
+        linkage="complete",
+        distance_threshold=None,
+        n_clusters=6,
     )
     output = agg.fit_predict(distances)  # Returns class labels.
     temp_probs = probs.copy()
@@ -125,7 +128,9 @@ if __name__ == "__main__":
                     pred_seq = pred_seqs[b, k]
                     curr_out["prediction"].append(
                         convert_local_coords_to_global(
-                            pred_seq, translation[b], rotation[b],
+                            pred_seq,
+                            translation[b],
+                            rotation[b],
                         ).tolist(),
                     )
 

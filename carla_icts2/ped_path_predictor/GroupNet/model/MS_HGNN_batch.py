@@ -1,4 +1,3 @@
-
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -42,7 +41,9 @@ class MLP_dict_softmax(nn.Module):
         super(MLP_dict_softmax, self).__init__()
         self.bottleneck_dim = edge_types
         self.MLP_distribution = MLP(
-            input_dim=input_dim, output_dim=self.bottleneck_dim, hidden_size=hidden_size,
+            input_dim=input_dim,
+            output_dim=self.bottleneck_dim,
+            hidden_size=hidden_size,
         )
         # self.dict_layer = conv1x1(self.bottleneck_dim,output_dim)
         # self.dict_layer = nn.Linear(self.bottleneck_dim,output_dim,bias=False)
@@ -89,7 +90,10 @@ class MS_HGNN_oridinary(nn.Module):
         self.hdim_extend = hdim_extend
         self.edge_types = 6
         self.nmp_mlp_start = MLP_dict_softmax(
-            input_dim=hdim_extend, output_dim=h_dim, hidden_size=(128,), edge_types=self.edge_types,
+            input_dim=hdim_extend,
+            output_dim=h_dim,
+            hidden_size=(128,),
+            edge_types=self.edge_types,
         )
         self.nmp_mlps = self.make_nmp_mlp()
         self.nmp_mlp_end = MLP(input_dim=h_dim * 2, output_dim=bottleneck_dim, hidden_size=(128,))
@@ -268,7 +272,9 @@ class MLP_dict(nn.Module):
         super(MLP_dict, self).__init__()
         self.bottleneck_dim = edge_types
         self.MLP_distribution = MLP(
-            input_dim=input_dim, output_dim=self.bottleneck_dim, hidden_size=hidden_size,
+            input_dim=input_dim,
+            output_dim=self.bottleneck_dim,
+            hidden_size=hidden_size,
         )
         # self.dict_layer = conv1x1(self.bottleneck_dim,output_dim)
         # self.dict_layer = nn.Linear(self.bottleneck_dim,output_dim,bias=False)
@@ -352,7 +358,10 @@ class MS_HGNN_hyper(nn.Module):
         self.edge_types = 10
 
         self.nmp_mlp_start = MLP_dict_softmax(
-            input_dim=hdim_extend, output_dim=h_dim, hidden_size=(128,), edge_types=self.edge_types,
+            input_dim=hdim_extend,
+            output_dim=h_dim,
+            hidden_size=(128,),
+            edge_types=self.edge_types,
         )
         self.nmp_mlps = self.make_nmp_mlp()
         self.nmp_mlp_end = MLP(input_dim=h_dim * 2, output_dim=bottleneck_dim, hidden_size=(128,))
@@ -388,7 +397,9 @@ class MS_HGNN_hyper(nn.Module):
                     tensor_a = torch.cat((tensor_a[0:i], tensor_a[i + 1 :]), dim=0)
                     padding = (1, 0, 0, 0)
                     all_comb = F.pad(
-                        torch.combinations(tensor_a, r=group_size - 1), padding, value=i,
+                        torch.combinations(tensor_a, r=group_size - 1),
+                        padding,
+                        value=i,
                     )
                     all_combs.append(all_comb[None, :, :])
                 self.all_combs = torch.cat(all_combs, dim=0)
@@ -468,18 +479,28 @@ class MS_HGNN_hyper(nn.Module):
         all_indice = self.all_combs.clone()  # (N,C,m)
         all_indice = all_indice[None, :, :, :].repeat(batch, 1, 1, 1)
         all_matrix = feat_corr[:, None, None, :, :].repeat(
-            1, actor_number, all_indice.shape[2], 1, 1,
+            1,
+            actor_number,
+            all_indice.shape[2],
+            1,
+            1,
         )
         all_matrix = torch.gather(
-            all_matrix, 3, all_indice[:, :, :, :, None].repeat(1, 1, 1, 1, actor_number),
+            all_matrix,
+            3,
+            all_indice[:, :, :, :, None].repeat(1, 1, 1, 1, actor_number),
         )
         all_matrix = torch.gather(
-            all_matrix, 4, all_indice[:, :, :, None, :].repeat(1, 1, 1, group_size, 1),
+            all_matrix,
+            4,
+            all_indice[:, :, :, None, :].repeat(1, 1, 1, group_size, 1),
         )
         score = torch.sum(all_matrix, dim=(3, 4), keepdim=False)
         _, max_idx = torch.max(score, dim=2)
         indice = torch.gather(
-            all_indice, 2, max_idx[:, :, None, None].repeat(1, 1, 1, group_size),
+            all_indice,
+            2,
+            max_idx[:, :, None, None].repeat(1, 1, 1, group_size),
         )[:, :, 0, :]
 
         H_matrix = torch.zeros(batch, actor_number, actor_number).type_as(feat)

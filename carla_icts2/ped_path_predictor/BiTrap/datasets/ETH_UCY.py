@@ -45,15 +45,18 @@ class ETHUCYDataset(data.Dataset):
 
         if split == "train":
             f = open(
-                os.path.join(cfg.DATASET.TRAJECTORY_PATH, cfg.DATASET.NAME + "_train.pkl"), "rb",
+                os.path.join(cfg.DATASET.TRAJECTORY_PATH, cfg.DATASET.NAME + "_train.pkl"),
+                "rb",
             )
         elif split == "val":
             f = open(
-                os.path.join(cfg.DATASET.TRAJECTORY_PATH, cfg.DATASET.NAME + "_val.pkl"), "rb",
+                os.path.join(cfg.DATASET.TRAJECTORY_PATH, cfg.DATASET.NAME + "_val.pkl"),
+                "rb",
             )
         elif split == "test":
             f = open(
-                os.path.join(cfg.DATASET.TRAJECTORY_PATH, cfg.DATASET.NAME + "_test.pkl"), "rb",
+                os.path.join(cfg.DATASET.TRAJECTORY_PATH, cfg.DATASET.NAME + "_test.pkl"),
+                "rb",
             )
         else:
             raise ValueError
@@ -140,8 +143,7 @@ class ETHUCYDataset(data.Dataset):
 
 
 class NodeTypeDataset(data.Dataset):
-    """from Trajectron++: https://github.com/StanfordASL/Trajectron-plus-plus
-    """
+    """from Trajectron++: https://github.com/StanfordASL/Trajectron-plus-plus"""
 
     def __init__(
         self,
@@ -176,7 +178,9 @@ class NodeTypeDataset(data.Dataset):
 
         for scene in self.env.scenes:
             present_node_dict = scene.present_nodes(
-                np.arange(0, scene.timesteps), type=self.node_type, **kwargs,
+                np.arange(0, scene.timesteps),
+                type=self.node_type,
+                **kwargs,
             )
             for t, nodes in present_node_dict.items():
                 for node in nodes:

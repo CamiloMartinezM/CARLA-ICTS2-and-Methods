@@ -115,7 +115,11 @@ def main():
     elif cfg.SOLVER.scheduler == "plateau":
         # Plateau scheduler
         lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, factor=0.2, patience=5, min_lr=1e-07, verbose=1,
+            optimizer,
+            factor=0.2,
+            patience=5,
+            min_lr=1e-07,
+            verbose=1,
         )
     else:
         lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[25, 40], gamma=0.2)
@@ -137,7 +141,13 @@ def main():
         val_loss = do_val(cfg, epoch, model, val_dataloader, cfg.DEVICE, logger=logger)
         if (epoch + 1) % 1 == 0:
             inference(
-                cfg, epoch, model, test_dataloader, cfg.DEVICE, logger=logger, eval_kde_nll=False,
+                cfg,
+                epoch,
+                model,
+                test_dataloader,
+                cfg.DEVICE,
+                logger=logger,
+                eval_kde_nll=False,
             )
 
         torch.save(

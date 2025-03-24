@@ -37,8 +37,7 @@ class RingBuffer(Sequence):
         )
 
     def _fix_indices(self):
-        """Enforce our invariant that 0 <= self._left_index < self._capacity
-        """
+        """Enforce our invariant that 0 <= self._left_index < self._capacity"""
         if self._left_index >= self._capacity:
             self._left_index -= self._capacity
             self._right_index -= self._capacity
@@ -236,9 +235,7 @@ class DoubleHeaderNumpyArray:
             return self.data[rows, data_integer_indices]
         if type(columns) is tuple:
             return self.data[rows, self.double_header_lookup[columns]]
-        assert type(item) is str, (
-            "Index must be str, list of tuples or dict of tree structure."
-        )
+        assert type(item) is str, "Index must be str, list of tuples or dict of tree structure."
         return self.get_single_header_array(item, rows=rows)
 
     def __getattr__(self, item):

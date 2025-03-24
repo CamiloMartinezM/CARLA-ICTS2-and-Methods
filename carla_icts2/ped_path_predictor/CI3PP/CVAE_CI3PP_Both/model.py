@@ -1,7 +1,6 @@
 import torch
-from torch import nn
-
 from P3VI.model import LinearReLu, TimeDistributed
+from torch import nn
 
 
 class LinearTanh(nn.Module):
@@ -26,7 +25,8 @@ class CVAE_CI3PP_Both(nn.Module):
 
         # CVAE STUFF
         self.y_encoder = nn.Sequential(
-            TimeDistributed(LinearTanh(2, 128)), nn.GRU(128, 256, batch_first=True),
+            TimeDistributed(LinearTanh(2, 128)),
+            nn.GRU(128, 256, batch_first=True),
         )
         self.mu = nn.Linear(256 + 128 * 3, self.latent_dim)
         self.var = nn.Linear(256 + 128 * 3, self.latent_dim)
@@ -38,24 +38,36 @@ class CVAE_CI3PP_Both(nn.Module):
 
         # Cross Attention
         self.mha_traj_x_cf = nn.MultiheadAttention(
-            embed_dim=embedded, num_heads=4, batch_first=True,
+            embed_dim=embedded,
+            num_heads=4,
+            batch_first=True,
         )
         self.mha_traj_x_car = nn.MultiheadAttention(
-            embed_dim=embedded, num_heads=4, batch_first=True,
+            embed_dim=embedded,
+            num_heads=4,
+            batch_first=True,
         )
 
         self.mha_cf_x_traj = nn.MultiheadAttention(
-            embed_dim=embedded, num_heads=4, batch_first=True,
+            embed_dim=embedded,
+            num_heads=4,
+            batch_first=True,
         )
         self.mha_cf_x_car = nn.MultiheadAttention(
-            embed_dim=embedded, num_heads=4, batch_first=True,
+            embed_dim=embedded,
+            num_heads=4,
+            batch_first=True,
         )
 
         self.mha_car_x_traj = nn.MultiheadAttention(
-            embed_dim=embedded, num_heads=4, batch_first=True,
+            embed_dim=embedded,
+            num_heads=4,
+            batch_first=True,
         )
         self.mha_car_x_cf = nn.MultiheadAttention(
-            embed_dim=embedded, num_heads=4, batch_first=True,
+            embed_dim=embedded,
+            num_heads=4,
+            batch_first=True,
         )
 
         # ENCODER

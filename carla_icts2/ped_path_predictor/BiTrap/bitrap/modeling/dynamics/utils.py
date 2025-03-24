@@ -1,5 +1,4 @@
-"""Adopted from Trajectron++
-"""
+"""Adopted from Trajectron++"""
 
 import numpy as np
 import torch

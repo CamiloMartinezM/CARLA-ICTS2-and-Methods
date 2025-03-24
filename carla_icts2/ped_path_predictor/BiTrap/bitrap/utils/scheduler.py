@@ -14,7 +14,10 @@ class CustomLR(torch.optim.lr_scheduler.LambdaLR):
         super(CustomLR, self).__init__(optimizer, lr_lambda, last_epoch)
 
     def get_lr(self):
-        return [lmbda(self.last_epoch) for lmbda, base_lr in zip(self.lr_lambdas, self.base_lrs, strict=False)]
+        return [
+            lmbda(self.last_epoch)
+            for lmbda, base_lr in zip(self.lr_lambdas, self.base_lrs, strict=False)
+        ]
 
 
 class ParamScheduler:
@@ -33,7 +36,8 @@ class ParamScheduler:
             # step_annealers().
             rsetattr(self, name, value_annealer(0).clone().detach())
             dummy_optimizer = optim.Optimizer(
-                [rgetattr(self, name)], {"lr": value_annealer(0).clone().detach()},
+                [rgetattr(self, name)],
+                {"lr": value_annealer(0).clone().detach()},
             )
             rsetattr(self, name + "_optimizer", dummy_optimizer)
             value_scheduler = CustomLR(dummy_optimizer, value_annealer)

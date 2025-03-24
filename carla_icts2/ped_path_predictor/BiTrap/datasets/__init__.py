@@ -62,8 +62,7 @@ def make_dataloader(cfg, split="train", logger=None):
 
 
 def collate_dict(batch):
-    """batch: a list of dict
-    """
+    """batch: a list of dict"""
     if len(batch) == 0:
         return batch
     elem = batch[0]

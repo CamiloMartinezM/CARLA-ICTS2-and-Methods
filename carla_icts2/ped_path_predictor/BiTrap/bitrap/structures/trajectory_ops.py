@@ -12,7 +12,8 @@ def inverse_scale_and_coord(video_resolution, merged_output, out_scaler=None):
     if out_scaler is not None:
         merged_output = inverse_scale(merged_output, scaler=out_scaler)
     merged_output = restore_global_coordinate_system(
-        merged_output, video_resolution=video_resolution,
+        merged_output,
+        video_resolution=video_resolution,
     )
     merged_output = np.where(np.isnan(merged_output), 0.0, merged_output)
     return merged_output
@@ -42,7 +43,10 @@ def aggregate_rnn_autoencoder_data(trajectories, input_length, input_gap=0, pred
 
     for traj_id, trajectory in trajectories.items():
         X, X_pred, X_frame = _aggregate_rnn_autoencoder_data(
-            trajectory, input_length, input_gap, pred_length,
+            trajectory,
+            input_length,
+            input_gap,
+            pred_length,
         )
         Xs.append(X)
         Xs_frame.append(X_frame)
@@ -91,7 +95,11 @@ def _aggregate_rnn_autoencoder_data(trajectory, input_length, input_gap=0, pred_
 
 
 def aggregate_rnn_ae_evaluation_data(
-    trajectories, input_length, input_gap, pred_length, overlapping_trajectories,
+    trajectories,
+    input_length,
+    input_gap,
+    pred_length,
+    overlapping_trajectories,
 ):
     trajectories_ids, frames, X = [], [], []
     for trajectory in trajectories.values():
@@ -128,7 +136,9 @@ def remove_short_trajectories(trajectories, input_length, input_gap, pred_length
     filtered_trajectories = {}
     for trajectory_id, trajectory in trajectories.items():
         if not trajectory.is_short(
-            input_length=input_length, input_gap=input_gap, pred_length=pred_length,
+            input_length=input_length,
+            input_gap=input_gap,
+            pred_length=pred_length,
         ):
             filtered_trajectories[trajectory_id] = trajectory
 
@@ -234,7 +244,9 @@ def extract_size_features(trajectories):
 def change_coordinate_system(trajectories, coordinate_system="global", invert=False):
     for trajectory in trajectories.values():
         trajectory.change_coordinate_system(
-            trajectory.resolution, coordinate_system=coordinate_system, invert=invert,
+            trajectory.resolution,
+            coordinate_system=coordinate_system,
+            invert=invert,
         )
 
     return trajectories
@@ -410,7 +422,8 @@ def assemble_ground_truth_and_reconstructions(
         indices = trajectory_ids == trajectory_id
         frames = reconstruction_frames[indices]
         y_hat[video_id][frames] = np.maximum(
-            y_hat[video_id][frames], reconstruction_errors[indices],
+            y_hat[video_id][frames],
+            reconstruction_errors[indices],
         )
 
     y_true_, y_hat_, video_ids = [], [], []

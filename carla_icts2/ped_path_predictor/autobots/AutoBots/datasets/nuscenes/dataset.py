@@ -265,16 +265,19 @@ class NuscenesH5Dataset(Dataset):
 
             if angle_of_rotation is not None:
                 new_agents_in[:, n, :2] = self.convert_global_coords_to_local(
-                    coordinates=agents_in[:, n, :2] - translation, yaw=angle_of_rotation,
+                    coordinates=agents_in[:, n, :2] - translation,
+                    yaw=angle_of_rotation,
                 )
                 new_agents_out[:, n, :2] = self.convert_global_coords_to_local(
-                    coordinates=agents_out[:, n, :2] - translation, yaw=angle_of_rotation,
+                    coordinates=agents_out[:, n, :2] - translation,
+                    yaw=angle_of_rotation,
                 )
                 new_agents_in[:, n, :2][np.where(new_agents_in[:, n, -1] == 0)] = 0.0
                 new_agents_out[:, n, :2][np.where(new_agents_out[:, n, -1] == 0)] = 0.0
                 if self.use_map_lanes:
                     new_roads[n + 1, :, :, :2] = self.convert_global_coords_to_local(
-                        coordinates=new_roads[n + 1, :, :, :2] - translation, yaw=angle_of_rotation,
+                        coordinates=new_roads[n + 1, :, :, :2] - translation,
+                        yaw=angle_of_rotation,
                     )
                     new_roads[n + 1, :, :, 2] -= angle_of_rotation
                     new_roads[n + 1][np.where(new_roads[n + 1, :, :, -1] == 0)] = 0.0
@@ -288,7 +291,8 @@ class NuscenesH5Dataset(Dataset):
         agents_data = dataset["agents_trajectories"][idx]
 
         agent_types = self.get_agent_types(
-            dataset["agents_types"][idx], num_raw_agents=agents_data.shape[1],
+            dataset["agents_types"][idx],
+            num_raw_agents=agents_data.shape[1],
         )
         agents_data, agent_types = self.select_valid_others(agents_data, agent_types)
 
@@ -310,7 +314,11 @@ class NuscenesH5Dataset(Dataset):
         # make agents have 2 sets of x,y positions (one centered @(0,0) and pointing up, and the other being raw
         if self.use_joint_version:
             in_ego, out_ego, in_agents, out_agents, roads = self.rotate_agent_datas(
-                in_ego, out_ego, in_agents, out_agents, roads,
+                in_ego,
+                out_ego,
+                in_agents,
+                out_agents,
+                roads,
             )
 
         city_name = dataset["scene_ids"][idx][-1].decode("utf-8")
@@ -318,7 +326,11 @@ class NuscenesH5Dataset(Dataset):
             should_we_mirror = np.random.choice([0, 1])
             if should_we_mirror:
                 in_ego, out_ego, in_agents, out_agents, roads = self.mirror_scene(
-                    in_ego, out_ego, in_agents, out_agents, roads,
+                    in_ego,
+                    out_ego,
+                    in_agents,
+                    out_agents,
+                    roads,
                 )
 
         if self.use_joint_version:

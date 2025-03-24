@@ -74,7 +74,12 @@ def is_within_distance_ahead(target_transform, current_transform, max_distance):
 
 
 def is_within_distance(
-    target_location, current_location, orientation, max_distance, d_angle_th_up, d_angle_th_low=0,
+    target_location,
+    current_location,
+    orientation,
+    max_distance,
+    d_angle_th_up,
+    d_angle_th_low=0,
 ):
     """Check if a target object is within a certain distance from a reference object.
     A vehicle in front would be something around 0 deg, while one behind around 180 deg.

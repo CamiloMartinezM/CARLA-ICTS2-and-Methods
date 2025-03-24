@@ -1,7 +1,6 @@
 import os
 import time
 
-import numpy as np
 from prettytable import PrettyTable
 
 
@@ -13,8 +12,7 @@ def format_value(value):
 
 
 def create_data_table(data_list, start_idx=0, max_rows=None):
-    """
-    Create a pretty table from a list of iteration data.
+    """Create a pretty table from a list of iteration data.
 
     Args:
         data_list: List of dictionaries containing DBN data
@@ -54,8 +52,7 @@ def create_data_table(data_list, start_idx=0, max_rows=None):
 
 
 def display_simulation_data(ep_data, episode_num, save_dir="./tables"):
-    """
-    Display and save a summary of the simulation data.
+    """Display and save a summary of the simulation data.
 
     Args:
         ep_data: List of data dictionaries from the current episode
@@ -124,8 +121,7 @@ def display_simulation_data(ep_data, episode_num, save_dir="./tables"):
 
 
 def display_iteration_data(data, iteration):
-    """
-    Display data for a single iteration in a compact table.
+    """Display data for a single iteration in a compact table.
 
     Args:
         data: Dictionary containing the current iteration data
@@ -143,7 +139,9 @@ def display_iteration_data(data, iteration):
     table.add_row(["Wheel Stance (WS)", format_value(data.get("WS_car", "N/A"))])
     table.add_row(["Car Body Orientation (CBO)", format_value(data.get("CBO_car", "N/A"))])
     table.add_row(["Acceleration (ACC)", format_value(data.get("ACC_car", "N/A"))])
-    table.add_row(["Speed (S)", f"{data.get('speed_car_raw', 0):.1f} m/s ({data.get('S_car', 'N/A')})"])
+    table.add_row(
+        ["Speed (S)", f"{data.get('speed_car_raw', 0):.1f} m/s ({data.get('S_car', 'N/A')})"],
+    )
     table.add_row(["ICR", format_value(data.get("ICR_car", "N/A"))])
     table.add_row(["SN", format_value(data.get("SN_car", "N/A"))])
 
@@ -155,7 +153,9 @@ def display_iteration_data(data, iteration):
     table.add_row(["HIO", format_value(data.get("HIO_ped", "N/A"))])
     table.add_row(["Approaching (A)", format_value(data.get("A_ped", "N/A"))])
     table.add_row(["Acceleration (ACC)", format_value(data.get("ACC_ped", "N/A"))])
-    table.add_row(["Speed (S)", f"{data.get('speed_ped_raw', 0):.1f} m/s ({data.get('S_ped', 'N/A')})"])
+    table.add_row(
+        ["Speed (S)", f"{data.get('speed_ped_raw', 0):.1f} m/s ({data.get('S_ped', 'N/A')})"],
+    )
     table.add_row(["SSEC", format_value(data.get("SSEC", "N/A"))])
     table.add_row(["ICR", format_value(data.get("ICR_ped", "N/A"))])
     table.add_row(["SN", format_value(data.get("SN_ped", "N/A"))])

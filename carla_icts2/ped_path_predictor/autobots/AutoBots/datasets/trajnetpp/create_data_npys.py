@@ -12,16 +12,14 @@ portion.
 
 
 def drop_distant(xy, max_num_peds=5):
-    """Only Keep the max_num_peds closest pedestrians
-    """
+    """Only Keep the max_num_peds closest pedestrians"""
     distance_2 = np.sum(np.square(xy - xy[:, 0:1]), axis=2)
     smallest_dist_to_ego = np.nanmin(distance_2, axis=0)
     return xy[:, np.argsort(smallest_dist_to_ego)[:(max_num_peds)]]
 
 
 def drop_inactive(xy, obs_horizon=9):
-    """Only keep agents that are active at the last timestep in the past.
-    """
+    """Only keep agents that are active at the last timestep in the past."""
     return xy[:, ~np.isnan(xy[obs_horizon - 1, :, 0])]
 
 
@@ -64,10 +62,16 @@ def inverse_scene(xy, rotation, center):
 def get_args():
     parser = argparse.ArgumentParser(description="TrajNet++ NPY Creator")
     parser.add_argument(
-        "--output-npy-path", type=str, required=True, help="output path to H5 files.",
+        "--output-npy-path",
+        type=str,
+        required=True,
+        help="output path to H5 files.",
     )
     parser.add_argument(
-        "--raw-dataset-path", type=str, required=True, help="raw Dataset path to .../synth_data.",
+        "--raw-dataset-path",
+        type=str,
+        required=True,
+        help="raw Dataset path to .../synth_data.",
     )
     args = parser.parse_args()
     return args

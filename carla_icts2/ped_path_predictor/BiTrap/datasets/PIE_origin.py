@@ -73,8 +73,7 @@ class PIE:
         return cache_path
 
     def _get_default_path(self):
-        """Returns the default path where pie is expected to be installed.
-        """
+        """Returns the default path where pie is expected to be installed."""
         return "data/pie"
 
     def _get_image_set_ids(self, image_set):
@@ -111,7 +110,9 @@ class PIE:
 
         block = int(round(barLength * progress))
         text = "\r[{}] {:0.2f}% {}".format(
-            "#" * block + "-" * (barLength - block), progress * 100, status,
+            "#" * block + "-" * (barLength - block),
+            progress * 100,
+            status,
         )
         sys.stdout.write(text)
         sys.stdout.flush()
@@ -151,7 +152,10 @@ class PIE:
         """
         print("Generating annotated frame numbers for", set_id)
         annotated_frames_file = join(
-            self._pie_path, "annotations", set_id, set_id + "_annotated_frames.csv",
+            self._pie_path,
+            "annotations",
+            set_id,
+            set_id + "_annotated_frames.csv",
         )
         # If the file exists, load from the file
         if isfile(annotated_frames_file):
@@ -407,7 +411,8 @@ class PIE:
                         ],
                     )
                     occ = self._map_text_to_scalar(
-                        "occlusion", b.find('./attribute[@name="occlusion"]').text,
+                        "occlusion",
+                        b.find('./attribute[@name="occlusion"]').text,
                     )
                     annotations[ped_annt][obj_id]["occlusion"].append(occ)
                     annotations[ped_annt][obj_id]["frames"].append(int(b.get("frame")))
@@ -415,7 +420,8 @@ class PIE:
                         # Read behavior tags for each frame and add to the database
                         annotations[ped_annt][obj_id]["behavior"][beh].append(
                             self._map_text_to_scalar(
-                                beh, b.find('./attribute[@name="' + beh + '"]').text,
+                                beh,
+                                b.find('./attribute[@name="' + beh + '"]').text,
                             ),
                         )
                     # prev_frame = int(b.get('frame'))
@@ -423,7 +429,8 @@ class PIE:
                 obj_type = boxes[0].find('./attribute[@name="type"]')
                 if obj_type is not None:
                     obj_type = self._map_text_to_scalar(
-                        obj_label, boxes[0].find('./attribute[@name="type"]').text,
+                        obj_label,
+                        boxes[0].find('./attribute[@name="type"]').text,
                     )
 
                 annotations[traffic_annt][obj_id] = {
@@ -468,7 +475,8 @@ class PIE:
                     if obj_label == "traffic_light":
                         annotations[traffic_annt][obj_id]["state"].append(
                             self._map_text_to_scalar(
-                                "state", b.find('./attribute[@name="state"]').text,
+                                "state",
+                                b.find('./attribute[@name="state"]').text,
                             ),
                         )
                     # prev_frame = int(b.get('frame'))
@@ -611,7 +619,8 @@ class PIE:
                 database[setid][vid] = self._get_annotations(setid, vid)
                 vid_attributes = self._get_ped_attributes(setid, vid)
                 database[setid][vid]["vehicle_annotations"] = self._get_vehicle_attributes(
-                    setid, vid,
+                    setid,
+                    vid,
                 )
                 for ped in database[setid][vid]["ped_annotations"]:
                     database[setid][vid]["ped_annotations"][ped]["attributes"] = vid_attributes[
@@ -625,8 +634,7 @@ class PIE:
         return database
 
     def get_data_stats(self):
-        """Generates statistics for the dataset
-        """
+        """Generates statistics for the dataset"""
         annotations = self.generate_database()
 
         set_count = len(annotations.keys())
@@ -689,17 +697,20 @@ class PIE:
                     ] += 1
                     intersection[
                         self._map_scalar_to_text(
-                            "intersection", ped_annots["attributes"]["intersection"],
+                            "intersection",
+                            ped_annots["attributes"]["intersection"],
                         )
                     ] += 1
                     traffic_direction[
                         self._map_scalar_to_text(
-                            "traffic_direction", ped_annots["attributes"]["traffic_direction"],
+                            "traffic_direction",
+                            ped_annots["attributes"]["traffic_direction"],
                         )
                     ] += 1
                     signalized[
                         self._map_scalar_to_text(
-                            "signalized", ped_annots["attributes"]["signalized"],
+                            "signalized",
+                            ped_annots["attributes"]["signalized"],
                         )
                     ] += 1
                     gender[
@@ -722,9 +733,7 @@ class PIE:
         )
         print(
             "traffic direction:\n",
-            "\n ".join(
-                f"{tag}: {cnt}" for tag, cnt in sorted(traffic_direction.items())
-            ),
+            "\n ".join(f"{tag}: {cnt}" for tag, cnt in sorted(traffic_direction.items())),
         )
         print(
             "crossing:\n",
@@ -748,9 +757,7 @@ class PIE:
                 print(trf_obj + ": %d" % values)
         print(
             "Number of pedestrian bounding boxes:\n",
-            "\n ".join(
-                f"{tag}: {cnt}" for tag, cnt in sorted(traffic_box_count.items())
-            ),
+            "\n ".join(f"{tag}: {cnt}" for tag, cnt in sorted(traffic_box_count.items())),
             "\n total: ",
             sum(traffic_box_count.values()),
         )
@@ -863,7 +870,8 @@ class PIE:
                                                               1- Set ratios to None\
                                                               2- Set ratios to the same values \
                                                               3- Regenerate data".format(
-                            ratios, rand_samples["ratios"],
+                            ratios,
+                            rand_samples["ratios"],
                         )
                     )
 
@@ -893,7 +901,8 @@ class PIE:
 
         if val_data:
             test_samples, val_samples = train_test_split(
-                test_samples, train_size=ratios[1] / sum(ratios[1:]),
+                test_samples,
+                train_size=ratios[1] / sum(ratios[1:]),
             )
             print("Number of val tracks %d" % len(val_samples))
             sample_split["val"] = val_samples
@@ -1108,7 +1117,11 @@ class PIE:
 
                     if height_rng[0] > 0 or height_rng[1] < float("inf"):
                         images, boxes, frame_ids, occlusions = self._height_check(
-                            height_rng, frame_ids, boxes, images, occlusions,
+                            height_rng,
+                            frame_ids,
+                            boxes,
+                            images,
+                            occlusions,
                         )
 
                     if (
@@ -1165,10 +1178,16 @@ class PIE:
                     frame_seq.append(frame_ids[::seq_stride])
                     # NOTE: get traffic for each person
                     traffics = self._get_traffic_participants(
-                        pid, frame_ids, traffic_annots, obj_type="v",
+                        pid,
+                        frame_ids,
+                        traffic_annots,
+                        obj_type="v",
                     )
                     ped_traffics = self._get_traffic_participants(
-                        pid, frame_ids, pid_annots, obj_type="",
+                        pid,
+                        frame_ids,
+                        pid_annots,
+                        obj_type="",
                     )
                     for k in traffics.keys():
                         traffics[k] += ped_traffics[k]
@@ -1206,8 +1225,7 @@ class PIE:
         }
 
     def _get_traffic_participants(self, pid, frame_ids, traffic_annots, obj_type=""):
-        """NOTE: find and match all traffic participants for a pedestrian
-        """
+        """NOTE: find and match all traffic participants for a pedestrian"""
         obj_bboxes, obj_classes, obj_ids = [], [], []
         for traffic_id, val in traffic_annots.items():
             if pid == traffic_id:
@@ -1301,7 +1319,11 @@ class PIE:
 
                     if height_rng[0] > 0 or height_rng[1] < float("inf"):
                         images, boxes, frame_ids, occlusions = self._height_check(
-                            height_rng, frame_ids, boxes, images, occlusions,
+                            height_rng,
+                            frame_ids,
+                            boxes,
+                            images,
+                            occlusions,
                         )
 
                     if len(boxes) / seq_stride < params["min_track_size"]:
@@ -1409,7 +1431,11 @@ class PIE:
 
                     if height_rng[0] > 0 or height_rng[1] < float("inf"):
                         images, boxes, frame_ids, occlusions = self._height_check(
-                            height_rng, frame_ids, boxes, images, occlusions,
+                            height_rng,
+                            frame_ids,
+                            boxes,
+                            images,
+                            occlusions,
                         )
                     if len(boxes) / seq_stride < params["min_track_size"]:
                         continue

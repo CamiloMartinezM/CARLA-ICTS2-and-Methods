@@ -12,7 +12,10 @@ from datasets.interaction_dataset.utils import get_minmax_mapfile
 def get_args():
     parser = argparse.ArgumentParser(description="Interaction-Dataset H5 Creator")
     parser.add_argument(
-        "--output-h5-path", type=str, required=True, help="output path to H5 files.",
+        "--output-h5-path",
+        type=str,
+        required=True,
+        help="output path to H5 files.",
     )
     parser.add_argument(
         "--raw-dataset-path",

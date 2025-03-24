@@ -1,4 +1,3 @@
-
 import numpy as np
 import torch
 from scipy.stats import gaussian_kde
@@ -9,7 +8,11 @@ from bitrap.utils.box_utils import cxcywh_to_x1y1x2y2
 
 
 def evaluate_multimodal(
-    pred_traj, target_traj, mode="bbox", distribution=None, bbox_type="x1y1x2y2",
+    pred_traj,
+    target_traj,
+    mode="bbox",
+    distribution=None,
+    bbox_type="x1y1x2y2",
 ):
     """Show the best-out-of-20 results
     pred_traj: (B, T, K, 4)
@@ -179,8 +182,7 @@ def evaluate_point_traj(pred_traj, target_traj):
 
 
 def compute_kde_nll(pred_traj, target_traj):
-    """pred_traj: (batch, T, K, 2/4)
-    """
+    """pred_traj: (batch, T, K, 2/4)"""
     kde_ll = 0.0
 
     log_pdf_lower_bound = -20

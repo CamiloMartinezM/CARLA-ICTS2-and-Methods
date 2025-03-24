@@ -138,7 +138,8 @@ class InteractionDataset(Dataset):
         # add non-used keys
         for k in road_lines_dict:
             relation_lanes[counter, :40, :5] = road_lines_dict[k][
-                :, :5,
+                :,
+                :5,
             ]  # rest of state (position (2), and type(3)).
             relation_lanes[counter, :40, 5:7] = -1.0  # no left-right relationship
             relation_lanes[counter, :40, 7] = road_lines_dict[k][:, -1]  # mask
@@ -159,12 +160,14 @@ class InteractionDataset(Dataset):
             [[meta_data[0], meta_data[1]]],
         )  # Normalize with translation only
         agents_data = np.nan_to_num(
-            agents_data, nan=-1.0,
+            agents_data,
+            nan=-1.0,
         )  # pedestrians have nans instead of yaw and size
         agents_data = np.concatenate([agents_data, agent_masks], axis=-1)
 
         dists = euclidean_distances(
-            agents_data[:, in_horizon - 1, :2], agents_data[:, in_horizon - 1, :2],
+            agents_data[:, in_horizon - 1, :2],
+            agents_data[:, in_horizon - 1, :2],
         )
         agent_masks[agent_masks == 0] = np.nan
         dists *= agent_masks[:, in_horizon - 1]
@@ -176,7 +179,9 @@ class InteractionDataset(Dataset):
 
         agents_in = agents_data[1 : (self.num_others + 1), :in_horizon]
         agents_out = agents_data[
-            1 : (self.num_others + 1), in_horizon:, [0, 1, 4, 7],
+            1 : (self.num_others + 1),
+            in_horizon:,
+            [0, 1, 4, 7],
         ]  # returning positions and yaws
         ego_in = agents_data[0, :in_horizon]
         ego_out = agents_data[0, in_horizon:]
@@ -255,17 +260,21 @@ class InteractionDataset(Dataset):
         translation = ego_in[-1, :2]
 
         new_ego_in[:, :2] = self.convert_global_coords_to_local(
-            coordinates=ego_in[:, :2] - translation, yaw=angle_of_rotation,
+            coordinates=ego_in[:, :2] - translation,
+            yaw=angle_of_rotation,
         )
         # new_ego_in[:, 4:6] = self.convert_global_coords_to_local(coordinates=ego_in[:, 2:4], yaw=angle_of_rotation)
         new_ego_in[:, 5:7] = self.convert_global_coords_to_local(
-            coordinates=ego_in[:, 2:4], yaw=angle_of_rotation,
+            coordinates=ego_in[:, 2:4],
+            yaw=angle_of_rotation,
         )
         new_ego_out[:, :2] = self.convert_global_coords_to_local(
-            coordinates=ego_out[:, :2] - translation, yaw=angle_of_rotation,
+            coordinates=ego_out[:, :2] - translation,
+            yaw=angle_of_rotation,
         )
         new_roads[0, :, :, :2] = self.convert_global_coords_to_local(
-            coordinates=new_roads[0, :, :, :2] - translation, yaw=angle_of_rotation,
+            coordinates=new_roads[0, :, :, :2] - translation,
+            yaw=angle_of_rotation,
         )
         new_roads[0][np.where(new_roads[0, :, :, -1] == 0)] = 0.0
 
@@ -283,16 +292,20 @@ class InteractionDataset(Dataset):
             translation = agents_in[n, -1, :2]
 
             new_agents_in[n, :, :2] = self.convert_global_coords_to_local(
-                coordinates=agents_in[n, :, :2] - translation, yaw=angle_of_rotation,
+                coordinates=agents_in[n, :, :2] - translation,
+                yaw=angle_of_rotation,
             )
             new_agents_in[n, :, 5:7] = self.convert_global_coords_to_local(
-                coordinates=agents_in[n, :, 2:4], yaw=angle_of_rotation,
+                coordinates=agents_in[n, :, 2:4],
+                yaw=angle_of_rotation,
             )
             new_agents_out[n, :, :2] = self.convert_global_coords_to_local(
-                coordinates=agents_out[n, :, :2] - translation, yaw=angle_of_rotation,
+                coordinates=agents_out[n, :, :2] - translation,
+                yaw=angle_of_rotation,
             )
             new_roads[n + 1, :, :, :2] = self.convert_global_coords_to_local(
-                coordinates=new_roads[n + 1, :, :, :2] - translation, yaw=angle_of_rotation,
+                coordinates=new_roads[n + 1, :, :, :2] - translation,
+                yaw=angle_of_rotation,
             )
             new_roads[n + 1][np.where(new_roads[n + 1, :, :, -1] == 0)] = 0.0
 
@@ -331,7 +344,9 @@ class InteractionDataset(Dataset):
         roads = original_roads.copy()
 
         ego_in, ego_out, agents_in, agents_out, agent_types = self.split_input_output_normalize(
-            agents_data, meta_data, agent_types,
+            agents_data,
+            meta_data,
+            agent_types,
         )
         roads = self.copy_agent_roads_across_agents(agents_in, roads)
 
@@ -339,7 +354,12 @@ class InteractionDataset(Dataset):
         if self.evaluation:
             translations = np.concatenate((ego_in[-1:, :2], agents_in[:, -1, :2]), axis=0)
         ego_in, ego_out, agents_in, agents_out, roads = self.rotate_agents(
-            ego_in, ego_out, agents_in, agents_out, roads, agent_types,
+            ego_in,
+            ego_out,
+            agents_in,
+            agents_out,
+            roads,
+            agent_types,
         )
 
         """
@@ -365,7 +385,9 @@ class InteractionDataset(Dataset):
             agents_in[:, :, 0:2] = agents_in[:, :, 3:5]
             ego_out[:, 0:2] = ego_out[:, 2:4]  # putting the original coordinate systems
             agents_out[:, :, 0:2] = agents_out[
-                :, :, 2:4,
+                :,
+                :,
+                2:4,
             ]  # putting the original coordinate systems
             return (
                 model_ego_in,

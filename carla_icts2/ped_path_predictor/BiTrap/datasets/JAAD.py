@@ -117,7 +117,10 @@ class JAADDataset(data.Dataset):
 
         #  Normalize tracks using FOL paper method,
         d["bbox"] = self.convert_normalize_bboxes(
-            d["bbox"], d["resolution"], self.cfg.DATASET.NORMALIZE, self.cfg.DATASET.BBOX_TYPE,
+            d["bbox"],
+            d["resolution"],
+            self.cfg.DATASET.NORMALIZE,
+            self.cfg.DATASET.BBOX_TYPE,
         )
         return d
 

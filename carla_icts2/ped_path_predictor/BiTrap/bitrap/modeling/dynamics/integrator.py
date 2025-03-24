@@ -1,6 +1,4 @@
-"""Adopted from Trajectron++
-"""
-
+"""Adopted from Trajectron++"""
 
 import torch
 
@@ -102,15 +100,18 @@ class SingleIntegrator(Dynamic):
             return GMM2D.from_log_pis_mus_cov_mats(v_dist.log_pis, pos_mus, pos_dist_sigma_matrix)
         if isinstance(v_dist, GMM4D):
             size_dist_sigma_matrix = self.integrate_sigma(
-                v_dist, vel_dist_sigma_matrix[..., 2:, 2:],
+                v_dist,
+                vel_dist_sigma_matrix[..., 2:, 2:],
             )
             pos_size_sigma_matrix = torch.cat(
                 [
                     torch.cat(
-                        [pos_dist_sigma_matrix, torch.zeros_like(pos_dist_sigma_matrix)], dim=-1,
+                        [pos_dist_sigma_matrix, torch.zeros_like(pos_dist_sigma_matrix)],
+                        dim=-1,
                     ),
                     torch.cat(
-                        [torch.zeros_like(size_dist_sigma_matrix), size_dist_sigma_matrix], dim=-1,
+                        [torch.zeros_like(size_dist_sigma_matrix), size_dist_sigma_matrix],
+                        dim=-1,
                     ),
                 ],
                 dim=-2,
@@ -124,7 +125,8 @@ class SingleIntegrator(Dynamic):
 
         pos_dist_sigma_matrix_list = []
         pos_dist_sigma_matrix_t = torch.zeros(
-            sample_batch_dim + [v_dist.components, 2, 2], device=self.device,
+            sample_batch_dim + [v_dist.components, 2, 2],
+            device=self.device,
         )
         for t in range(ph):
             vel_sigma_matrix_t = vel_dist_sigma_matrix[:, :, t]

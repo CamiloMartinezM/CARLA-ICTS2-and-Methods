@@ -10,13 +10,12 @@ from datetime import datetime as dt
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
-from torch import nn, optim
-from torch.optim.lr_scheduler import MultiStepLR
-
 from ped_path_predictor.BiTrap.bitrap.modeling import BiTraPNP
 from ped_path_predictor.BiTrap.bitrap.utils.scheduler import ParamScheduler, sigmoid_anneal
 from ped_path_predictor.BiTrap.configs import cfg
 from ped_path_predictor.new_util import getDataloaders, singleDatasets
+from torch import nn, optim
+from torch.optim.lr_scheduler import MultiStepLR
 
 path_int = "./ped_path_predictor/data/new_car/all_int.npy"
 path_non_int = "./ped_path_predictor/data/new_car/all_non_int.npy"
@@ -63,7 +62,10 @@ class BiTrapNew:
 
         self.optimiser = optim.Adam(self.model.parameters(), lr=lr, eps=1e-4)
         self.optimiser_scheduler = MultiStepLR(
-            self.optimiser, milestones=[5, 10, 15, 20], gamma=0.5, verbose=True,
+            self.optimiser,
+            milestones=[5, 10, 15, 20],
+            gamma=0.5,
+            verbose=True,
         )
 
         self.model.param_scheduler = ParamScheduler()
@@ -128,7 +130,8 @@ class BiTrapNew:
             ego_gt = ego_gt.unsqueeze(2)
             ade_losses = (
                 torch.mean(
-                    torch.norm(ego_preds[:, :, :, :2] - ego_gt[:, :, :, :2], 2, dim=-1), dim=1,
+                    torch.norm(ego_preds[:, :, :, :2] - ego_gt[:, :, :, :2], 2, dim=-1),
+                    dim=1,
                 )
                 .transpose(0, 1)
                 .cpu()
@@ -252,7 +255,9 @@ class BiTrapNew:
                 pred_goal, y_pred, loss_dict, _, _ = self.model(ego_in)
 
                 ade_losses, fde_losses, a, f = self._compute_ego_errors(
-                    y_pred, ego_out, ego_in=ego_in,
+                    y_pred,
+                    ego_out,
+                    ego_in=ego_in,
                 )
 
                 eval_loss += a / n_pred

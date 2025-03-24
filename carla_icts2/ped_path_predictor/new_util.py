@@ -45,15 +45,28 @@ def get_dat_sets(paths: list, n_obs, n_pred, absolute=False):
 
 class IctsDataset(Dataset):
     def __init__(
-        self, path_int, path_non_int, path_int_car, path_non_int_car, n_obs, n_pred, absolute=False,
+        self,
+        path_int,
+        path_non_int,
+        path_int_car,
+        path_non_int_car,
+        n_obs,
+        n_pred,
+        absolute=False,
     ) -> None:
         super().__init__()
 
         input_ped, output_ped = get_dat_sets(
-            [path_int, path_non_int], n_obs, n_pred, absolute=absolute,
+            [path_int, path_non_int],
+            n_obs,
+            n_pred,
+            absolute=absolute,
         )
         input_car, output_car = get_dat_sets(
-            [path_int_car, path_non_int_car], n_obs, n_pred, absolute=absolute,
+            [path_int_car, path_non_int_car],
+            n_obs,
+            n_pred,
+            absolute=absolute,
         )
 
         self.x = np.concatenate([input_ped, input_car], axis=-1, dtype=np.float32)
@@ -68,15 +81,28 @@ class IctsDataset(Dataset):
 
 class IctsDatasetDynGroup(Dataset):
     def __init__(
-        self, path_int, path_non_int, path_int_car, path_non_int_car, n_obs, n_pred, absolute=False,
+        self,
+        path_int,
+        path_non_int,
+        path_int_car,
+        path_non_int_car,
+        n_obs,
+        n_pred,
+        absolute=False,
     ) -> None:
         super().__init__()
 
         input_ped, output_ped = get_dat_sets(
-            [path_int, path_non_int], n_obs, n_pred, absolute=absolute,
+            [path_int, path_non_int],
+            n_obs,
+            n_pred,
+            absolute=absolute,
         )
         input_car, output_car = get_dat_sets(
-            [path_int_car, path_non_int_car], n_obs, n_pred, absolute=absolute,
+            [path_int_car, path_non_int_car],
+            n_obs,
+            n_pred,
+            absolute=absolute,
         )
 
         self.x = np.concatenate([input_ped, input_car], axis=-1, dtype=np.float32)
@@ -91,15 +117,28 @@ class IctsDatasetDynGroup(Dataset):
 
 class IctsTrajPed(Dataset):
     def __init__(
-        self, path_int, path_non_int, path_int_car, path_non_int_car, n_obs, n_pred, absolute=False,
+        self,
+        path_int,
+        path_non_int,
+        path_int_car,
+        path_non_int_car,
+        n_obs,
+        n_pred,
+        absolute=False,
     ) -> None:
         super().__init__()
 
         input_ped, output_ped = get_dat_sets(
-            [path_int, path_non_int], n_obs, n_pred, absolute=absolute,
+            [path_int, path_non_int],
+            n_obs,
+            n_pred,
+            absolute=absolute,
         )
         input_car, output_car = get_dat_sets(
-            [path_int_car, path_non_int_car], n_obs, n_pred, absolute=absolute,
+            [path_int_car, path_non_int_car],
+            n_obs,
+            n_pred,
+            absolute=absolute,
         )
 
         self.x = np.concatenate([input_ped], axis=-1, dtype=np.float32)
@@ -114,15 +153,28 @@ class IctsTrajPed(Dataset):
 
 class IctsTrajCar(Dataset):
     def __init__(
-        self, path_int, path_non_int, path_int_car, path_non_int_car, n_obs, n_pred, absolute=False,
+        self,
+        path_int,
+        path_non_int,
+        path_int_car,
+        path_non_int_car,
+        n_obs,
+        n_pred,
+        absolute=False,
     ) -> None:
         super().__init__()
 
         input_ped, output_ped = get_dat_sets(
-            [path_int, path_non_int], n_obs, n_pred, absolute=absolute,
+            [path_int, path_non_int],
+            n_obs,
+            n_pred,
+            absolute=absolute,
         )
         input_car, output_car = get_dat_sets(
-            [path_int_car, path_non_int_car], n_obs, n_pred, absolute=absolute,
+            [path_int_car, path_non_int_car],
+            n_obs,
+            n_pred,
+            absolute=absolute,
         )
 
         self.x = np.concatenate([input_car], axis=-1, dtype=np.float32)
@@ -146,13 +198,21 @@ def getDataloadersDynGroup(
     absolute=False,
 ):
     dataset = IctsDatasetDynGroup(
-        path_int, path_non_int, path_int_car, path_non_int_car, n_obs, n_pred, absolute=absolute,
+        path_int,
+        path_non_int,
+        path_int_car,
+        path_non_int_car,
+        n_obs,
+        n_pred,
+        absolute=absolute,
     )
 
     train_size = int(0.7 * len(dataset))
     test_size = len(dataset) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(
-        dataset, [train_size, test_size], generator=torch.Generator().manual_seed(42),
+        dataset,
+        [train_size, test_size],
+        generator=torch.Generator().manual_seed(42),
     )
 
     test_dataset, val_dataset = torch.utils.data.random_split(
@@ -162,7 +222,10 @@ def getDataloadersDynGroup(
     )
 
     train_dataloader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=False, num_workers=0,
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=0,
     )
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
@@ -181,13 +244,21 @@ def getDataloadersTrajectron(
     absolute=False,
 ):
     dataset_ped = IctsTrajPed(
-        path_int, path_non_int, path_int_car, path_non_int_car, n_obs, n_pred, absolute=absolute,
+        path_int,
+        path_non_int,
+        path_int_car,
+        path_non_int_car,
+        n_obs,
+        n_pred,
+        absolute=absolute,
     )
 
     train_size = int(0.7 * len(dataset_ped))
     test_size = len(dataset_ped) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(
-        dataset_ped, [train_size, test_size], generator=torch.Generator().manual_seed(42),
+        dataset_ped,
+        [train_size, test_size],
+        generator=torch.Generator().manual_seed(42),
     )
 
     test_dataset, val_dataset = torch.utils.data.random_split(
@@ -197,23 +268,40 @@ def getDataloadersTrajectron(
     )
 
     train_dataloader_ped = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=False, num_workers=0,
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=0,
     )
     test_dataloader_ped = DataLoader(
-        test_dataset, batch_size=batch_size, shuffle=False, num_workers=0,
+        test_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=0,
     )
     val_dataloader_ped = DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=False, num_workers=0,
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=0,
     )
 
     dataset_car = IctsTrajCar(
-        path_int, path_non_int, path_int_car, path_non_int_car, n_obs, n_pred, absolute=absolute,
+        path_int,
+        path_non_int,
+        path_int_car,
+        path_non_int_car,
+        n_obs,
+        n_pred,
+        absolute=absolute,
     )
 
     train_size = int(0.7 * len(dataset_car))
     test_size = len(dataset_car) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(
-        dataset_car, [train_size, test_size], generator=torch.Generator().manual_seed(42),
+        dataset_car,
+        [train_size, test_size],
+        generator=torch.Generator().manual_seed(42),
     )
 
     test_dataset, val_dataset = torch.utils.data.random_split(
@@ -223,13 +311,22 @@ def getDataloadersTrajectron(
     )
 
     train_dataloader_car = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=False, num_workers=0,
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=0,
     )
     test_dataloader_car = DataLoader(
-        test_dataset, batch_size=batch_size, shuffle=False, num_workers=0,
+        test_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=0,
     )
     val_dataloader_car = DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=False, num_workers=0,
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=0,
     )
 
     return (
@@ -253,13 +350,21 @@ def getDataloaders(
     absolute=False,
 ):
     dataset = IctsDataset(
-        path_int, path_non_int, path_int_car, path_non_int_car, n_obs, n_pred, absolute=absolute,
+        path_int,
+        path_non_int,
+        path_int_car,
+        path_non_int_car,
+        n_obs,
+        n_pred,
+        absolute=absolute,
     )
 
     train_size = int(0.7 * len(dataset))
     test_size = len(dataset) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(
-        dataset, [train_size, test_size], generator=torch.Generator().manual_seed(42),
+        dataset,
+        [train_size, test_size],
+        generator=torch.Generator().manual_seed(42),
     )
 
     test_dataset, val_dataset = torch.utils.data.random_split(
@@ -269,7 +374,10 @@ def getDataloaders(
     )
 
     train_dataloader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=False, num_workers=0,
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=0,
     )
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)

@@ -6,10 +6,10 @@ import time
 
 import numpy as np
 import torch
-
 from benchmark.environment.ped_controller import l2_distance
-from carla_icts2.scenarios_config import Config
 from SAC.sac_discrete.sacd.model import CateoricalPolicy, DQNBase, TwinnedQNetwork
+
+from carla_icts2.scenarios_config import Config
 
 from .base import BaseAgent
 
@@ -70,7 +70,9 @@ class EvalSacdAgent(BaseAgent):
         # Define networks.
         self.conv = DQNBase(self.env.observation_space.shape[2]).to(self.device)
         self.policy = CateoricalPolicy(
-            self.env.observation_space.shape[2], self.env.action_space.n, shared=True,
+            self.env.observation_space.shape[2],
+            self.env.action_space.n,
+            shared=True,
         ).to(self.device)
         self.online_critic = TwinnedQNetwork(
             self.env.observation_space.shape[2],
@@ -170,12 +172,16 @@ class EvalSacdAgent(BaseAgent):
             total_goal += int(info["goal"])
             print(
                 "Speed: {:.2f}m/s, Dist.: {:.2f}m, Return: {:.4f}".format(
-                    info["ped_speed"], info["ped_distance"], episode_return,
+                    info["ped_speed"],
+                    info["ped_distance"],
+                    episode_return,
                 ),
             )
             print(
                 "Goal: {}, Accident: {}, Act Dist.: {}".format(
-                    info["goal"], info["accident"], action_count,
+                    info["goal"],
+                    info["accident"],
+                    action_count,
                 ),
             )
             print("Policy; ", action_count, "Distance: ", dist)
@@ -187,12 +193,16 @@ class EvalSacdAgent(BaseAgent):
             )
             self.file.write(
                 "Speed: {:.2f}m/s, Dist.: {:.2f}m, Return: {:.4f}".format(
-                    info["ped_speed"], info["ped_distance"], episode_return,
+                    info["ped_speed"],
+                    info["ped_distance"],
+                    episode_return,
                 ),
             )
             self.file.write(
                 "Goal: {}, Accident: {}, Act Dist.: {}".format(
-                    info["goal"], info["accident"], action_count,
+                    info["goal"],
+                    info["accident"],
+                    action_count,
                 ),
             )
 

@@ -1,6 +1,4 @@
-"""Modified from Trajectron++
-"""
-
+"""Modified from Trajectron++"""
 
 import numpy as np
 import torch
@@ -50,7 +48,9 @@ class GMM2D(td.Distribution):
         self.sigmas = torch.exp(self.log_sigmas)  # [..., N, 2]
         self.one_minus_rho2 = 1 - corrs**2  # [..., N]
         self.one_minus_rho2 = torch.clamp(
-            self.one_minus_rho2, min=1e-5, max=1,
+            self.one_minus_rho2,
+            min=1e-5,
+            max=1,
         )  # otherwise log can be nan
         self.corrs = corrs  # [..., N]
         self.L = torch.stack(
@@ -105,7 +105,8 @@ class GMM2D(td.Distribution):
             torch.matmul(
                 self.L,
                 torch.unsqueeze(
-                    torch.randn(size=sample_shape + self.mus.shape, device=self.device), dim=-1,
+                    torch.randn(size=sample_shape + self.mus.shape, device=self.device),
+                    dim=-1,
                 ),
             ),
             dim=-1,

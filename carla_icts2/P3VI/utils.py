@@ -43,7 +43,9 @@ class SIMP3Dataset(Dataset):
     def __init__(self, file, n_oberserved_frames, n_predict_frames, split=[0, 0.8]) -> None:
         super().__init__()
         self.observed_data, self.predict_data = load_data(
-            file, n_oberserved_frames, n_predict_frames,
+            file,
+            n_oberserved_frames,
+            n_predict_frames,
         )
         n = len(self.observed_data)
         bottom = int(n * split[0])

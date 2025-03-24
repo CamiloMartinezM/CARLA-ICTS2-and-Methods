@@ -125,7 +125,9 @@ class JAAD:
 
         block = int(round(barLength * progress))
         text = "\r[{}] {:0.2f}% {}".format(
-            "#" * block + "-" * (barLength - block), progress * 100, status,
+            "#" * block + "-" * (barLength - block),
+            progress * 100,
+            status,
         )
         sys.stdout.write(text)
         sys.stdout.flush()
@@ -161,8 +163,7 @@ class JAAD:
         return bbox
 
     def extract_and_save_images(self):
-        """Extract images from clips and save on drive
-        """
+        """Extract images from clips and save on drive"""
         videos = [f.split(".")[0] for f in sorted(listdir(self._clips_path))]
 
         for vid in videos:
@@ -326,14 +327,16 @@ class JAAD:
                     ],
                 )
                 occ = self._map_text_to_scalar(
-                    "occlusion", b.find('./attribute[@name="occlusion"]').text,
+                    "occlusion",
+                    b.find('./attribute[@name="occlusion"]').text,
                 )
                 annotations[ped_annt][new_id]["occlusion"].append(occ)
                 annotations[ped_annt][new_id]["frames"].append(int(b.get("frame")))
                 for beh in annotations["ped_annotations"][new_id]["behavior"].keys():
                     annotations[ped_annt][new_id]["behavior"][beh].append(
                         self._map_text_to_scalar(
-                            beh, b.find('./attribute[@name="' + beh + '"]').text,
+                            beh,
+                            b.find('./attribute[@name="' + beh + '"]').text,
                         ),
                     )
 
@@ -572,8 +575,7 @@ class JAAD:
         return database
 
     def get_data_stats(self):
-        """Generates statistics for jaad dataset
-        """
+        """Generates statistics for jaad dataset"""
         annotations = self.generate_database()
 
         videos_count = len(annotations.keys())
@@ -688,7 +690,12 @@ class JAAD:
         return pids
 
     def _get_random_pedestrian_ids(
-        self, image_set, ratios=None, val_data=True, regen_data=False, sample_type="all",
+        self,
+        image_set,
+        ratios=None,
+        val_data=True,
+        regen_data=False,
+        sample_type="all",
     ):
         """Generates and save a database of activities for all pedestriasns
         :param image_set: The data split to return
@@ -724,7 +731,8 @@ class JAAD:
                                                               1- Set ratios to None\
                                                               2- Set ratios to the same values \
                                                               3- Regenerate data".format(
-                            ratios, rand_samples["ratios"],
+                            ratios,
+                            rand_samples["ratios"],
                         )
                     )
 
@@ -754,7 +762,8 @@ class JAAD:
 
         if val_data:
             test_samples, val_samples = train_test_split(
-                test_samples, train_size=ratios[1] / sum(ratios[1:]),
+                test_samples,
+                train_size=ratios[1] / sum(ratios[1:]),
             )
             print("Number of val tracks %d" % len(val_samples))
             sample_split["val"] = val_samples
@@ -811,7 +820,12 @@ class JAAD:
 
     # Pedestrian detection generators
     def get_detection_data(
-        self, image_set, method, occlusion_type=None, file_path="data/", **params,
+        self,
+        image_set,
+        method,
+        occlusion_type=None,
+        file_path="data/",
+        **params,
     ):
         """Generates data for pedestrian detection algorithms
         :param image_set: Split set name
@@ -1144,7 +1158,11 @@ class JAAD:
 
                 if height_rng[0] > 0 or height_rng[1] < float("inf"):
                     images, boxes, frame_ids, occlusions = self._height_check(
-                        height_rng, frame_ids, boxes, images, occlusions,
+                        height_rng,
+                        frame_ids,
+                        boxes,
+                        images,
+                        occlusions,
                     )
 
                 if len(boxes) / seq_stride < params["min_track_size"]:
@@ -1155,7 +1173,10 @@ class JAAD:
 
                 ped_ids = [[pid]] * len(boxes)
 
-                if params["sample_type"] == "all" or annotations[vid]["ped_annotations"][pid]["attributes"]["crossing"] == -1:
+                if (
+                    params["sample_type"] == "all"
+                    or annotations[vid]["ped_annotations"][pid]["attributes"]["crossing"] == -1
+                ):
                     intent = [[0]] * len(boxes)
                 else:
                     intent = [[1]] * len(boxes)
@@ -1240,7 +1261,11 @@ class JAAD:
 
                 if height_rng[0] > 0 or height_rng[1] < float("inf"):
                     images, boxes, frame_ids, occlusions = self._height_check(
-                        height_rng, frame_ids, boxes, images, occlusions,
+                        height_rng,
+                        frame_ids,
+                        boxes,
+                        images,
+                        occlusions,
                     )
 
                 if len(boxes) / seq_stride < params["min_track_size"]:
@@ -1336,7 +1361,11 @@ class JAAD:
 
                 if height_rng[0] > 0 or height_rng[1] < float("inf"):
                     images, boxes, frame_ids, occlusions = self._height_check(
-                        height_rng, frame_ids, boxes, images, occlusions,
+                        height_rng,
+                        frame_ids,
+                        boxes,
+                        images,
+                        occlusions,
                     )
                 if len(boxes) / seq_stride < params["min_track_size"]:
                     continue
@@ -1351,7 +1380,10 @@ class JAAD:
                 ped_ids = [[pid]] * len(boxes)
                 pids_seq.append(ped_ids[::seq_stride])
 
-                if params["sample_type"] == "all" or annotations[vid]["ped_annotations"][pid]["attributes"]["crossing"] == -1:
+                if (
+                    params["sample_type"] == "all"
+                    or annotations[vid]["ped_annotations"][pid]["attributes"]["crossing"] == -1
+                ):
                     intent = [[0]] * len(boxes)
                 else:
                     intent = [[1]] * len(boxes)

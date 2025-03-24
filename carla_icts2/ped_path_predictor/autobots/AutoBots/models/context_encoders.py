@@ -4,23 +4,24 @@ from torch import nn
 
 
 def init(module, weight_init, bias_init, gain=1):
-    """This function provides weight and bias initializations for linear layers.
-    """
+    """This function provides weight and bias initializations for linear layers."""
     weight_init(module.weight.data, gain=gain)
     bias_init(module.bias.data)
     return module
 
 
 class MapEncoderCNN(nn.Module):
-    """Regular CNN encoder for road image.
-    """
+    """Regular CNN encoder for road image."""
 
     def __init__(self, d_k=64, dropout=0.1, c=10):
         super(MapEncoderCNN, self).__init__()
         self.dropout = dropout
         self.c = c
         init_ = lambda m: init(
-            m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2),
+            m,
+            nn.init.xavier_normal_,
+            lambda x: nn.init.constant_(x, 0),
+            np.sqrt(2),
         )
         # MAP ENCODER
         fm_size = 7
@@ -63,12 +64,17 @@ class MapEncoderPts(nn.Module):
         self.d_k = d_k
         self.map_attr = map_attr
         init_ = lambda m: init(
-            m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2),
+            m,
+            nn.init.xavier_normal_,
+            lambda x: nn.init.constant_(x, 0),
+            np.sqrt(2),
         )
 
         self.road_pts_lin = nn.Sequential(init_(nn.Linear(map_attr, self.d_k)))
         self.road_pts_attn_layer = nn.MultiheadAttention(
-            self.d_k, num_heads=8, dropout=self.dropout,
+            self.d_k,
+            num_heads=8,
+            dropout=self.dropout,
         )
         self.norm1 = nn.LayerNorm(self.d_k, eps=1e-5)
         self.norm2 = nn.LayerNorm(self.d_k, eps=1e-5)
@@ -133,7 +139,10 @@ class MapEncoderPtsMA(nn.Module):
         self.dropout = dropout
         self.d_k = d_k
         init_ = lambda m: init(
-            m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2),
+            m,
+            nn.init.xavier_normal_,
+            lambda x: nn.init.constant_(x, 0),
+            np.sqrt(2),
         )
 
         self.map_attr = map_attr
@@ -144,7 +153,9 @@ class MapEncoderPtsMA(nn.Module):
 
         self.road_pts_lin = nn.Sequential(init_(nn.Linear(self.map_attr, self.d_k)))
         self.road_pts_attn_layer = nn.MultiheadAttention(
-            self.d_k, num_heads=8, dropout=self.dropout,
+            self.d_k,
+            num_heads=8,
+            dropout=self.dropout,
         )
         self.norm1 = nn.LayerNorm(self.d_k, eps=1e-5)
         self.norm2 = nn.LayerNorm(self.d_k, eps=1e-5)

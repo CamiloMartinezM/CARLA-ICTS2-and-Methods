@@ -5,7 +5,6 @@ Differen latent networks used in endpoint prediction
 2. Categorical Z (can be used as  mixture component weights pi for GMM)
 """
 
-
 import numpy as np
 import torch
 import torch.distributions as td
@@ -14,8 +13,7 @@ from torch import nn
 
 class CategoricalLatent(nn.Module):
     def __init__(self, cfg, input_size, dropout=0.10):
-        """input_size: size of input from the encoder
-        """
+        """input_size: size of input from the encoder"""
         super(CategoricalLatent, self).__init__()
         self.cfg = cfg
         self.N = 1  # ?
@@ -32,13 +30,14 @@ class CategoricalLatent(nn.Module):
         self.dist = None  # the categorical distribution object
 
     def forward(self, h, z_logit_clip=None):
-        """h: hidden state used to compute distribution parameter, (batch, self.K)
-        """
+        """h: hidden state used to compute distribution parameter, (batch, self.K)"""
         self.device = h.device
         h = self.h_to_logit(h)
         logits_separated = torch.reshape(h, (-1, self.N, self.K))
         logits_separated_mean_zero = logits_separated - torch.mean(
-            logits_separated, dim=-1, keepdim=True,
+            logits_separated,
+            dim=-1,
+            keepdim=True,
         )
         if z_logit_clip is not None and self.training:
             logits = torch.clamp(logits_separated_mean_zero, min=-z_logit_clip, max=z_logit_clip)

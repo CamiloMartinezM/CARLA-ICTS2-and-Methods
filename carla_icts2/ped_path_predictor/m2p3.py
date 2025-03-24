@@ -14,11 +14,10 @@ from datetime import datetime as dt
 import numpy as np
 import torch
 import torch.nn.functional as F
-from sklearn.model_selection import train_test_split
-from torch.utils.tensorboard import SummaryWriter
-
 from ped_path_predictor.model import M2P3
 from ped_path_predictor.utils import *
+from sklearn.model_selection import train_test_split
+from torch.utils.tensorboard import SummaryWriter
 
 path_int = "./P3VI/data/ICTS2_int.npy"
 path_non_int = "./P3VI/data/ICTS2_non_int.npy"
@@ -69,10 +68,14 @@ class PathPredictor:
     def test(self, test=False, path=None):
         if not test:
             obs_train_int, pred_train_int = load_data(
-                path_int, self.observed_frame_num, self.predicting_frame_num,
+                path_int,
+                self.observed_frame_num,
+                self.predicting_frame_num,
             )
             obs_train_non_int, pred_train_non_int = load_data(
-                path_non_int, self.observed_frame_num, self.predicting_frame_num,
+                path_non_int,
+                self.observed_frame_num,
+                self.predicting_frame_num,
             )
 
             obs_train = np.concatenate((obs_train_int, obs_train_non_int))
@@ -83,7 +86,10 @@ class PathPredictor:
             input_train = np.array(obs_train[:, :, 0:2], dtype=np.float32)
             output_train = np.array(pred_train[:, :, :], dtype=np.float32)
             input_train, input_test, output_train, output_test = train_test_split(
-                input_train, output_train, test_size=0.15, random_state=0,
+                input_train,
+                output_train,
+                test_size=0.15,
+                random_state=0,
             )
 
             # make output relative to the last observed frame
@@ -105,7 +111,9 @@ class PathPredictor:
             print("Output train shape =", output_train.shape)
         else:
             input_test, output_test = load_data(
-                path, self.observed_frame_num, self.predicting_frame_num,
+                path,
+                self.observed_frame_num,
+                self.predicting_frame_num,
             )
             input_test = np.array(input_test[:, :, 0:2], dtype=np.float32)
             output_test = np.array(output_test[:, :, :], dtype=np.float32)
@@ -144,10 +152,14 @@ class PathPredictor:
         # Get training data (past and future pedestrian bounding boxes)
         # obs_train, pred_train, train_paths = get_raw_data(train_annotations, observed_frame_num, predicting_frame_num)
         obs_train_int, pred_train_int = load_data(
-            path_int, self.observed_frame_num, self.predicting_frame_num,
+            path_int,
+            self.observed_frame_num,
+            self.predicting_frame_num,
         )
         obs_train_non_int, pred_train_non_int = load_data(
-            path_non_int, self.observed_frame_num, self.predicting_frame_num,
+            path_non_int,
+            self.observed_frame_num,
+            self.predicting_frame_num,
         )
 
         obs_train = np.concatenate((obs_train_int, obs_train_non_int))
@@ -157,7 +169,10 @@ class PathPredictor:
         input_train = np.array(obs_train[:, :, 0:2], dtype=np.float32)
         output_train = np.array(pred_train[:, :, :], dtype=np.float32)
         input_train, input_test, output_train, output_test = train_test_split(
-            input_train, output_train, test_size=0.15, random_state=0,
+            input_train,
+            output_train,
+            test_size=0.15,
+            random_state=0,
         )
 
         # make output relative to the last observed frame
@@ -191,7 +206,9 @@ class PathPredictor:
 
             for i in range(num_batches):
                 x = input_train[
-                    :, i * batch_size : i * batch_size + batch_size, :,
+                    :,
+                    i * batch_size : i * batch_size + batch_size,
+                    :,
                 ]  # observed_frame_num x batch_size x 2
                 y = output_train[:, i * batch_size : i * batch_size + batch_size, :]
                 x = torch.from_numpy(x).cuda()
@@ -202,7 +219,8 @@ class PathPredictor:
                 y_pred, mu, log_var = self.model([x, y])
                 recons_loss = F.mse_loss(y_pred, y)
                 kld_loss = torch.mean(
-                    -0.5 * torch.sum(1 + log_var - mu**2 - log_var.exp(), dim=2), dim=1,
+                    -0.5 * torch.sum(1 + log_var - mu**2 - log_var.exp(), dim=2),
+                    dim=1,
                 )
                 # print(y_pred)
                 loss = kld_loss + recons_loss

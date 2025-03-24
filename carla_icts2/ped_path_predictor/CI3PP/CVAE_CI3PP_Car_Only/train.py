@@ -10,11 +10,10 @@ from datetime import datetime as dt
 
 import numpy as np
 import torch
-from torch import nn, optim
-from torch.optim.lr_scheduler import MultiStepLR
-
 from ped_path_predictor.CI3PP.CVAE_CI3PP_Car_Only.model import CVAE_CI3PP_Car_Only
 from ped_path_predictor.new_util import getDataloaders, singleDatasets
+from torch import nn, optim
+from torch.optim.lr_scheduler import MultiStepLR
 
 path_int = "./ped_path_predictor/data/new_car/all_int.npy"
 path_non_int = "./ped_path_predictor/data/new_car/all_non_int.npy"
@@ -57,7 +56,10 @@ class CVAE_CI3PP_Car_Only_Wrapper:
 
         self.optimiser = optim.Adam(self.model.parameters(), lr=lr, eps=1e-4)
         self.optimiser_scheduler = MultiStepLR(
-            self.optimiser, milestones=[5, 10, 15, 20], gamma=0.5, verbose=True,
+            self.optimiser,
+            milestones=[5, 10, 15, 20],
+            gamma=0.5,
+            verbose=True,
         )
 
         if path is not None:
@@ -85,11 +87,15 @@ class CVAE_CI3PP_Car_Only_Wrapper:
 
     def l2_loss_fde(self, pred, data):
         fde_loss = torch.norm(
-            (pred[:, -1, :, :2].transpose(0, 1) - data[:, -1, :2].unsqueeze(1)), 2, dim=-1,
+            (pred[:, -1, :, :2].transpose(0, 1) - data[:, -1, :2].unsqueeze(1)),
+            2,
+            dim=-1,
         )
         ade_loss = (
             torch.norm(
-                (pred[:, :, :, :2].transpose(1, 2) - data[:, :, :2].unsqueeze(0)), 2, dim=-1,
+                (pred[:, :, :, :2].transpose(1, 2) - data[:, :, :2].unsqueeze(0)),
+                2,
+                dim=-1,
             )
             .mean(dim=2)
             .transpose(0, 1)
@@ -102,7 +108,8 @@ class CVAE_CI3PP_Car_Only_Wrapper:
             ego_gt = ego_gt.transpose(0, 1).unsqueeze(0)
             ade_losses = (
                 torch.mean(
-                    torch.norm(ego_preds[:, :, :, :2] - ego_gt[:, :, :, :2], 2, dim=-1), dim=1,
+                    torch.norm(ego_preds[:, :, :, :2] - ego_gt[:, :, :, :2], 2, dim=-1),
+                    dim=1,
                 )
                 .transpose(0, 1)
                 .cpu()
@@ -172,7 +179,8 @@ class CVAE_CI3PP_Car_Only_Wrapper:
                 loss = self.l2_loss_fde(pred_obs.unsqueeze(0).transpose(1, 2), ego_out)
 
                 kld_loss = torch.mean(
-                    -0.5 * torch.sum(1 + log_var - mean**2 - log_var.exp(), dim=2), dim=0,
+                    -0.5 * torch.sum(1 + log_var - mean**2 - log_var.exp(), dim=2),
+                    dim=0,
                 )
 
                 loss += kld_loss[0]
@@ -224,7 +232,9 @@ class CVAE_CI3PP_Car_Only_Wrapper:
                 pred_obs = self.model.inference(ped_in, car_in)
 
                 ade_losses, fde_losses, a, f = self._compute_ego_errors(
-                    pred_obs.unsqueeze(0).transpose(1, 2), ego_out, ego_in=ped_in,
+                    pred_obs.unsqueeze(0).transpose(1, 2),
+                    ego_out,
+                    ego_in=ped_in,
                 )
 
                 eval_loss += a / n_pred

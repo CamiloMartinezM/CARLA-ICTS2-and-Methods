@@ -22,10 +22,16 @@ def get_train_args():
     )
     parser.add_argument("--dataset-path", type=str, required=True, help="Path to dataset files.")
     parser.add_argument(
-        "--use-map-image", type=bool, default=False, help="Use map image if applicable.",
+        "--use-map-image",
+        type=bool,
+        default=False,
+        help="Use map image if applicable.",
     )
     parser.add_argument(
-        "--use-map-lanes", type=bool, default=False, help="Use map lanes if applicable.",
+        "--use-map-lanes",
+        type=bool,
+        default=False,
+        help="Use map lanes if applicable.",
     )
 
     # Section: Algorithm
@@ -37,7 +43,10 @@ def get_train_args():
         help="Whether to train for joint prediction or ego-only prediction.",
     )
     parser.add_argument(
-        "--num-modes", type=int, default=5, help="Number of discrete latent variables for Autobot.",
+        "--num-modes",
+        type=int,
+        default=5,
+        help="Number of discrete latent variables for Autobot.",
     )
     parser.add_argument("--hidden-size", type=int, default=128, help="Model's hidden size.")
     parser.add_argument(
@@ -59,10 +68,16 @@ def get_train_args():
         help="hidden size of transformer layers' feedforward network.",
     )
     parser.add_argument(
-        "--tx-num-heads", type=int, default=16, help="Transformer number of heads.",
+        "--tx-num-heads",
+        type=int,
+        default=16,
+        help="Transformer number of heads.",
     )
     parser.add_argument(
-        "--dropout", type=float, default=0.1, help="Dropout strenght used throughout model.",
+        "--dropout",
+        type=float,
+        default=0.1,
+        help="Dropout strenght used throughout model.",
     )
 
     # Section: Loss Function
@@ -74,7 +89,11 @@ def get_train_args():
         help="Weight of entropy loss.",
     )
     parser.add_argument(
-        "--kl-weight", type=float, default=1.0, metavar="lamda", help="Weight of entropy loss.",
+        "--kl-weight",
+        type=float,
+        default=1.0,
+        metavar="lamda",
+        help="Weight of entropy loss.",
     )
     parser.add_argument(
         "--use-FDEADE-aux-loss",
@@ -87,7 +106,10 @@ def get_train_args():
     parser.add_argument("--batch-size", type=int, default=100, help="Batch size")
     parser.add_argument("--learning-rate", type=float, default=1e-4, help="Learning rate")
     parser.add_argument(
-        "--adam-epsilon", type=float, default=1e-4, help="Adam optimiser epsilon value",
+        "--adam-epsilon",
+        type=float,
+        default=1e-4,
+        help="Adam optimiser epsilon value",
     )
     parser.add_argument(
         "--learning-rate-sched",
@@ -97,7 +119,11 @@ def get_train_args():
         help="Learning rate Schedule.",
     )
     parser.add_argument(
-        "--grad-clip-norm", type=float, default=5, metavar="C", help="Gradient clipping norm",
+        "--grad-clip-norm",
+        type=float,
+        default=5,
+        metavar="C",
+        help="Gradient clipping norm",
     )
     parser.add_argument(
         "--num-epochs",

@@ -18,7 +18,6 @@ from datasets.interaction_dataset.utils import (
 )
 from models.autobot_joint import AutoBotJoint
 from process_args import load_config
-
 from utils.metric_helpers import (
     collisions_for_inter_dataset,
     interpolate_trajectories,
@@ -146,7 +145,8 @@ def get_map_lanes(filename):
     # add non-used keys
     for k in road_lines_dict:
         relation_lanes[counter, :40, :5] = road_lines_dict[k][
-            :, :5,
+            :,
+            :5,
         ]  # rest of state (position (2), and type(3)).
         relation_lanes[counter, :40, 5:7] = -1.0  # no left-right relationship
         relation_lanes[counter, :40, 7] = road_lines_dict[k][:, -1]  # mask
@@ -225,13 +225,16 @@ def rotate_agents(ego_in, agents_in, roads, agent_types):
     translation = ego_in[-1, :2]
 
     new_ego_in[:, :2] = convert_global_coords_to_local(
-        coordinates=ego_in[:, :2] - translation, yaw=angle_of_rotation,
+        coordinates=ego_in[:, :2] - translation,
+        yaw=angle_of_rotation,
     )
     new_ego_in[:, 5:7] = convert_global_coords_to_local(
-        coordinates=ego_in[:, 2:4], yaw=angle_of_rotation,
+        coordinates=ego_in[:, 2:4],
+        yaw=angle_of_rotation,
     )
     new_roads[0, :, :, :2] = convert_global_coords_to_local(
-        coordinates=new_roads[0, :, :, :2] - translation, yaw=angle_of_rotation,
+        coordinates=new_roads[0, :, :, :2] - translation,
+        yaw=angle_of_rotation,
     )
     new_roads[0][np.where(new_roads[0, :, :, -1] == 0)] = 0.0
 
@@ -249,13 +252,16 @@ def rotate_agents(ego_in, agents_in, roads, agent_types):
         translation = agents_in[n, -1, :2]
 
         new_agents_in[n, :, :2] = convert_global_coords_to_local(
-            coordinates=agents_in[n, :, :2] - translation, yaw=angle_of_rotation,
+            coordinates=agents_in[n, :, :2] - translation,
+            yaw=angle_of_rotation,
         )
         new_agents_in[n, :, 5:7] = convert_global_coords_to_local(
-            coordinates=agents_in[n, :, 2:4], yaw=angle_of_rotation,
+            coordinates=agents_in[n, :, 2:4],
+            yaw=angle_of_rotation,
         )
         new_roads[n + 1, :, :, :2] = convert_global_coords_to_local(
-            coordinates=new_roads[n + 1, :, :, :2] - translation, yaw=angle_of_rotation,
+            coordinates=new_roads[n + 1, :, :, :2] - translation,
+            yaw=angle_of_rotation,
         )
         new_roads[n + 1][np.where(new_roads[n + 1, :, :, -1] == 0)] = 0.0
 
@@ -302,7 +308,8 @@ if __name__ == "__main__":
     for dataf in datafiles:
         # create dataframe
         sub_file_name = os.path.join(
-            save_dir, dataf.split("/")[-1].split(".")[0].replace("_obs", "_sub.csv"),
+            save_dir,
+            dataf.split("/")[-1].split(".")[0].replace("_obs", "_sub.csv"),
         )
         headers_name = [
             "case_id",
@@ -318,7 +325,9 @@ if __name__ == "__main__":
 
         # load map
         map_fname = os.path.join(
-            args.dataset_root, "maps", dataf.split("/")[-1].split(".")[0].replace("_obs", ".osm"),
+            args.dataset_root,
+            "maps",
+            dataf.split("/")[-1].split(".")[0].replace("_obs", ".osm"),
         )
         roads = get_map_lanes(map_fname)
 
@@ -349,7 +358,8 @@ if __name__ == "__main__":
                 )
                 scene_agent_types.append(curr_agent_type)
                 assert np.array_equal(
-                    agent_data[["frame_id"]].to_numpy()[:, 0], np.arange(1, 11).astype(np.int64),
+                    agent_data[["frame_id"]].to_numpy()[:, 0],
+                    np.arange(1, 11).astype(np.int64),
                 )
                 scene_trajectories.append(
                     agent_data[["x", "y", "vx", "vy", "psi_rad", "length", "width"]].to_numpy(),
@@ -362,10 +372,14 @@ if __name__ == "__main__":
             ego_in, agents_in = get_ego_and_agents(scene_trajectories)
             agent_roads = copy_agent_roads_across_agents(agents_in, roads)
             translations = np.expand_dims(
-                np.concatenate((ego_in[-1:, :2], agents_in[:, -1, :2]), axis=0), axis=0,
+                np.concatenate((ego_in[-1:, :2], agents_in[:, -1, :2]), axis=0),
+                axis=0,
             )
             ego_in, agents_in, agent_roads = rotate_agents(
-                ego_in, agents_in, agent_roads, scene_agent_types,
+                ego_in,
+                agents_in,
+                agent_roads,
+                scene_agent_types,
             )
 
             # downsample inputs across time
@@ -374,7 +388,10 @@ if __name__ == "__main__":
 
             # prepare inputs for model
             ego_in, agents_in, agent_roads, agent_types = data_to_tensor(
-                ego_in, agents_in, agent_roads, scene_agent_types,
+                ego_in,
+                agents_in,
+                agent_roads,
+                scene_agent_types,
             )
             model_ego_in = ego_in.clone()
             model_ego_in[:, :, 3:5] = 0
@@ -389,7 +406,10 @@ if __name__ == "__main__":
             with torch.no_grad():
                 autobot_model._M = model_agents_in.shape[2]
                 pred_obs, mode_probs = autobot_model(
-                    model_ego_in, model_agents_in, agent_roads, agent_types,
+                    model_ego_in,
+                    model_agents_in,
+                    agent_roads,
+                    agent_types,
                 )
             pred_obs = interpolate_trajectories(pred_obs)
             pred_obs = yaw_from_predictions(pred_obs, ego_in, agents_in)

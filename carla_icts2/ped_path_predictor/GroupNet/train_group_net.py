@@ -12,11 +12,10 @@ from datetime import datetime as dt
 
 import numpy as np
 import torch
-from torch import optim
-from torch.optim.lr_scheduler import MultiStepLR
-
 from ped_path_predictor.GroupNet.model.GroupNet_nba import GroupNet
 from ped_path_predictor.new_util import getDataloadersDynGroup, singleDatasetsDynGroup
+from torch import optim
+from torch.optim.lr_scheduler import MultiStepLR
 
 path_int = "./ped_path_predictor/data/new_car/all_int.npy"
 path_non_int = "./ped_path_predictor/data/new_car/all_non_int.npy"
@@ -89,7 +88,10 @@ class GroupNetWrapper:
 
         self.optimiser = optim.Adam(self.model.parameters(), lr=lr, eps=1e-4)
         self.optimiser_scheduler = MultiStepLR(
-            self.optimiser, milestones=[5, 10, 15, 20], gamma=0.5, verbose=True,
+            self.optimiser,
+            milestones=[5, 10, 15, 20],
+            gamma=0.5,
+            verbose=True,
         )
 
         if path is not None:
@@ -124,11 +126,15 @@ class GroupNetWrapper:
 
     def l2_loss_fde(self, pred, data):
         fde_loss = torch.norm(
-            (pred[:, -1, :, :2].transpose(0, 1) - data[:, -1, :2].unsqueeze(1)), 2, dim=-1,
+            (pred[:, -1, :, :2].transpose(0, 1) - data[:, -1, :2].unsqueeze(1)),
+            2,
+            dim=-1,
         )
         ade_loss = (
             torch.norm(
-                (pred[:, :, :, :2].transpose(1, 2) - data[:, :, :2].unsqueeze(0)), 2, dim=-1,
+                (pred[:, :, :, :2].transpose(1, 2) - data[:, :, :2].unsqueeze(0)),
+                2,
+                dim=-1,
             )
             .mean(dim=2)
             .transpose(0, 1)
@@ -157,11 +163,7 @@ class GroupNetWrapper:
 
             a, f = (
                 torch.square(ego_preds[:, :, :2] - ego_gt[:, :, :2]).sum(-1).sqrt().sum().item(),
-                torch.square(ego_preds[:, -1, :2] - ego_gt[:, -1, :2])
-                .sum(-1)
-                .sqrt()
-                .sum()
-                .item(),
+                torch.square(ego_preds[:, -1, :2] - ego_gt[:, -1, :2]).sum(-1).sqrt().sum().item(),
             )
 
             # # make output relative to the last observed frame

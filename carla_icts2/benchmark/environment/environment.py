@@ -283,7 +283,7 @@ class GIDASBenchmark(gym.Env):
             print("EVENT: ", event)
             if event.type == pygame.QUIT:
                 return True  # Exit
-            elif event.type == pygame.KEYUP:
+            if event.type == pygame.KEYUP:
                 # Camera controls
                 if event.key == pygame.K_TAB:  # TAB key - toggle camera position
                     self.world.camera_manager.toggle_camera()
@@ -402,8 +402,7 @@ class GIDASBenchmark(gym.Env):
         return x, y, icr, son
 
     def extract_dbn_step(self, prev_data=None):
-        """
-        Extract all observables needed for the DBN in CI3P model.
+        """Extract all observables needed for the DBN in CI3P model.
 
         Args:
             prev_data: Previous frame data for calculating derivatives

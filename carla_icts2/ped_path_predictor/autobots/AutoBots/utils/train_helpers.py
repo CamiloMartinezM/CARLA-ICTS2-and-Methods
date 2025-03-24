@@ -41,7 +41,12 @@ def nll_pytorch_dist(pred, data, rtn_loss=True):
 
 
 def nll_loss_multimodes(
-    pred, data, modes_pred, entropy_weight=1.0, kl_weight=1.0, use_FDEADE_aux_loss=True,
+    pred,
+    data,
+    modes_pred,
+    entropy_weight=1.0,
+    kl_weight=1.0,
+    use_FDEADE_aux_loss=True,
 ):
     """NLL loss multimodes for training. MFP Loss function
     Args:
@@ -63,7 +68,8 @@ def nll_loss_multimodes(
     priors = modes_pred.detach().cpu().numpy()
     log_posterior_unnorm = log_lik + np.log(priors)
     log_posterior = log_posterior_unnorm - special.logsumexp(
-        log_posterior_unnorm, axis=-1,
+        log_posterior_unnorm,
+        axis=-1,
     ).reshape((batch_sz, -1))
     post_pr = np.exp(log_posterior)
     post_pr = torch.tensor(post_pr).float().to(data.device)
@@ -98,7 +104,9 @@ def nll_loss_multimodes(
 
 def l2_loss_fde(pred, data):
     fde_loss = torch.norm(
-        (pred[:, -1, :, :2].transpose(0, 1) - data[:, -1, :2].unsqueeze(1)), 2, dim=-1,
+        (pred[:, -1, :, :2].transpose(0, 1) - data[:, -1, :2].unsqueeze(1)),
+        2,
+        dim=-1,
     )
     ade_loss = (
         torch.norm((pred[:, :, :, :2].transpose(1, 2) - data[:, :, :2].unsqueeze(0)), 2, dim=-1)
@@ -170,7 +178,8 @@ def nll_loss_multimodes_joint(
     modes = len(pred)
     nSteps, batch_sz, N, dim = pred[0].shape
     agents_masks = torch.cat(
-        (torch.ones(batch_sz, nSteps, 1).to(ego_data.device), agents_data[:, :, :, -1]), dim=-1,
+        (torch.ones(batch_sz, nSteps, 1).to(ego_data.device), agents_data[:, :, :, -1]),
+        dim=-1,
     )
 
     # compute posterior probability based on predicted prior and likelihood of predicted scene.
@@ -178,7 +187,9 @@ def nll_loss_multimodes_joint(
     with torch.no_grad():
         for kk in range(modes):
             nll = nll_pytorch_dist_joint(
-                pred[kk].transpose(0, 1), gt_agents[:, :, :, :2], agents_masks,
+                pred[kk].transpose(0, 1),
+                gt_agents[:, :, :, :2],
+                agents_masks,
             )
             log_lik[:, kk] = -nll.cpu().numpy()
 
@@ -225,14 +236,18 @@ def nll_loss_multimodes_joint(
 def l2_loss_fde_joint(pred, data, agent_masks, agent_types, predict_yaw):
     fde_loss = (
         torch.norm(
-            (pred[:, -1, :, :, :2].transpose(0, 1) - data[:, -1, :, :2].unsqueeze(1)), 2, dim=-1,
+            (pred[:, -1, :, :, :2].transpose(0, 1) - data[:, -1, :, :2].unsqueeze(1)),
+            2,
+            dim=-1,
         )
         * agent_masks[:, -1:, :]
     ).mean(-1)
     ade_loss = (
         (
             torch.norm(
-                (pred[:, :, :, :, :2].transpose(1, 2) - data[:, :, :, :2].unsqueeze(0)), 2, dim=-1,
+                (pred[:, :, :, :, :2].transpose(1, 2) - data[:, :, :, :2].unsqueeze(0)),
+                2,
+                dim=-1,
             )
             * agent_masks.unsqueeze(0)
         )
@@ -245,7 +260,8 @@ def l2_loss_fde_joint(pred, data, agent_masks, agent_types, predict_yaw):
     if predict_yaw:
         vehicles_only = (agent_types[:, :, 0] == 1.0).unsqueeze(0)
         yaw_loss = torch.norm(
-            pred[:, :, :, :, 5:].transpose(1, 2) - data[:, :, :, 4:5].unsqueeze(0), dim=-1,
+            pred[:, :, :, :, 5:].transpose(1, 2) - data[:, :, :, 4:5].unsqueeze(0),
+            dim=-1,
         ).mean(2)  # across time
         yaw_loss = (yaw_loss * vehicles_only).mean(-1).transpose(0, 1)
 

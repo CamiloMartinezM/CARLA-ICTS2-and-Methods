@@ -168,7 +168,8 @@ def test_model_all(test_loader, args):
             np.mean(
                 np.min(
                     np.mean(
-                        np.linalg.norm(y[:, :, :1, :] - prediction[:, :, :1, :], axis=3), axis=2,
+                        np.linalg.norm(y[:, :, :1, :] - prediction[:, :, :1, :], axis=3),
+                        axis=2,
                     ),
                     axis=0,
                 ),
@@ -179,7 +180,8 @@ def test_model_all(test_loader, args):
             np.mean(
                 np.min(
                     np.mean(
-                        np.linalg.norm(y[:, :, 0:1, :] - prediction[:, :, 0:1, :], axis=3), axis=2,
+                        np.linalg.norm(y[:, :, 0:1, :] - prediction[:, :, 0:1, :], axis=3),
+                        axis=2,
                     ),
                     axis=0,
                 ),
@@ -190,7 +192,8 @@ def test_model_all(test_loader, args):
             np.mean(
                 np.min(
                     np.mean(
-                        np.linalg.norm(y[:, :, :2, :] - prediction[:, :, :2, :], axis=3), axis=2,
+                        np.linalg.norm(y[:, :, :2, :] - prediction[:, :, :2, :], axis=3),
+                        axis=2,
                     ),
                     axis=0,
                 ),
@@ -201,7 +204,8 @@ def test_model_all(test_loader, args):
             np.mean(
                 np.min(
                     np.mean(
-                        np.linalg.norm(y[:, :, 1:2, :] - prediction[:, :, 1:2, :], axis=3), axis=2,
+                        np.linalg.norm(y[:, :, 1:2, :] - prediction[:, :, 1:2, :], axis=3),
+                        axis=2,
                     ),
                     axis=0,
                 ),
@@ -212,7 +216,8 @@ def test_model_all(test_loader, args):
             np.mean(
                 np.min(
                     np.mean(
-                        np.linalg.norm(y[:, :, :3, :] - prediction[:, :, :3, :], axis=3), axis=2,
+                        np.linalg.norm(y[:, :, :3, :] - prediction[:, :, :3, :], axis=3),
+                        axis=2,
                     ),
                     axis=0,
                 ),
@@ -223,7 +228,8 @@ def test_model_all(test_loader, args):
             np.mean(
                 np.min(
                     np.mean(
-                        np.linalg.norm(y[:, :, 2:3, :] - prediction[:, :, 2:3, :], axis=3), axis=2,
+                        np.linalg.norm(y[:, :, 2:3, :] - prediction[:, :, 2:3, :], axis=3),
+                        axis=2,
                     ),
                     axis=0,
                 ),
@@ -234,7 +240,8 @@ def test_model_all(test_loader, args):
             np.mean(
                 np.min(
                     np.mean(
-                        np.linalg.norm(y[:, :, :4, :] - prediction[:, :, :4, :], axis=3), axis=2,
+                        np.linalg.norm(y[:, :, :4, :] - prediction[:, :, :4, :], axis=3),
+                        axis=2,
                     ),
                     axis=0,
                 ),
@@ -245,7 +252,8 @@ def test_model_all(test_loader, args):
             np.mean(
                 np.min(
                     np.mean(
-                        np.linalg.norm(y[:, :, 3:4, :] - prediction[:, :, 3:4, :], axis=3), axis=2,
+                        np.linalg.norm(y[:, :, 3:4, :] - prediction[:, :, 3:4, :], axis=3),
+                        axis=2,
                     ),
                     axis=0,
                 ),
@@ -256,7 +264,8 @@ def test_model_all(test_loader, args):
             np.mean(
                 np.min(
                     np.mean(
-                        np.linalg.norm(y[:, :, :5, :] - prediction[:, :, :5, :], axis=3), axis=2,
+                        np.linalg.norm(y[:, :, :5, :] - prediction[:, :, :5, :], axis=3),
+                        axis=2,
                     ),
                     axis=0,
                 ),
@@ -267,7 +276,8 @@ def test_model_all(test_loader, args):
             np.mean(
                 np.min(
                     np.mean(
-                        np.linalg.norm(y[:, :, 4:5, :] - prediction[:, :, 4:5, :], axis=3), axis=2,
+                        np.linalg.norm(y[:, :, 4:5, :] - prediction[:, :, 4:5, :], axis=3),
+                        axis=2,
                     ),
                     axis=0,
                 ),
@@ -278,7 +288,8 @@ def test_model_all(test_loader, args):
             np.mean(
                 np.min(
                     np.mean(
-                        np.linalg.norm(y[:, :, :6, :] - prediction[:, :, :6, :], axis=3), axis=2,
+                        np.linalg.norm(y[:, :, :6, :] - prediction[:, :, :6, :], axis=3),
+                        axis=2,
                     ),
                     axis=0,
                 ),
@@ -289,7 +300,8 @@ def test_model_all(test_loader, args):
             np.mean(
                 np.min(
                     np.mean(
-                        np.linalg.norm(y[:, :, 5:6, :] - prediction[:, :, 5:6, :], axis=3), axis=2,
+                        np.linalg.norm(y[:, :, 5:6, :] - prediction[:, :, 5:6, :], axis=3),
+                        axis=2,
                     ),
                     axis=0,
                 ),
@@ -300,7 +312,8 @@ def test_model_all(test_loader, args):
             np.mean(
                 np.min(
                     np.mean(
-                        np.linalg.norm(y[:, :, :7, :] - prediction[:, :, :7, :], axis=3), axis=2,
+                        np.linalg.norm(y[:, :, :7, :] - prediction[:, :, :7, :], axis=3),
+                        axis=2,
                     ),
                     axis=0,
                 ),
@@ -311,7 +324,8 @@ def test_model_all(test_loader, args):
             np.mean(
                 np.min(
                     np.mean(
-                        np.linalg.norm(y[:, :, 6:7, :] - prediction[:, :, 6:7, :], axis=3), axis=2,
+                        np.linalg.norm(y[:, :, 6:7, :] - prediction[:, :, 6:7, :], axis=3),
+                        axis=2,
                     ),
                     axis=0,
                 ),
@@ -322,7 +336,8 @@ def test_model_all(test_loader, args):
             np.mean(
                 np.min(
                     np.mean(
-                        np.linalg.norm(y[:, :, :8, :] - prediction[:, :, :8, :], axis=3), axis=2,
+                        np.linalg.norm(y[:, :, :8, :] - prediction[:, :, :8, :], axis=3),
+                        axis=2,
                     ),
                     axis=0,
                 ),
@@ -333,7 +348,8 @@ def test_model_all(test_loader, args):
             np.mean(
                 np.min(
                     np.mean(
-                        np.linalg.norm(y[:, :, 7:8, :] - prediction[:, :, 7:8, :], axis=3), axis=2,
+                        np.linalg.norm(y[:, :, 7:8, :] - prediction[:, :, 7:8, :], axis=3),
+                        axis=2,
                     ),
                     axis=0,
                 ),
@@ -344,7 +360,8 @@ def test_model_all(test_loader, args):
             np.mean(
                 np.min(
                     np.mean(
-                        np.linalg.norm(y[:, :, :9, :] - prediction[:, :, :9, :], axis=3), axis=2,
+                        np.linalg.norm(y[:, :, :9, :] - prediction[:, :, :9, :], axis=3),
+                        axis=2,
                     ),
                     axis=0,
                 ),
@@ -355,7 +372,8 @@ def test_model_all(test_loader, args):
             np.mean(
                 np.min(
                     np.mean(
-                        np.linalg.norm(y[:, :, 8:9, :] - prediction[:, :, 8:9, :], axis=3), axis=2,
+                        np.linalg.norm(y[:, :, 8:9, :] - prediction[:, :, 8:9, :], axis=3),
+                        axis=2,
                     ),
                     axis=0,
                 ),
@@ -366,7 +384,8 @@ def test_model_all(test_loader, args):
             np.mean(
                 np.min(
                     np.mean(
-                        np.linalg.norm(y[:, :, :10, :] - prediction[:, :, :10, :], axis=3), axis=2,
+                        np.linalg.norm(y[:, :, :10, :] - prediction[:, :, :10, :], axis=3),
+                        axis=2,
                     ),
                     axis=0,
                 ),

@@ -15,7 +15,10 @@ Val H5 generation takes about 1 hour and is about 16GBs.
 def get_args():
     parser = argparse.ArgumentParser(description="Nuscenes H5 Creator")
     parser.add_argument(
-        "--output-h5-path", type=str, required=True, help="output path to H5 files.",
+        "--output-h5-path",
+        type=str,
+        required=True,
+        help="output path to H5 files.",
     )
     parser.add_argument(
         "--raw-dataset-path",
@@ -58,7 +61,10 @@ if __name__ == "__main__":
 
     f = h5py.File(os.path.join(args.output_h5_path, args.split_name + "_dataset.hdf5"), "w")
     ego_trajectories = f.create_dataset(
-        "ego_trajectories", shape=(num_scenes, 18, 3), chunks=(1, 18, 3), dtype=np.float32,
+        "ego_trajectories",
+        shape=(num_scenes, 18, 3),
+        chunks=(1, 18, 3),
+        dtype=np.float32,
     )
     agent_trajectories = f.create_dataset(
         "agents_trajectories",
@@ -76,10 +82,16 @@ if __name__ == "__main__":
         dtype="S50",
     )
     road_pts = f.create_dataset(
-        "road_pts", shape=(num_scenes, 100, 40, 4), chunks=(1, 100, 40, 4), dtype=np.float16,
+        "road_pts",
+        shape=(num_scenes, 100, 40, 4),
+        chunks=(1, 100, 40, 4),
+        dtype=np.float16,
     )
     road_imgs = f.create_dataset(
-        "large_roads", shape=(num_scenes, 750, 750, 3), chunks=(1, 750, 750, 3), dtype=np.uint8,
+        "large_roads",
+        shape=(num_scenes, 750, 750, 3),
+        chunks=(1, 750, 750, 3),
+        dtype=np.uint8,
     )
 
     for i, data in enumerate(nuscenes):

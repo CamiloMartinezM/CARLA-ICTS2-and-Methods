@@ -3,7 +3,6 @@ Time: 28.09.22 08:27
 """
 
 import carla
-
 from benchmark.rlagent import RLAgent
 
 

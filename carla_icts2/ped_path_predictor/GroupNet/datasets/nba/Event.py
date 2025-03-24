@@ -174,7 +174,9 @@ class Event:
             for player in start_moment.players
         ]
         ball_circle = plt.Circle(
-            (0, 0), Constant.PLAYER_CIRCLE_SIZE, color=start_moment.ball.color,
+            (0, 0),
+            Constant.PLAYER_CIRCLE_SIZE,
+            color=start_moment.ball.color,
         )
         for circle in player_circles:
             ax.add_patch(circle)

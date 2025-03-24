@@ -141,7 +141,11 @@ class Visualizer:
             )
         elif viz_type == "point":
             self.viz_point_trajectories(
-                inputs, color=color, label=label, thickness=thickness, radius=radius,
+                inputs,
+                color=color,
+                label=label,
+                thickness=thickness,
+                radius=radius,
             )
         elif viz_type == "distribution":
             self.viz_distribution(inputs, id_to_show, thickness=thickness, radius=radius)
@@ -240,8 +244,7 @@ class Visualizer:
         # pdb.set_trace()
 
     def viz_point_trajectories(self, points, color=(255, 0, 0), label=None, thickness=4, radius=5):
-        """points: (T, 2) or (T, K, 2)
-        """
+        """points: (T, 2) or (T, K, 2)"""
         if self.mode == "image":
             # plot traj on image
             if len(points.shape) == 2:
@@ -251,12 +254,20 @@ class Visualizer:
             for k in range(K):
                 # pdb.set_trace()
                 cv2.polylines(
-                    self.img, [points[:, k, :]], isClosed=False, color=color, thickness=thickness,
+                    self.img,
+                    [points[:, k, :]],
+                    isClosed=False,
+                    color=color,
+                    thickness=thickness,
                 )
 
                 for t in range(T):
                     cv2.circle(
-                        self.img, tuple(points[t, k, :]), color=color, radius=radius, thickness=-1,
+                        self.img,
+                        tuple(points[t, k, :]),
+                        color=color,
+                        radius=radius,
+                        thickness=-1,
                     )
         elif self.mode == "plot":
             # plot traj in matplotlib
@@ -280,7 +291,11 @@ class Visualizer:
         if color is None:
             color = np.random.rand(3) * 255
         cv2.rectangle(
-            self.img, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2,
+            self.img,
+            (int(bbox[0]), int(bbox[1])),
+            (int(bbox[2]), int(bbox[3])),
+            color,
+            2,
         )
 
     # def viz_bboxes(self, bboxes, normalized=False, mode='x1y1x2y2', color=None):
@@ -311,8 +326,7 @@ class Visualizer:
         radius=5,
         viz_time_step=None,
     ):
-        """bboxes: (T,4) or (T, K, 4)
-        """
+        """bboxes: (T,4) or (T, K, 4)"""
         if len(bboxes.shape) == 2:
             bboxes = bboxes[:, None, :]
 

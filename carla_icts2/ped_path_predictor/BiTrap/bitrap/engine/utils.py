@@ -41,8 +41,7 @@ def viz_results(
     logger=None,
     name="",
 ):
-    """Given prediction output, visualize them on images or in matplotlib figures.
-    """
+    """Given prediction output, visualize them on images or in matplotlib figures."""
     id_to_show = np.random.randint(pred_traj.shape[0])
 
     # 1. initialize visualizer
@@ -51,7 +50,10 @@ def viz_results(
     # 2. visualize point trajectory or box trajectory
     if y_global.shape[-1] == 2:
         viz.visualize(
-            pred_traj[id_to_show], color=(0, 1, 0), label="pred future", viz_type="point",
+            pred_traj[id_to_show],
+            color=(0, 1, 0),
+            label="pred future",
+            viz_type="point",
         )
         viz.visualize(X_global[id_to_show], color=(0, 0, 1), label="past", viz_type="point")
         viz.visualize(y_global[id_to_show], color=(1, 0, 0), label="gt future", viz_type="point")
@@ -105,7 +107,13 @@ def viz_results(
 
 
 def post_process(
-    cfg, X_global, y_global, pred_traj, pred_goal=None, dist_traj=None, dist_goal=None,
+    cfg,
+    X_global,
+    y_global,
+    pred_traj,
+    pred_goal=None,
+    dist_traj=None,
+    dist_goal=None,
 ):
     """Post process the prediction output"""
     if len(pred_traj.shape) == 4:
@@ -148,7 +156,9 @@ def post_process(
         # NOTE: June 19, convert distribution from cxcywh to image resolution x1y1x2y2
         if hasattr(dist_traj, "mus") and cfg.DATASET.NORMALIZE != "none":
             _min = torch.FloatTensor(cfg.DATASET.MIN_BBOX)[None, None, :].repeat(
-                batch_size, T, 1,
+                batch_size,
+                T,
+                1,
             )  # B, T, dim
             _max = torch.FloatTensor(cfg.DATASET.MAX_BBOX)[None, None, :].repeat(batch_size, T, 1)
             zeros = torch.zeros_like(_min[..., 0])
@@ -201,9 +211,13 @@ def post_process(
                 raise ValueError
 
             dist_traj = GMM4D.from_log_pis_mus_cov_mats(
-                dist_traj.input_log_pis, traj_mus, traj_cov,
+                dist_traj.input_log_pis,
+                traj_mus,
+                traj_cov,
             )
             dist_goal = GMM4D.from_log_pis_mus_cov_mats(
-                dist_goal.input_log_pis, goal_mus, goal_cov,
+                dist_goal.input_log_pis,
+                goal_mus,
+                goal_cov,
             )
     return X_global, y_global, pred_goal, pred_traj, dist_traj, dist_goal

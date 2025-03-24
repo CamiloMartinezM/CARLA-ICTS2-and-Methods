@@ -114,7 +114,9 @@ class NuScenesDataset(Dataset):
                 meters_right=75,
             )
             self._mtp_input_representation = InputRepresentation(
-                self._static_layer_rasterizer_1, self._agent_rasterizer, Rasterizer(),
+                self._static_layer_rasterizer_1,
+                self._agent_rasterizer,
+                Rasterizer(),
             )
 
     def debug_draw_full_map_from_position(self, data_root, instance, sample):
@@ -123,17 +125,26 @@ class NuScenesDataset(Dataset):
             os.mkdir(image_folder)
 
         future = self._helper.get_future_for_agent(
-            instance, sample, seconds=200, in_agent_frame=True, just_xy=False,
+            instance,
+            sample,
+            seconds=200,
+            in_agent_frame=True,
+            just_xy=False,
         )
         past = self._helper.get_past_for_agent(
-            instance, sample, seconds=200, in_agent_frame=True, just_xy=False,
+            instance,
+            sample,
+            seconds=200,
+            in_agent_frame=True,
+            just_xy=False,
         )
 
         count = 0
 
         for token in reversed(past):
             img = self._mtp_input_representation.make_input_representation(
-                instance, token["sample_token"],
+                instance,
+                token["sample_token"],
             )
             plt.imshow(img)
             plt.savefig(os.path.join(image_folder, str(count) + ".png"))
@@ -141,7 +152,8 @@ class NuScenesDataset(Dataset):
 
         for token in future:
             img = self._mtp_input_representation.make_input_representation(
-                instance, token["sample_token"],
+                instance,
+                token["sample_token"],
             )
             plt.imshow(img)
             plt.savefig(os.path.join(image_folder, str(count) + ".png"))
@@ -150,7 +162,11 @@ class NuScenesDataset(Dataset):
     def _get_map_features(self, nusc_map, x, y, yaw, radius, reference_position):
         curr_map = np.zeros((self._max_number_roads, self._number_future_road_points, 4))
         lanes = get_lanes_in_radius(
-            x=x, y=y, radius=200, map_api=nusc_map, discretization_meters=2.0,
+            x=x,
+            y=y,
+            radius=200,
+            map_api=nusc_map,
+            discretization_meters=2.0,
         )
 
         # need to combine lanes that are connected to avoid random gaps.
@@ -223,7 +239,9 @@ class NuScenesDataset(Dataset):
                 del sample_info[key]
                 continue
             sample_info[key] = convert_global_coords_to_local(
-                val, annotation["translation"], annotation["rotation"],
+                val,
+                annotation["translation"],
+                annotation["rotation"],
             )
         return sample_info
 
@@ -300,17 +318,22 @@ class NuScenesDataset(Dataset):
 
         if self._debug:
             self.debug_draw_full_map_from_position(
-                data_root=".", instance=instance_token, sample=sample_token,
+                data_root=".",
+                instance=instance_token,
+                sample=sample_token,
             )
 
         all_ego_positions = np.concatenate(
-            (p_all_positions[::-1], f_all_positions), axis=0,
+            (p_all_positions[::-1], f_all_positions),
+            axis=0,
         )  # need to flip past.
         rotated_ego_positions = []
         for coords in all_ego_positions:
             rotated_ego_positions.append(
                 convert_global_coords_to_local(
-                    coords, annotation["translation"], annotation["rotation"],
+                    coords,
+                    annotation["translation"],
+                    annotation["rotation"],
                 ).squeeze(),
             )
         rotated_ego_positions = np.array(rotated_ego_positions)
@@ -327,10 +350,16 @@ class NuScenesDataset(Dataset):
 
         # Other agents stuff
         p_sample_info = self._helper.get_past_for_sample(
-            sample_token, seconds=self.past_secs, in_agent_frame=False, just_xy=True,
+            sample_token,
+            seconds=self.past_secs,
+            in_agent_frame=False,
+            just_xy=True,
         )
         f_sample_info = self._helper.get_future_for_sample(
-            sample_token, seconds=self.future_secs, in_agent_frame=False, just_xy=True,
+            sample_token,
+            seconds=self.future_secs,
+            in_agent_frame=False,
+            just_xy=True,
         )
         p_sample_info = self._rotate_sample_points(annotation, p_sample_info)
         f_sample_info = self._rotate_sample_points(annotation, f_sample_info)

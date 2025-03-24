@@ -8,8 +8,7 @@ from .MS_HGNN_batch import MLP, MS_HGNN_hyper, MS_HGNN_oridinary
 
 
 class DecomposeBlock(nn.Module):
-    """Balance between reconstruction task and prediction task.
-    """
+    """Balance between reconstruction task and prediction task."""
 
     def __init__(self, past_len, future_len, input_dim):
         super(DecomposeBlock, self).__init__()
@@ -265,7 +264,8 @@ class PastEncoder(nn.Module):
             final_feature = torch.cat((ftraj_input, ftraj_inter, ftraj_inter_hyper), dim=-1)
         elif len(self.args.hyper_scales) == 2:
             final_feature = torch.cat(
-                (ftraj_input, ftraj_inter, ftraj_inter_hyper, ftraj_inter_hyper2), dim=-1,
+                (ftraj_input, ftraj_inter, ftraj_inter_hyper, ftraj_inter_hyper2),
+                dim=-1,
             )
         elif len(self.args.hyper_scales) == 3:
             final_feature = torch.cat(
@@ -381,7 +381,8 @@ class FutureEncoder(nn.Module):
             final_feature = torch.cat((ftraj_input, ftraj_inter, ftraj_inter_hyper), dim=-1)
         elif len(self.args.hyper_scales) == 2:
             final_feature = torch.cat(
-                (ftraj_input, ftraj_inter, ftraj_inter_hyper, ftraj_inter_hyper2), dim=-1,
+                (ftraj_input, ftraj_inter, ftraj_inter_hyper, ftraj_inter_hyper2),
+                dim=-1,
             )
         elif len(self.args.hyper_scales) == 3:
             final_feature = torch.cat(
@@ -462,7 +463,9 @@ class Decoder(nn.Module):
         out_seq = norm_seq  # + cur_location_repeat # (agent_num*sample_num,self.past_length,2)
         if mode == "inference":
             out_seq = out_seq.view(
-                -1, sample_num, *out_seq.shape[1:],
+                -1,
+                sample_num,
+                *out_seq.shape[1:],
             )  # (agent_num,sample_num,self.past_length,2)
         return out_seq, recover_pre_seq
 
@@ -568,12 +571,22 @@ class GroupNet(nn.Module):
         ### use q ###
         # z = qz_sampled
         pred_traj, recover_traj = self.decoder(
-            past_feature, qz_sampled, batch_size, agent_num, past_traj, cur_location, sample_num=1,
+            past_feature,
+            qz_sampled,
+            batch_size,
+            agent_num,
+            past_traj,
+            cur_location,
+            sample_num=1,
         )
         loss_pred = self.calculate_loss_pred(pred_traj, future_traj, batch_size)
         loss_recover = self.calculate_loss_recover(recover_traj, past_traj, batch_size)
         loss_kl = self.calculate_loss_kl(
-            qz_distribution, pz_distribution, batch_size, agent_num, self.args.min_clip,
+            qz_distribution,
+            pz_distribution,
+            batch_size,
+            agent_num,
+            self.args.min_clip,
         )
 
         ### p dist for best 20 loss ###

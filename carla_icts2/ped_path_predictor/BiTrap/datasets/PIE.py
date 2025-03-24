@@ -68,7 +68,13 @@ class PIEDataset(data.Dataset):
         return len(self.data[list(self.data.keys())[0]])
 
     def get_traj_tracks(
-        self, dataset, data_types, observe_length, predict_length, overlap, normalize,
+        self,
+        dataset,
+        data_types,
+        observe_length,
+        predict_length,
+        overlap,
+        normalize,
     ):
         """Generates tracks by sampling from pedestrian sequences
         :param dataset: The raw data passed to the method
@@ -120,7 +126,10 @@ class PIEDataset(data.Dataset):
             d[k] = tracks
         #  Normalize tracks using FOL paper method,
         d["bbox"] = self.convert_normalize_bboxes(
-            d["bbox"], d["resolution"], self.cfg.DATASET.NORMALIZE, self.cfg.DATASET.BBOX_TYPE,
+            d["bbox"],
+            d["resolution"],
+            self.cfg.DATASET.NORMALIZE,
+            self.cfg.DATASET.BBOX_TYPE,
         )
         return d
 

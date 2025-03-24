@@ -2,10 +2,9 @@ import os
 
 import numpy as np
 import torch
-from torch.optim import Adam
-
 from SAC.sac_discrete.sacd.model import CateoricalPolicy, TwinnedQNetwork
 from SAC.sac_discrete.sacd.utils import disable_gradients
+from torch.optim import Adam
 
 from .base import BaseAgent
 
@@ -59,10 +58,13 @@ class SacdAgent(BaseAgent):
 
         # Define networks.
         self.policy = CateoricalPolicy(
-            self.env.observation_space.shape[2], self.env.action_space.n,
+            self.env.observation_space.shape[2],
+            self.env.action_space.n,
         ).to(self.device)
         self.online_critic = TwinnedQNetwork(
-            self.env.observation_space.shape[2], self.env.action_space.n, dueling_net=dueling_net,
+            self.env.observation_space.shape[2],
+            self.env.action_space.n,
+            dueling_net=dueling_net,
         ).to(device=self.device)
         self.target_critic = (
             TwinnedQNetwork(

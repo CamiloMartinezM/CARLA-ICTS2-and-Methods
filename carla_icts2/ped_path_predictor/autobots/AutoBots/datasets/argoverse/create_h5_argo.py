@@ -34,7 +34,9 @@ def make_2d_rotation_matrix(angle_in_radians: float) -> np.ndarray:
 
 
 def convert_global_coords_to_local(
-    coordinates: np.ndarray, translation: tuple[float, float], yaw: float,
+    coordinates: np.ndarray,
+    translation: tuple[float, float],
+    yaw: float,
 ) -> np.ndarray:
     """Converts global coordinates to coordinates in the frame given by the rotation quaternion and
     centered at the translation vector. The rotation is meant to be a z-axis rotation.
@@ -59,7 +61,10 @@ def compute_yaw(ego_input):
 def get_args():
     parser = argparse.ArgumentParser(description="Argoverse H5 Creator")
     parser.add_argument(
-        "--output-h5-path", type=str, required=True, help="output path to H5 files.",
+        "--output-h5-path",
+        type=str,
+        required=True,
+        help="output path to H5 files.",
     )
     parser.add_argument(
         "--raw-dataset-path",
@@ -177,7 +182,9 @@ if __name__ == "__main__":
         rot_others_traj = []
         for other_traj in others_traj:
             rot_other_traj = convert_global_coords_to_local(
-                other_traj[:, :2], ego_traj[19, :2], ego_yaw,
+                other_traj[:, :2],
+                ego_traj[19, :2],
+                ego_yaw,
             )
             rot_other_traj = rot_other_traj * other_traj[:, 2:]
             rot_other_traj = np.column_stack(
@@ -219,7 +226,8 @@ if __name__ == "__main__":
             ):
                 lane_cl = convert_global_coords_to_local(lane_cl[:, :2], ego_traj[19, :2], ego_yaw)
                 lane_cl = np.concatenate(
-                    (lane_cl, np.ones((len(lane_cl), 1))), axis=-1,
+                    (lane_cl, np.ones((len(lane_cl), 1))),
+                    axis=-1,
                 )  # adding existence mask
                 if len(lane_cl) < 10:
                     temp_lane_cl = np.zeros((10, 3))

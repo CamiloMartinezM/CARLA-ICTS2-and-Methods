@@ -4,13 +4,13 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 import torch
-from matplotlib import pyplot as plt
-from torch.utils.tensorboard import SummaryWriter
-
 from benchmark.environment.ped_controller import l2_distance
-from carla_icts2.scenarios_config import Config
+from matplotlib import pyplot as plt
 from SAC.sac_discrete.sacd.memory import LazyMultiStepMemory, LazyPrioritizedMultiStepMemory
 from SAC.sac_discrete.sacd.utils import RunningMeanStats, update_params
+from torch.utils.tensorboard import SummaryWriter
+
+from carla_icts2.scenarios_config import Config
 
 
 class BaseAgent(ABC):
@@ -286,7 +286,10 @@ class BaseAgent(ABC):
 
         print(
             "Episode: {}, Scenario: {}, Pedestrian Speed: {:.2f}m/s, Ped_distance: {:.2f}m".format(
-                self.episodes, info["scenario"], info["ped_speed"], info["ped_distance"],
+                self.episodes,
+                info["scenario"],
+                info["ped_speed"],
+                info["ped_distance"],
             ),
         )
         print(f"Goal reached: {goal}, Accident: {accident}, Nearmiss: {nearmiss}")
@@ -354,21 +357,31 @@ class BaseAgent(ABC):
                 self.writer.add_scalar("loss/Q1", q1_loss.detach().item(), self.learning_steps)
                 self.writer.add_scalar("loss/Q2", q2_loss.detach().item(), self.learning_steps)
                 self.writer.add_scalar(
-                    "loss/policy", policy_loss.detach().item(), self.learning_steps,
+                    "loss/policy",
+                    policy_loss.detach().item(),
+                    self.learning_steps,
                 )
                 self.writer.add_scalar(
-                    "loss/entropy_loss", entropy_loss.detach().item(), self.learning_steps,
+                    "loss/entropy_loss",
+                    entropy_loss.detach().item(),
+                    self.learning_steps,
                 )
                 self.writer.add_scalar(
-                    "stats/alpha", self.alpha.detach().item(), self.learning_steps,
+                    "stats/alpha",
+                    self.alpha.detach().item(),
+                    self.learning_steps,
                 )
                 self.writer.add_scalar(
-                    "stats/log_alpha", self.log_alpha.detach().item(), self.learning_steps,
+                    "stats/log_alpha",
+                    self.log_alpha.detach().item(),
+                    self.learning_steps,
                 )
                 self.writer.add_scalar("stats/mean_Q1", mean_q1, self.learning_steps)
                 self.writer.add_scalar("stats/mean_Q2", mean_q2, self.learning_steps)
                 self.writer.add_scalar(
-                    "stats/entropy", entropies.detach().mean().item(), self.learning_steps,
+                    "stats/entropy",
+                    entropies.detach().mean().item(),
+                    self.learning_steps,
                 )
                 with torch.no_grad():
                     total_norm = 0
@@ -377,7 +390,9 @@ class BaseAgent(ABC):
                         total_norm += param_norm.item() ** 2
                     total_norm = total_norm ** (1.0 / 2)
                     self.writer.add_scalar(
-                        "loss/policy_loss_gradient", total_norm, self.learning_steps,
+                        "loss/policy_loss_gradient",
+                        total_norm,
+                        self.learning_steps,
                     )
 
     def compute_policy_grad_norm(self):
@@ -458,12 +473,16 @@ class BaseAgent(ABC):
             total_goal += int(info["goal"])
             print(
                 "Speed: {:.2f}m/s, Dist.: {:.2f}m, Return: {:.4f}".format(
-                    info["ped_speed"], info["ped_distance"], episode_return,
+                    info["ped_speed"],
+                    info["ped_distance"],
+                    episode_return,
                 ),
             )
             print(
                 "Goal: {}, Accident: {}, Act Dist.: {}".format(
-                    info["goal"], info["accident"], action_count,
+                    info["goal"],
+                    info["accident"],
+                    action_count,
                 ),
             )
             print("Policy; ", action_count, "Distance: ", dist)
@@ -475,12 +494,16 @@ class BaseAgent(ABC):
             )
             self.file.write(
                 "Speed: {:.2f}m/s, Dist.: {:.2f}m, Return: {:.4f}".format(
-                    info["ped_speed"], info["ped_distance"], episode_return,
+                    info["ped_speed"],
+                    info["ped_distance"],
+                    episode_return,
                 ),
             )
             self.file.write(
                 "Goal: {}, Accident: {}, Act Dist.: {}".format(
-                    info["goal"], info["accident"], action_count,
+                    info["goal"],
+                    info["accident"],
+                    action_count,
                 ),
             )
 

@@ -1,4 +1,3 @@
-
 import pdb
 
 import numpy as np
@@ -28,7 +27,10 @@ class Trajectory:
         return len(self.frames)
 
     def use_global_features(
-        self, video_resolution, extract_delta=False, use_first_step_as_reference=False,
+        self,
+        video_resolution,
+        extract_delta=False,
+        use_first_step_as_reference=False,
     ):
         self.coordinates = self._extract_global_features(
             video_resolution=video_resolution,
@@ -42,24 +44,39 @@ class Trajectory:
 
     def _extract_size_features(self, video_resolution):
         bbs = np.apply_along_axis(
-            compute_bounding_box, axis=1, arr=self.coordinates, video_resolution=video_resolution,
+            compute_bounding_box,
+            axis=1,
+            arr=self.coordinates,
+            video_resolution=video_resolution,
         )
         bbs_measures = np.apply_along_axis(
-            self._extract_bounding_box_measurements, axis=1, arr=bbs,
+            self._extract_bounding_box_measurements,
+            axis=1,
+            arr=bbs,
         )
         return bbs_measures
 
     def _extract_global_features(
-        self, video_resolution, extract_delta=False, use_first_step_as_reference=False,
+        self,
+        video_resolution,
+        extract_delta=False,
+        use_first_step_as_reference=False,
     ):
         bounding_boxes = np.apply_along_axis(
-            compute_bounding_box, axis=1, arr=self.coordinates, video_resolution=video_resolution,
+            compute_bounding_box,
+            axis=1,
+            arr=self.coordinates,
+            video_resolution=video_resolution,
         )
         bbs_measures = np.apply_along_axis(
-            self._extract_bounding_box_measurements, axis=1, arr=bounding_boxes,
+            self._extract_bounding_box_measurements,
+            axis=1,
+            arr=bounding_boxes,
         )
         bbs_centre = np.apply_along_axis(
-            self._extract_bounding_box_centre, axis=1, arr=bounding_boxes,
+            self._extract_bounding_box_centre,
+            axis=1,
+            arr=bounding_boxes,
         )
         if extract_delta:
             bbs_delta = np.vstack((np.full((1, 2), fill_value=1e-7), np.diff(bbs_centre, axis=0)))
@@ -92,7 +109,8 @@ class Trajectory:
         if invert:
             if coordinate_system == "global":
                 self.coordinates = self._from_global_to_image(
-                    self.coordinates, video_resolution=video_resolution,
+                    self.coordinates,
+                    video_resolution=video_resolution,
                 )
             else:
                 raise ValueError(
@@ -100,15 +118,20 @@ class Trajectory:
                 )
         elif coordinate_system == "global":
             self.coordinates = self._from_image_to_global(
-                self.coordinates, video_resolution=video_resolution,
+                self.coordinates,
+                video_resolution=video_resolution,
             )
         elif coordinate_system == "bounding_box_top_left":
             self.coordinates = self._from_image_to_bounding_box(
-                self.coordinates, video_resolution=video_resolution, location="top_left",
+                self.coordinates,
+                video_resolution=video_resolution,
+                location="top_left",
             )
         elif coordinate_system == "bounding_box_centre":
             self.coordinates = self._from_image_to_bounding_box(
-                self.coordinates, video_resolution=video_resolution, location="centre",
+                self.coordinates,
+                video_resolution=video_resolution,
+                location="centre",
             )
         else:
             raise ValueError(
@@ -150,7 +173,8 @@ class Trajectory:
         for idx, kps in enumerate(coordinates):
             if any(kps):
                 left, right, top, bottom = compute_bounding_box(
-                    kps, video_resolution=video_resolution,
+                    kps,
+                    video_resolution=video_resolution,
                 )
                 xs, ys = np.hsplit(kps.reshape(-1, 2), indices_or_sections=2)
                 xs, ys = np.where(xs == 0.0, float(left), xs), np.where(ys == 0.0, float(top), ys)
@@ -172,7 +196,8 @@ class Trajectory:
         for idx, kps in enumerate(coordinates):
             if any(kps):
                 left, right, top, bottom = compute_bounding_box(
-                    kps, video_resolution=video_resolution,
+                    kps,
+                    video_resolution=video_resolution,
                 )
                 centre_x, centre_y = (left + right) / 2, (top + bottom) / 2
                 xs, ys = np.hsplit(kps.reshape(-1, 2), indices_or_sections=2)
@@ -218,7 +243,8 @@ class Trajectory:
                     step_is_missing = (
                         np.sum(
                             self.coordinates[
-                                last_step_non_missing + 1 + consecutive_missing_steps, :,
+                                last_step_non_missing + 1 + consecutive_missing_steps,
+                                :,
                             ]
                             == 0,
                         )
@@ -232,7 +258,8 @@ class Trajectory:
             if consecutive_missing_steps:
                 start_trajectory = self.coordinates[last_step_non_missing, :]
                 end_trajectory = self.coordinates[
-                    last_step_non_missing + 1 + consecutive_missing_steps, :,
+                    last_step_non_missing + 1 + consecutive_missing_steps,
+                    :,
                 ]
                 for n in range(1, consecutive_missing_steps + 1):
                     a = (
@@ -241,7 +268,9 @@ class Trajectory:
                     b = (n / (consecutive_missing_steps + 1)) * end_trajectory
                     fill_step = a + b
                     fill_step = np.where(
-                        (start_trajectory == 0) | (end_trajectory == 0), 0, fill_step,
+                        (start_trajectory == 0) | (end_trajectory == 0),
+                        0,
+                        fill_step,
                     )
                     self.coordinates[last_step_non_missing + n, :] = fill_step
 

@@ -21,7 +21,8 @@ class BiTraPNP(nn.Module):
         self.param_scheduler = None
         # encoder
         self.box_embed = nn.Sequential(
-            nn.Linear(self.cfg.GLOBAL_INPUT_DIM, self.cfg.INPUT_EMBED_SIZE), nn.ReLU(),
+            nn.Linear(self.cfg.GLOBAL_INPUT_DIM, self.cfg.INPUT_EMBED_SIZE),
+            nn.ReLU(),
         )
         self.box_encoder = nn.GRU(
             input_size=self.cfg.INPUT_EMBED_SIZE,
@@ -83,7 +84,8 @@ class BiTraPNP(nn.Module):
             nn.ReLU(),
         )
         self.traj_dec_forward = nn.GRUCell(
-            input_size=self.cfg.DEC_INPUT_SIZE, hidden_size=self.cfg.DEC_HIDDEN_SIZE,
+            input_size=self.cfg.DEC_INPUT_SIZE,
+            hidden_size=self.cfg.DEC_HIDDEN_SIZE,
         )
 
         self.enc_h_to_back_h = nn.Sequential(
@@ -99,7 +101,8 @@ class BiTraPNP(nn.Module):
             nn.ReLU(),
         )
         self.traj_dec_backward = nn.GRUCell(
-            input_size=self.cfg.DEC_INPUT_SIZE, hidden_size=self.cfg.DEC_HIDDEN_SIZE,
+            input_size=self.cfg.DEC_INPUT_SIZE,
+            hidden_size=self.cfg.DEC_HIDDEN_SIZE,
         )
 
         self.traj_output = nn.Linear(
@@ -117,7 +120,8 @@ class BiTraPNP(nn.Module):
             # 2. sample z from posterior, for training only
             initial_h = self.node_future_encoder_h(cur_state)
             initial_h = torch.stack(
-                [initial_h, torch.zeros_like(initial_h, device=initial_h.device)], dim=0,
+                [initial_h, torch.zeros_like(initial_h, device=initial_h.device)],
+                dim=0,
             )
             _, target_h = self.gt_goal_encoder(target, initial_h)
             target_h = target_h.permute(1, 0, 2)
@@ -149,7 +153,9 @@ class BiTraPNP(nn.Module):
         K_samples = torch.randn(enc_h.shape[0], self.K, self.cfg.LATENT_DIM).cuda()
         Z_std = torch.exp(0.5 * Z_logvar)
         Z = Z_mu.unsqueeze(1).repeat(1, self.K, 1) + K_samples * Z_std.unsqueeze(1).repeat(
-            1, self.K, 1,
+            1,
+            self.K,
+            1,
         )
 
         if z_mode:
@@ -157,10 +163,13 @@ class BiTraPNP(nn.Module):
         return Z, KLD
 
     def encode_variable_length_seqs(
-        self, original_seqs, lower_indices=None, upper_indices=None, total_length=None,
+        self,
+        original_seqs,
+        lower_indices=None,
+        upper_indices=None,
+        total_length=None,
     ):
-        """Take the input_x, pack it to remove NaN, embed, and run GRU
-        """
+        """Take the input_x, pack it to remove NaN, embed, and run GRU"""
         bs, tf = original_seqs.shape[:2]
         if lower_indices is None:
             lower_indices = torch.zeros(bs, dtype=torch.int)
@@ -186,13 +195,14 @@ class BiTraPNP(nn.Module):
         packed_output, h_x = self.box_encoder(packed_seqs)
         # pad zeros to the end so that the last non zero value
         output, _ = rnn.pad_packed_sequence(
-            packed_output, batch_first=True, total_length=total_length,
+            packed_output,
+            batch_first=True,
+            total_length=total_length,
         )
         return output, h_x
 
     def encoder(self, x, first_history_indices=None):
-        """x: encoder inputs
-        """
+        """x: encoder inputs"""
         outputs, _ = self.encode_variable_length_seqs(x, lower_indices=first_history_indices)
         outputs = F.dropout(outputs, p=self.cfg.DROPOUT, training=self.training)
         if first_history_indices is not None:
@@ -239,7 +249,10 @@ class BiTraPNP(nn.Module):
         if target_y is not None:
             # train and val
             loss_goal, loss_traj = cvae_loss(
-                pred_goal, pred_traj, target_y, best_of_many=self.cfg.BEST_OF_MANY,
+                pred_goal,
+                pred_traj,
+                target_y,
+                best_of_many=self.cfg.BEST_OF_MANY,
             )
             loss_dict = {"loss_goal": loss_goal, "loss_traj": loss_traj, "loss_kld": KLD}
         else:

@@ -2,8 +2,7 @@
 
 
 def run_server_command(config: dict) -> str:
-    """
-    Return the command to run CARLA.
+    """Return the command to run CARLA.
 
     The `config` dictionary comes from the YAML configuration file in the project root.
     """

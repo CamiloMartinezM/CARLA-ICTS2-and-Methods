@@ -146,7 +146,12 @@ def return_collision_threshold(w1, w2):
 
 
 def collisions_for_inter_dataset(
-    preds, agent_types, ego_in, agents_in, translations, device="cpu",
+    preds,
+    agent_types,
+    ego_in,
+    agents_in,
+    translations,
+    device="cpu",
 ):
     """1. Rotate and Translate all agents to the same coordinate system.
     2. Get all agent width and length (if they are vehicles only).
@@ -182,12 +187,14 @@ def collisions_for_inter_dataset(
                         yaw = np.arctan2(diff[1], diff[0])
                     angle_of_rotation = (np.pi / 2) + np.sign(-yaw) * np.abs(yaw)
                     new_preds[:, :, b, n, :2] = convert_local_coords_to_global(
-                        coordinates=curr_preds[:, :, n, :2], yaw=angle_of_rotation,
+                        coordinates=curr_preds[:, :, n, :2],
+                        yaw=angle_of_rotation,
                     ) + translations[b, n].reshape(1, 1, -1)
                 continue
             yaw = angles_of_rotation[b, n]
             new_preds[:, :, b, n, :2] = convert_local_coords_to_global(
-                coordinates=curr_preds[:, :, n, :2], yaw=yaw,
+                coordinates=curr_preds[:, :, n, :2],
+                yaw=yaw,
             ) + translations[b, n].reshape(1, 1, -1)
             preds_for_circle = new_preds[:, :, b, n, :3].transpose(1, 0, 2)
             circles_list = return_circle_list(
@@ -209,7 +216,8 @@ def collisions_for_inter_dataset(
                     continue
                 other_agent_circles = agents_circles[_n]
                 threshold_between_agents = return_collision_threshold(
-                    agents_widths[n], agents_widths[_n],
+                    agents_widths[n],
+                    agents_widths[_n],
                 )
 
                 for curr_circle_idx in range(curr_agent_circles.shape[2]):

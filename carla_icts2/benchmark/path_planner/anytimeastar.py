@@ -13,7 +13,14 @@ import numpy as np
 
 class Node:
     def __init__(
-        self, f=None, g=None, prev=None, prev_d=None, node_c=None, node_d=None, weight=None,
+        self,
+        f=None,
+        g=None,
+        prev=None,
+        prev_d=None,
+        node_c=None,
+        node_d=None,
+        weight=None,
     ):
         self.f = f
         self.g = g
@@ -127,7 +134,13 @@ class AnytimeHybridAStar:
         f_prime = weight * f
         hq.heappush(open_heap, (f_prime, start))
         open_diction[start] = Node(
-            f, g, prev=start, prev_d=start, node_c=start, node_d=start, weight=weight,
+            f,
+            g,
+            prev=start,
+            prev_d=start,
+            node_c=start,
+            node_d=start,
+            weight=weight,
         )
 
         incumbent = None
@@ -152,7 +165,9 @@ class AnytimeHybridAStar:
                         velocity = speed_inputs[j]
 
                         neighbour_x_cts, neighbour_y_cts, neighbour_theta_cts = self.next_node(
-                            current_node.node_c, delta, velocity,
+                            current_node.node_c,
+                            delta,
+                            velocity,
                         )
                         neighbour_theta_cts = math.degrees(neighbour_theta_cts)
 
@@ -202,7 +217,8 @@ class AnytimeHybridAStar:
                                     weight=weight,
                                 )
                                 hq.heappush(
-                                    open_heap, (open_diction[neighbour_d].f_prime, neighbour_d),
+                                    open_heap,
+                                    (open_diction[neighbour_d].f_prime, neighbour_d),
                                 )
                             elif (
                                 neighbour_d in visited_diction
@@ -229,7 +245,8 @@ class AnytimeHybridAStar:
                                     weight=weight,
                                 )
                                 hq.heappush(
-                                    open_heap, (open_diction[neighbour_d].f_prime, neighbour_d),
+                                    open_heap,
+                                    (open_diction[neighbour_d].f_prime, neighbour_d),
                                 )
 
         if incumbent is None:
@@ -333,7 +350,12 @@ def main():
 
     t0 = time.time()
     path = hy_a_star.find_path(
-        (sx, sy, stheta), (gx, gy, gtheta), relaxed_g, [], speed=1.0, weight=0.9,
+        (sx, sy, stheta),
+        (gx, gy, gtheta),
+        relaxed_g,
+        [],
+        speed=1.0,
+        weight=0.9,
     )
     path = path[0]
     path.reverse()

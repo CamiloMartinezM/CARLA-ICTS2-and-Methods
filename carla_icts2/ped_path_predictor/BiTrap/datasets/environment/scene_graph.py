@@ -176,12 +176,17 @@ class TemporalSceneGraph:
 
         dist_cube[np.isnan(dist_cube)] = 0.0
         weight_cube = np.divide(
-            1.0, dist_cube, out=np.zeros_like(dist_cube), where=(dist_cube > 0.0),
+            1.0,
+            dist_cube,
+            out=np.zeros_like(dist_cube),
+            where=(dist_cube > 0.0),
         )
         edge_scaling = None
         if edge_addition_filter is not None and edge_removal_filter is not None:
             edge_scaling = cls.calculate_edge_scaling(
-                adj_cube, edge_addition_filter, edge_removal_filter,
+                adj_cube,
+                edge_addition_filter,
+                edge_removal_filter,
             )
         tsg = cls(
             attention_radius,
@@ -203,13 +208,15 @@ class TemporalSceneGraph:
         )
 
         new_edges = np.minimum(
-            ss.convolve(shifted_right, np.reshape(edge_addition_filter, (-1, 1, 1)), "full"), 1.0,
+            ss.convolve(shifted_right, np.reshape(edge_addition_filter, (-1, 1, 1)), "full"),
+            1.0,
         )[(len(edge_addition_filter) - 1) : -(len(edge_addition_filter) - 1)]
 
         new_edges[adj_cube == 0] = 0
 
         result = np.minimum(
-            ss.convolve(new_edges, np.reshape(edge_removal_filter, (-1, 1, 1)), "full"), 1.0,
+            ss.convolve(new_edges, np.reshape(edge_removal_filter, (-1, 1, 1)), "full"),
+            1.0,
         )[: -(len(edge_removal_filter) - 1)]
 
         return result
@@ -381,10 +388,12 @@ if __name__ == "__main__":
 
         start = time.time()
         new_edges = np.minimum(
-            ss.convolve(A, np.reshape(edge_addition_filter, (-1, 1, 1)), "full"), 1.0,
+            ss.convolve(A, np.reshape(edge_addition_filter, (-1, 1, 1)), "full"),
+            1.0,
         )[(len(edge_addition_filter) - 1) :]
         old_edges = np.minimum(
-            ss.convolve(A, np.reshape(edge_removal_filter, (-1, 1, 1)), "full"), 1.0,
+            ss.convolve(A, np.reshape(edge_removal_filter, (-1, 1, 1)), "full"),
+            1.0,
         )[: -(len(edge_removal_filter) - 1)]
         res = np.minimum(new_edges + old_edges, 1.0)[:, 0, 0]
         end = time.time()
@@ -393,7 +402,9 @@ if __name__ == "__main__":
 
         start = time.time()
         res = TemporalSceneGraph.calculate_edge_scaling(
-            A, edge_addition_filter, edge_removal_filter,
+            A,
+            edge_addition_filter,
+            edge_removal_filter,
         )[:, 0, 0]
         end = time.time()
         print(end - start)

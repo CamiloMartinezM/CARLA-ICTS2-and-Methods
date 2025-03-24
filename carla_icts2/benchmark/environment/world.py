@@ -1,5 +1,4 @@
-"""
-Author: Dikshant Gupta
+"""Author: Dikshant Gupta
 Time: 23.03.21 14:27
 """
 
@@ -8,7 +7,6 @@ import sys
 
 import carla
 import numpy as np
-import pygame
 
 from carla_icts2.benchmark.environment.car_controller import CarController
 from carla_icts2.benchmark.environment.ped_controller import (
@@ -142,7 +140,7 @@ class World:
             transform = self.player.get_transform()
             location = carla.Location(x=transform.location.x, y=transform.location.y, z=70)
             self.world.get_spectator().set_transform(
-                carla.Transform(location, carla.Rotation(yaw=180.0, pitch=-90.0))
+                carla.Transform(location, carla.Rotation(yaw=180.0, pitch=-90.0)),
             )
             self.already_spawned_bev_camera = True
 
@@ -259,8 +257,12 @@ class World:
         # Keep same camera config if the camera manager exists.
         cam_index = self.camera_manager.index if self.camera_manager is not None else 0
         semseg_index = self.semseg_sensor.index if self.semseg_sensor is not None else 5
-        cam_pos_index = self.camera_manager.transform_index if self.camera_manager is not None else 5
-        semseg_pos_index = self.semseg_sensor.transform_index if self.semseg_sensor is not None else 5
+        cam_pos_index = (
+            self.camera_manager.transform_index if self.camera_manager is not None else 5
+        )
+        semseg_pos_index = (
+            self.semseg_sensor.transform_index if self.semseg_sensor is not None else 5
+        )
 
         # Spawn the player.
         start = self.scenario[3]
@@ -614,9 +616,9 @@ class World:
         elif self.scenario[0] == 9:
             self.walker.apply_control(carla.WalkerControl(carla.Vector3D(0, self.ped_speed, 0), 1))
         if self.scenario[0] == 10:
-            flag = (0 < (self.walker.get_location().y - self.incoming_car.get_location().y) < 5) and (
-                self.walker.get_location().x > -4.4
-            )
+            flag = (
+                0 < (self.walker.get_location().y - self.incoming_car.get_location().y) < 5
+            ) and (self.walker.get_location().x > -4.4)
             if self.incoming_car.get_location().y > 250 or flag:
                 self.incoming_car.set_target_velocity(carla.Vector3D(0, 0, 0))
             else:
@@ -698,7 +700,9 @@ class World:
                     self.iss_crossed.step()
             elif self.choice is None:
                 if l2_distance(self.walker.get_location(), self.desc_p) < 0.1:
-                    distance = y_distance(self.walker.get_location(), self.player.get_location()) - 2
+                    distance = (
+                        y_distance(self.walker.get_location(), self.player.get_location()) - 2
+                    )
                     # distance = l2_distance(self.walker.get_location(), self.player.get_location())
                     # print(distance)
                     # self.compute_collision_point()
@@ -743,7 +747,9 @@ class World:
                         self.stopped = True
                         # print("Stopped")
                     elif status == "Done":
-                        distance = y_distance(self.walker.get_location(), self.player.get_location()) + 10
+                        distance = (
+                            y_distance(self.walker.get_location(), self.player.get_location()) + 10
+                        )
                         if self.second_decider(distance, 10):
                             self.walker.blend_pose(0)
                             self.path_controller_2.cur_speed = self.ped_speed
@@ -754,8 +760,13 @@ class World:
                     # self.walker.blend_pose(0)
                     self.path_controller_2.step()
                 else:
-                    if l2_distance(self.walker.get_location(), self.flip_p) < 0.1 and self.flip_choice is None:
-                        distance = y_distance(self.walker.get_location(), self.player.get_location()) - 2
+                    if (
+                        l2_distance(self.walker.get_location(), self.flip_p) < 0.1
+                        and self.flip_choice is None
+                    ):
+                        distance = (
+                            y_distance(self.walker.get_location(), self.player.get_location()) - 2
+                        )
 
                         if self.decision_trigger(
                             distance,
@@ -764,7 +775,9 @@ class World:
                         ):  # distance >=self.slow_db[0] and distance <= self.slow_db[1]:
                             self.flip_choice = "Error"
                             self.set_walker_speed_relative(0.7)
-                            self.path_controller_1.cur_speed = self.path_controller_1.cur_speed * 0.7
+                            self.path_controller_1.cur_speed = (
+                                self.path_controller_1.cur_speed * 0.7
+                            )
                             self.turn_head.relax_spine()
                             self.walker.icr = ICR.INTERESTED
                             self.walker.son = SON.YIELDING
@@ -772,18 +785,27 @@ class World:
                             self.flip_choice = "StandardAcc"
                             # print(self.flip_choice)
                             self.set_walker_speed_relative(1.1)
-                            self.path_controller_1.cur_speed = self.path_controller_1.cur_speed * 1.1
+                            self.path_controller_1.cur_speed = (
+                                self.path_controller_1.cur_speed * 1.1
+                            )
                             self.turn_head.lean_forward(1.2)
                             self.walker.icr = ICR.PLANNING_TO
 
-                    if l2_distance(self.walker.get_location(), self.acc_p) < 0.1 and self.flip_choice == "Error":
-                        distance = y_distance(self.walker.get_location(), self.player.get_location()) - 2
+                    if (
+                        l2_distance(self.walker.get_location(), self.acc_p) < 0.1
+                        and self.flip_choice == "Error"
+                    ):
+                        distance = (
+                            y_distance(self.walker.get_location(), self.player.get_location()) - 2
+                        )
                         if self.decision_trigger(
                             distance,
                             self.acc_db,
                             without_speed=True,
                         ):  # distance >=self.acc_db[0] and distance <= self.acc_db[1]:
-                            self.path_controller_1.cur_speed = self.path_controller_1.cur_speed * 1.0 / 0.7 * 1.2
+                            self.path_controller_1.cur_speed = (
+                                self.path_controller_1.cur_speed * 1.0 / 0.7 * 1.2
+                            )
                             self.set_walker_speed_relative(1.0 / 0.7 * 1.2)
                             self.turn_head.lean_forward(1)
                             self.flip_choice = "Accelerated"
@@ -794,7 +816,9 @@ class World:
                             self.flip_choice = "Keep"
                         # print(self.flip_choice)
                     if l2_distance(self.walker.get_location(), self.desc_p) < 0.1:
-                        distance = y_distance(self.walker.get_location(), self.player.get_location()) - 2
+                        distance = (
+                            y_distance(self.walker.get_location(), self.player.get_location()) - 2
+                        )
                         # print("Desc_p")
                         if self.decision_trigger(
                             distance,
@@ -802,7 +826,9 @@ class World:
                         ):  # distance >=self.db[0] and distance <= self.db[1]:
                             self.choice = "Stop"
                             self.cur_speed = self.path_controller_1.cur_speed
-                            self.path_controller_1.cur_speed = self.path_controller_1.cur_speed * 0.8
+                            self.path_controller_1.cur_speed = (
+                                self.path_controller_1.cur_speed * 0.8
+                            )
                             self.path_controller_1.speed_schedule = self.speed_schedule_stop
                             self.path_controller_1.set_walker_speed_relative(0.8)
                             self.turn_head.relax_spine()
@@ -824,7 +850,9 @@ class World:
                         self.stopped = True
                         # print("Stopped")
                     elif status == "Done":
-                        distance = y_distance(self.walker.get_location(), self.player.get_location()) + 10
+                        distance = (
+                            y_distance(self.walker.get_location(), self.player.get_location()) + 10
+                        )
                         if self.second_decider(distance, 20):  # distance < 0:
                             self.walker.blend_pose(0)
                             self.path_controller_2.cur_speed = self.ped_speed
@@ -835,7 +863,9 @@ class World:
                     # self.walker.blend_pose(0)
                     self.path_controller_2.step()
                 elif l2_distance(self.walker.get_location(), self.desc_p) < 0.1:
-                    distance = y_distance(self.walker.get_location(), self.player.get_location()) - 2
+                    distance = (
+                        y_distance(self.walker.get_location(), self.player.get_location()) - 2
+                    )
                     if self.decision_trigger(
                         distance,
                         self.db,
@@ -912,13 +942,9 @@ class World:
                     # self.choice = "Continue"
                     # self.walker.icr = ICR.GOING_TO
                     elif l2_distance(self.walker.get_location(), self.desc_p) < 0.2:
-<<<<<<< HEAD:benchmark/environment/world.py
-                        distance = y_distance(self.walker.get_location(), self.player.get_location()) - 2
-=======
                         distance = (
                             y_distance(self.walker.get_location(), self.player.get_location()) - 2
                         )
->>>>>>> 8d62ffc3ed161365e612863305473996eba3be46:carla_icts2/benchmark/environment/world.py
                         # distance = l2_distance(self.walker.get_location(), self.player.get_location())
                         # print(distance)
                         # self.compute_collision_point()
@@ -952,13 +978,9 @@ class World:
                         self.path_controller_1.cur_speed = 0.0
                         self.set_walker_speed_relative(0.0)
                     elif l2_distance(self.walker.get_location(), self.desc_p) < 0.2:
-<<<<<<< HEAD:benchmark/environment/world.py
-                        distance = y_distance(self.walker.get_location(), self.player.get_location()) - 2
-=======
                         distance = (
                             y_distance(self.walker.get_location(), self.player.get_location()) - 2
                         )
->>>>>>> 8d62ffc3ed161365e612863305473996eba3be46:carla_icts2/benchmark/environment/world.py
                         if self.decision_trigger(distance, self.db):
                             self.choice = "Stop"
                             self.walker.icr = ICR.VERY_LOW
@@ -995,7 +1017,9 @@ class World:
                 #     self.walker.icr = ICR.PLANNING_TO
 
                 elif l2_distance(self.walker.get_location(), self.desc_p) < 0.2:
-                    distance = y_distance(self.walker.get_location(), self.player.get_location()) - 2
+                    distance = (
+                        y_distance(self.walker.get_location(), self.player.get_location()) - 2
+                    )
                     if self.decision_trigger(distance, self.db):
                         self.choice = "Avoid"
                         self.walker.icr = ICR.GOING_TO
@@ -1100,20 +1124,22 @@ class World:
             hasattr(self, "look_behind_right")
             and hasattr(self.look_behind_right, "done")
             and self.look_behind_right.done
+        ) or (
+            hasattr(self, "look_behind_left")
+            and hasattr(self.look_behind_left, "done")
+            and self.look_behind_left.done
+        ) or (
+            hasattr(self, "turn_head") and hasattr(self.turn_head, "done") and self.turn_head.done
         ):
-            ho_ped = "Facing"
-        elif (
-            hasattr(self, "look_behind_left") and hasattr(self.look_behind_left, "done") and self.look_behind_left.done
-        ):
-            ho_ped = "Facing"
-        elif hasattr(self, "turn_head") and hasattr(self.turn_head, "done") and self.turn_head.done:
             ho_ped = "Facing"
 
         # Calculate relative to car
         walker_rotation = self.walker.get_transform().rotation.yaw
         car_loc = self.player.get_location()
         walker_loc = self.walker.get_location()
-        angle_to_car = math.atan2(car_loc.y - walker_loc.y, car_loc.x - walker_loc.x) * 180 / math.pi
+        angle_to_car = (
+            math.atan2(car_loc.y - walker_loc.y, car_loc.x - walker_loc.x) * 180 / math.pi
+        )
         angle_diff = abs((walker_rotation - angle_to_car + 180) % 360 - 180)
 
         if angle_diff < 45:
@@ -1125,7 +1151,11 @@ class World:
 
         # Hip orientation based on specific animation controllers
         hio_ped = "Neutral"  # Default
-        if hasattr(self, "lean_forward") and hasattr(self.lean_forward, "done") and self.lean_forward.done:
+        if (
+            hasattr(self, "lean_forward")
+            and hasattr(self.lean_forward, "done")
+            and self.lean_forward.done
+        ):
             hio_ped = "Leaning forward"
 
         # Discretize speed based on observed ranges in the config files
@@ -1254,7 +1284,9 @@ class World:
         car_rotation = car_transform.rotation.yaw
         walker_loc = self.walker.get_location()
         car_loc = self.player.get_location()
-        angle_to_walker = math.atan2(walker_loc.y - car_loc.y, walker_loc.x - car_loc.x) * 180 / math.pi
+        angle_to_walker = (
+            math.atan2(walker_loc.y - car_loc.y, walker_loc.x - car_loc.x) * 180 / math.pi
+        )
         angle_diff = abs((car_rotation - angle_to_walker + 180) % 360 - 180)
 
         if angle_diff < 45:
@@ -1822,7 +1854,9 @@ class World:
             char=conf.char,
         )
         self.relaxer = Relaxer(self.walker, self.player, self.flip_p)
-        self.speed_schedule_stop = [(self.get_p_from_vector(spawn_loc, path_1[0], per), 0.85) for per in [0.87, 0.92]]
+        self.speed_schedule_stop = [
+            (self.get_p_from_vector(spawn_loc, path_1[0], per), 0.85) for per in [0.87, 0.92]
+        ]
         self.walker.initial_son = SON.YIELDING if conf.char == "yielding" else SON.FORCING
         self.iss_crossed = InternalStateSetter(
             self.walker,
@@ -1903,7 +1937,9 @@ class World:
         vec = path_1[1] - path_1[0]
         self.desc_p = path_1[0] + 0.9 * vec
 
-        self.path_controller_1.speed_schedule = [(path_1[0] + per * vec, 0.93) for per in [0.0, 0.2, 0.4]]
+        self.path_controller_1.speed_schedule = [
+            (path_1[0] + per * vec, 0.93) for per in [0.0, 0.2, 0.4]
+        ]
 
         vec_2 = self.path_2[0] - path_1[1]
         self.speed_schedule_stop = [(path_1[1] + per * vec_2, 1.355) for per in [0.0, 0.05, 0.075]]
@@ -2009,7 +2045,9 @@ class World:
         self.desc_p = path_1[0] + 0.95 * vec
         # self.db = [2,10]
         if conf.char == "forcing":
-            self.path_controller_1.speed_schedule = [(path_1[0] + per * vec, 1.1) for per in [0.0, 0.2, 0.4]]
+            self.path_controller_1.speed_schedule = [
+                (path_1[0] + per * vec, 1.1) for per in [0.0, 0.2, 0.4]
+            ]
 
         # self._draw_db_circle()
         if self.debug:
@@ -2426,11 +2464,13 @@ class World:
         # self.db = [2,10]
         if conf.char == "forcing":
             self.path_controller_2.speed_schedule = [
-                (path_1[0] + per * path_1[0] - carla.Location(1, 0, 0), 10.9) for per in [0.0, 0.2, 0.4]
+                (path_1[0] + per * path_1[0] - carla.Location(1, 0, 0), 10.9)
+                for per in [0.0, 0.2, 0.4]
             ]
         if conf.char == ("yielding"):
             self.path_controller_1.speed_schedule = [
-                (path_1[0] - per * path_1[0] - carla.Location(1, 0, 0), 0.8) for per in [0.0, 0.2, 0.4]
+                (path_1[0] - per * path_1[0] - carla.Location(1, 0, 0), 0.8)
+                for per in [0.0, 0.2, 0.4]
             ]
         # self._draw_db_circle()
         if self.debug:

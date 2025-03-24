@@ -1,5 +1,4 @@
-"""From Trajectron++: https://github.com/StanfordASL/Trajectron-plus-plus
-"""
+"""From Trajectron++: https://github.com/StanfordASL/Trajectron-plus-plus"""
 
 import collections.abc
 
@@ -51,7 +50,11 @@ def get_relative_robot_traj(env, state, node_traj, robot_traj, node_type, robot_
     std[0:2] = env.attention_radius[(node_type, robot_type)]  # 3 #
 
     robot_traj_st = env.standardize(
-        robot_traj, state[robot_type], node_type=robot_type, mean=node_traj, std=std,
+        robot_traj,
+        state[robot_type],
+        node_type=robot_type,
+        mean=node_traj,
+        std=std,
     )
     robot_traj_st_t = torch.tensor(robot_traj_st, dtype=torch.float)
 
@@ -147,13 +150,18 @@ def get_node_timestep_data(
                 neighbors_edge_value[edge_type] = edge_masks
             for connected_node in connected_nodes:
                 neighbor_state_np, (lower, upper) = connected_node.get(
-                    np.array([t - max_ht, t]), state[connected_node.type], padding=0.0,
+                    np.array([t - max_ht, t]),
+                    state[connected_node.type],
+                    padding=0.0,
                 )
                 neighbor_future_np, (_, _) = connected_node.get(
-                    np.array([t + 1, t + max_ft]), state[connected_node.type], padding=np.nan,
+                    np.array([t + 1, t + max_ft]),
+                    state[connected_node.type],
+                    padding=np.nan,
                 )
                 _, std = env.get_standardize_params(
-                    state[connected_node.type], node_type=connected_node.type,
+                    state[connected_node.type],
+                    node_type=connected_node.type,
                 )
                 std[0:2] = env.attention_radius[edge_type]  # 3 #
                 equal_dims = np.min((neighbor_state_np.shape[-1], x.shape[-1]))
@@ -170,7 +178,8 @@ def get_node_timestep_data(
                 neighbor_state = torch.tensor(neighbor_state_np, dtype=torch.float)
                 neighbor_state_st = torch.tensor(neighbor_state_np_st, dtype=torch.float)
                 neighbor_future = torch.tensor(neighbor_future_np, dtype=torch.float)[
-                    ..., :2,
+                    ...,
+                    :2,
                 ]  # only use pos of future
                 neighbors_data[edge_type].append(neighbor_state)
                 neighbors_data_st[edge_type].append(neighbor_state_st)
@@ -188,7 +197,12 @@ def get_node_timestep_data(
         robot_type = robot.type
         robot_traj = robot.get(timestep_range_r, state[robot_type], padding=0.0)
         robot_traj_st_t = get_relative_robot_traj(
-            env, state, x_node, robot_traj, node.type, robot_type,
+            env,
+            state,
+            x_node,
+            robot_traj,
+            node.type,
+            robot_type,
         )
 
     # Map

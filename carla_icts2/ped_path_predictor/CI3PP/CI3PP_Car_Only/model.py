@@ -1,7 +1,6 @@
 import torch
-from torch import nn
-
 from P3VI.model import LinearReLu, TimeDistributed
+from torch import nn
 
 
 class CI3PP_Car_Only(nn.Module):
@@ -18,10 +17,14 @@ class CI3PP_Car_Only(nn.Module):
 
         # Cross Attention
         self.mha_traj_x_car = nn.MultiheadAttention(
-            embed_dim=embedded, num_heads=4, batch_first=True,
+            embed_dim=embedded,
+            num_heads=4,
+            batch_first=True,
         )
         self.mha_car_x_traj = nn.MultiheadAttention(
-            embed_dim=embedded, num_heads=4, batch_first=True,
+            embed_dim=embedded,
+            num_heads=4,
+            batch_first=True,
         )
 
         # ENCODER

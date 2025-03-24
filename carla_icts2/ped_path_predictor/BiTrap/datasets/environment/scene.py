@@ -47,7 +47,8 @@ class Scene:
     def get_clipped_pos_dict(self, timestep, state):
         pos_dict = dict()
         existing_nodes = self.get_nodes_clipped_at_time(
-            timesteps=np.array([timestep]), state=state,
+            timesteps=np.array([timestep]),
+            state=state,
         )
         tr_scene = np.array([timestep, timestep])
         for node in existing_nodes:
@@ -56,7 +57,11 @@ class Scene:
         return pos_dict
 
     def get_scene_graph(
-        self, timestep, attention_radius=None, edge_addition_filter=None, edge_removal_filter=None,
+        self,
+        timestep,
+        attention_radius=None,
+        edge_addition_filter=None,
+        edge_removal_filter=None,
     ) -> SceneGraph:
         """Returns the Scene Graph for a given timestep. If the Temporal Scene Graph was pre calculated,
         the temporal scene graph is sliced. Otherwise the scene graph is calculated on the spot.
@@ -91,11 +96,16 @@ class Scene:
                 t_fut=len(edge_addition_filter),
             )
         return self.temporal_scene_graph.to_scene_graph(
-            timestep, len(edge_removal_filter), len(edge_addition_filter),
+            timestep,
+            len(edge_removal_filter),
+            len(edge_addition_filter),
         )
 
     def calculate_scene_graph(
-        self, attention_radius, edge_addition_filter=None, edge_removal_filter=None,
+        self,
+        attention_radius,
+        edge_addition_filter=None,
+        edge_removal_filter=None,
     ) -> None:
         """Calculate the Temporal Scene Graph for the entire Scene.
 
@@ -201,7 +211,9 @@ class Scene:
         """
         batch_size = min(batch_size, self.timesteps)
         return np.random.choice(
-            np.arange(0, self.timesteps - min_future_timesteps), size=batch_size, replace=False,
+            np.arange(0, self.timesteps - min_future_timesteps),
+            size=batch_size,
+            replace=False,
         )
 
     def augment(self):

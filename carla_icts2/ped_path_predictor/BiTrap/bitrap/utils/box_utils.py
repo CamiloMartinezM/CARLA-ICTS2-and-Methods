@@ -44,6 +44,8 @@ def signedIOU(bboxes_1, bboxes_2, mode="x1y1x2y2"):
 
     # ignore [0,0,0,0] boxes, which are place holders
     refined_signed_iou = torch.where(
-        bboxes_2.max(dim=-1)[0] == 0, -1 * torch.ones_like(signed_iou), signed_iou,
+        bboxes_2.max(dim=-1)[0] == 0,
+        -1 * torch.ones_like(signed_iou),
+        signed_iou,
     )
     return refined_signed_iou

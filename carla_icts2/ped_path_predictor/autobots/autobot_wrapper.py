@@ -10,12 +10,11 @@ from datetime import datetime as dt
 
 import numpy as np
 import torch
-from torch import nn, optim
-from torch.optim.lr_scheduler import MultiStepLR
-
 from ped_path_predictor.autobots.AutoBots.models.autobot_ego import AutoBotEgo
 from ped_path_predictor.autobots.AutoBots.utils.train_helpers import nll_loss_multimodes
 from ped_path_predictor.new_util import getDataloaders, singleDatasets
+from torch import nn, optim
+from torch.optim.lr_scheduler import MultiStepLR
 
 path_int = "./ped_path_predictor/data/new_car/all_int.npy"
 path_non_int = "./ped_path_predictor/data/new_car/all_non_int.npy"
@@ -74,7 +73,10 @@ class AutoBotWrapperNew:
 
         self.optimiser = optim.Adam(self.model.parameters(), lr=lr, eps=1e-4)
         self.optimiser_scheduler = MultiStepLR(
-            self.optimiser, milestones=[5, 10, 15, 20], gamma=0.5, verbose=True,
+            self.optimiser,
+            milestones=[5, 10, 15, 20],
+            gamma=0.5,
+            verbose=True,
         )
 
         if path is not None:
@@ -110,7 +112,8 @@ class AutoBotWrapperNew:
             ego_gt = ego_gt.transpose(0, 1).unsqueeze(0)
             ade_losses = (
                 torch.mean(
-                    torch.norm(ego_preds[:, :, :, :2] - ego_gt[:, :, :, :2], 2, dim=-1), dim=1,
+                    torch.norm(ego_preds[:, :, :, :2] - ego_gt[:, :, :, :2], 2, dim=-1),
+                    dim=1,
                 )
                 .transpose(0, 1)
                 .cpu()
@@ -242,7 +245,9 @@ class AutoBotWrapperNew:
                 pred_obs, mode_probs = self.model(ego_in, agents_in, map_lanes)
 
                 ade_losses, fde_losses, a, f = self._compute_ego_errors(
-                    pred_obs, ego_out, ego_in=ego_in,
+                    pred_obs,
+                    ego_out,
+                    ego_in=ego_in,
                 )
 
                 eval_loss += a / n_pred

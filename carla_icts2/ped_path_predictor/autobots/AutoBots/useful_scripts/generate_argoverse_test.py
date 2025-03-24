@@ -1,4 +1,3 @@
-
 import numpy as np
 import torch
 from argoverse.evaluation.competition_util import generate_forecasting_h5
@@ -59,7 +58,9 @@ def make_2d_rotation_matrix(angle_in_radians: float) -> np.ndarray:
 
 
 def convert_local_coords_to_global(
-    coordinates: np.ndarray, translation: tuple[float, float], yaw: float,
+    coordinates: np.ndarray,
+    translation: tuple[float, float],
+    yaw: float,
 ) -> np.ndarray:
     """Converts local coordinates to global coordinates.
     :param coordinates: x,y locations. array of shape [n_steps, 2]
@@ -81,7 +82,10 @@ def recompute_probs(pred_trajs, probs):
     distances = np.array(distances)
 
     agg = AgglomerativeClustering(
-        affinity="precomputed", linkage="complete", distance_threshold=None, n_clusters=4,
+        affinity="precomputed",
+        linkage="complete",
+        distance_threshold=None,
+        n_clusters=4,
     )
     output = agg.fit_predict(distances)  # Returns class labels.
     temp_probs = probs.copy()
@@ -100,7 +104,9 @@ def recompute_probs(pred_trajs, probs):
 if __name__ == "__main__":
     args, config, model_dirname = get_eval_args()
     test_argoverse = ArgoH5Dataset(
-        args.dataset_path, split_name="test", use_map_lanes=config["use_map_lanes"],
+        args.dataset_path,
+        split_name="test",
+        use_map_lanes=config["use_map_lanes"],
     )
     test_loader = torch.utils.data.DataLoader(
         test_argoverse,
@@ -142,7 +148,9 @@ if __name__ == "__main__":
                 for k in range(len(pred_obs)):
                     glob_pred_obs.append(
                         convert_local_coords_to_global(
-                            pred_obs[k, :, b, :2], extra[b, 2:].numpy(), extra[b, 1].item(),
+                            pred_obs[k, :, b, :2],
+                            extra[b, 2:].numpy(),
+                            extra[b, 1].item(),
                         ),
                     )
                 glob_pred_obs = np.array(glob_pred_obs)

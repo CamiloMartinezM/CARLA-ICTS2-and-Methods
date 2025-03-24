@@ -9,11 +9,10 @@ from datetime import datetime as dt
 import numpy as np
 import torch
 import torch.nn.functional as F
-from sklearn.model_selection import train_test_split
-from torch.utils.tensorboard import SummaryWriter
-
 from P3VI.model import P3VI
 from P3VI.utils import load_data
+from sklearn.model_selection import train_test_split
+from torch.utils.tensorboard import SummaryWriter
 
 path_int = "./P3VI/data/ICTS2_int.npy"
 path_non_int = "./P3VI/data/ICTS2_non_int.npy"
@@ -103,10 +102,14 @@ class P3VIWrapper:
     def test(self, test=False, path=None):
         if not test:
             obs_train_int, pred_train_int = load_data(
-                path_int, self.observed_frame_num, self.predicting_frame_num,
+                path_int,
+                self.observed_frame_num,
+                self.predicting_frame_num,
             )
             obs_train_non_int, pred_train_non_int = load_data(
-                path_non_int, self.observed_frame_num, self.predicting_frame_num,
+                path_non_int,
+                self.observed_frame_num,
+                self.predicting_frame_num,
             )
 
             obs_train = np.concatenate((obs_train_int, obs_train_non_int))
@@ -124,7 +127,10 @@ class P3VIWrapper:
             # output_train = (np.array(pred_train[:, :, :], dtype=np.float32) - np.array([80,200],dtype=np.float32))/100
 
             input_train, input_test, output_train, output_test = train_test_split(
-                input_train, output_train, test_size=0.15, random_state=0,
+                input_train,
+                output_train,
+                test_size=0.15,
+                random_state=0,
             )
 
             # make output relative to the last observed frame
@@ -147,7 +153,9 @@ class P3VIWrapper:
             print("Output train shape =", output_train.shape)
         else:
             input_test, output_test = load_data(
-                path, self.observed_frame_num, self.predicting_frame_num,
+                path,
+                self.observed_frame_num,
+                self.predicting_frame_num,
             )
             input_test = np.array(input_test[:, :, :], dtype=np.float32)
             output_test = np.array(output_test[:, :, :], dtype=np.float32)
@@ -194,10 +202,14 @@ class P3VIWrapper:
         # obs_train, pred_train, train_paths = get_raw_data(train_annotations, observed_frame_num, predicting_frame_num)
         # print("Started loading")
         obs_train_int, pred_train_int = load_data(
-            path_int, self.observed_frame_num, self.predicting_frame_num,
+            path_int,
+            self.observed_frame_num,
+            self.predicting_frame_num,
         )
         obs_train_non_int, pred_train_non_int = load_data(
-            path_non_int, self.observed_frame_num, self.predicting_frame_num,
+            path_non_int,
+            self.observed_frame_num,
+            self.predicting_frame_num,
         )
 
         obs_train = np.concatenate((obs_train_int, obs_train_non_int))
@@ -214,7 +226,10 @@ class P3VIWrapper:
         # output_train = (np.array(pred_train[:, :, :], dtype=np.float32) - np.array([80,200],dtype=np.float32))/100
 
         input_train, input_test, output_train, output_test = train_test_split(
-            input_train, output_train, test_size=0.15, random_state=0,
+            input_train,
+            output_train,
+            test_size=0.15,
+            random_state=0,
         )
 
         # make output relative to the last observed frame
@@ -246,7 +261,9 @@ class P3VIWrapper:
             t_before = time.time()
             for i in range(num_batches):
                 x = input_train[
-                    :, i * batch_size : i * batch_size + batch_size, :,
+                    :,
+                    i * batch_size : i * batch_size + batch_size,
+                    :,
                 ]  # observed_frame_num x batch_size x 2
                 y = output_train[:, i * batch_size : i * batch_size + batch_size, :]
                 x = torch.from_numpy(x).cuda()
@@ -307,7 +324,8 @@ class P3VIWrapper:
         with torch.no_grad():
             y_pred = self.model(x_traj, x_cf)
             return torch.square(y_pred - y_test).sum(2).sqrt().sum().item(), self.fde(
-                y_pred, y_test,
+                y_pred,
+                y_test,
             )
             # return torch.sum(torch.square(y_pred - y_test)).item(), self.fde(y_pred, y_test)
 

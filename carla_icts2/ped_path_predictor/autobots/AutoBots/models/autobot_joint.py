@@ -3,9 +3,8 @@ import math
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torch import nn
-
 from ped_path_predictor.autobots.AutoBots.models.context_encoders import MapEncoderPtsMA
+from torch import nn
 
 
 def init(module, weight_init, bias_init, gain=1):
@@ -48,7 +47,10 @@ class OutputModel(nn.Module):
             out_len = 6
 
         init_ = lambda m: init(
-            m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2),
+            m,
+            nn.init.xavier_normal_,
+            lambda x: nn.init.constant_(x, 0),
+            np.sqrt(2),
         )
         self.observation_model = nn.Sequential(
             init_(nn.Linear(self.d_k, self.d_k)),
@@ -63,7 +65,9 @@ class OutputModel(nn.Module):
         T = agent_latent_state.shape[0]
         BK = agent_latent_state.shape[1]
         pred_obs = self.observation_model(agent_latent_state.reshape(-1, self.d_k)).reshape(
-            T, BK, -1,
+            T,
+            BK,
+            -1,
         )
         x_mean = pred_obs[:, :, 0]
         y_mean = pred_obs[:, :, 1]
@@ -77,8 +81,7 @@ class OutputModel(nn.Module):
 
 
 class AutoBotJoint(nn.Module):
-    """AutoBot-Joint Class.
-    """
+    """AutoBot-Joint Class."""
 
     def __init__(
         self,
@@ -100,7 +103,10 @@ class AutoBotJoint(nn.Module):
         super(AutoBotJoint, self).__init__()
 
         init_ = lambda m: init(
-            m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2),
+            m,
+            nn.init.xavier_normal_,
+            lambda x: nn.init.constant_(x, 0),
+            np.sqrt(2),
         )
 
         self.k_attr = k_attr
@@ -146,10 +152,14 @@ class AutoBotJoint(nn.Module):
         # ============================== MAP ENCODER ==========================
         if self.use_map_lanes:
             self.map_encoder = MapEncoderPtsMA(
-                d_k=self.d_k, map_attr=self.map_attr, dropout=self.dropout,
+                d_k=self.d_k,
+                map_attr=self.map_attr,
+                dropout=self.dropout,
             )
             self.map_attn_layers = nn.MultiheadAttention(
-                self.d_k, num_heads=self.num_heads, dropout=self.dropout,
+                self.d_k,
+                num_heads=self.num_heads,
+                dropout=self.dropout,
             )
 
         # ============================== AGENT TYPES Encoders ==============================
@@ -201,11 +211,15 @@ class AutoBotJoint(nn.Module):
 
         if self.use_map_lanes:
             self.mode_map_attn = nn.MultiheadAttention(
-                self.d_k, num_heads=self.num_heads, dropout=self.dropout,
+                self.d_k,
+                num_heads=self.num_heads,
+                dropout=self.dropout,
             )
 
         self.prob_decoder = nn.MultiheadAttention(
-            self.d_k, num_heads=self.num_heads, dropout=self.dropout,
+            self.d_k,
+            num_heads=self.num_heads,
+            dropout=self.dropout,
         )
         self.prob_predictor = init_(nn.Linear(self.d_k, 1))
 
@@ -225,7 +239,8 @@ class AutoBotJoint(nn.Module):
 
         # Agents stuff
         temp_masks = torch.cat(
-            (torch.ones_like(env_masks.unsqueeze(-1)), agents[:, :, :, -1]), dim=-1,
+            (torch.ones_like(env_masks.unsqueeze(-1)), agents[:, :, :, -1]),
+            dim=-1,
         )
         opps_masks = (
             (1.0 - temp_masks).type(torch.BoolTensor).to(agents.device)
@@ -280,7 +295,10 @@ class AutoBotJoint(nn.Module):
         context = context.view(-1, BK * (self._M + 1), self.d_k)
 
         agents_temp_emb = layer(
-            agents_emb, context, tgt_mask=time_masks, memory_key_padding_mask=agent_masks,
+            agents_emb,
+            context,
+            tgt_mask=time_masks,
+            memory_key_padding_mask=agent_masks,
         )
         agents_temp_emb = agents_temp_emb.view(self.T, BK, self._M + 1, -1)
 
@@ -315,7 +333,8 @@ class AutoBotJoint(nn.Module):
 
         # Encode all input observations
         ego_tensor, _agents_tensor, opps_masks, env_masks = self.process_observations(
-            ego_in, agents_in,
+            ego_in,
+            agents_in,
         )
         agents_tensor = torch.cat((ego_tensor.unsqueeze(2), _agents_tensor), dim=2)
         agents_emb = self.agents_dynamic_encoder(agents_tensor).permute(1, 0, 2, 3)
@@ -323,10 +342,14 @@ class AutoBotJoint(nn.Module):
         # Process through AutoBot's encoder
         for i in range(self.L_enc):
             agents_emb = self.temporal_attn_fn(
-                agents_emb, opps_masks, layer=self.temporal_attn_layers[i],
+                agents_emb,
+                opps_masks,
+                layer=self.temporal_attn_layers[i],
             )
             agents_emb = self.social_attn_fn(
-                agents_emb, opps_masks, layer=self.social_attn_layers[i],
+                agents_emb,
+                opps_masks,
+                layer=self.social_attn_layers[i],
             )
 
         # Process map information
@@ -361,7 +384,10 @@ class AutoBotJoint(nn.Module):
 
         # AutoBot-Joint Decoding
         dec_parameters = self.Q.repeat(1, B, 1, self._M + 1, 1).view(
-            self.T, B * self.c, self._M + 1, -1,
+            self.T,
+            B * self.c,
+            self._M + 1,
+            -1,
         )
         dec_parameters = torch.cat((dec_parameters, agent_types_features), dim=-1)
         dec_parameters = self.dec_agenttypes_encoder(dec_parameters)
@@ -386,7 +412,9 @@ class AutoBotJoint(nn.Module):
                 layer=self.temporal_attn_decoder_layers[d],
             )
             agents_dec_emb = self.social_attn_decoder_fn(
-                agents_dec_emb, opps_masks_modes, layer=self.social_attn_decoder_layers[d],
+                agents_dec_emb,
+                opps_masks_modes,
+                layer=self.social_attn_decoder_layers[d],
             )
 
         out_dists = self.output_model(agents_dec_emb.reshape(self.T, -1, self.d_k))

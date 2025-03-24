@@ -2,10 +2,9 @@ import os
 
 import numpy as np
 import torch
-from torch.optim import Adam
-
 from SAC.sac_discrete.sacd.model import CateoricalPolicy, DQNBase, TwinnedQNetwork
 from SAC.sac_discrete.sacd.utils import disable_gradients
+from torch.optim import Adam
 
 from .base import BaseAgent
 
@@ -67,7 +66,9 @@ class SharedSacdAgent(BaseAgent):
         # Define networks.
         self.conv = DQNBase(self.env.observation_space.shape[2]).to(self.device)
         self.policy = CateoricalPolicy(
-            self.env.observation_space.shape[2], self.env.action_space.n, shared=True,
+            self.env.observation_space.shape[2],
+            self.env.action_space.n,
+            shared=True,
         ).to(self.device)
         self.online_critic = TwinnedQNetwork(
             self.env.observation_space.shape[2],
@@ -100,10 +101,12 @@ class SharedSacdAgent(BaseAgent):
         disable_gradients(self.target_critic)
 
         self.policy_optim = Adam(
-            list(self.conv.parameters()) + list(self.policy.parameters()), lr=lr,
+            list(self.conv.parameters()) + list(self.policy.parameters()),
+            lr=lr,
         )
         self.q1_optim = Adam(
-            list(self.conv.parameters()) + list(self.online_critic.Q1.parameters()), lr=lr,
+            list(self.conv.parameters()) + list(self.online_critic.Q1.parameters()),
+            lr=lr,
         )
         self.q2_optim = Adam(self.online_critic.Q2.parameters(), lr=lr)
 
@@ -147,7 +150,9 @@ class SharedSacdAgent(BaseAgent):
         polyak = 0.005
         # self.target_critic.load_state_dict(self.online_critic.state_dict())
         with torch.no_grad():
-            for p, p_targ in zip(self.online_critic.parameters(), self.target_critic.parameters(), strict=False):
+            for p, p_targ in zip(
+                self.online_critic.parameters(), self.target_critic.parameters(), strict=False,
+            ):
                 # NB: We use an in-place operations "mul_", "add_" to update target
                 # params, as opposed to "mul" and "add", which would make new tensors.
                 p_targ.data.mul_(polyak)

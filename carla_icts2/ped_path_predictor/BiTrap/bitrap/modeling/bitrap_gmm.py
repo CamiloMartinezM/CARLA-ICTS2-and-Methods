@@ -24,7 +24,8 @@ class BiTraPGMM(nn.Module):
         self.param_scheduler = None
         # encoder
         self.box_embed = nn.Sequential(
-            nn.Linear(self.cfg.GLOBAL_INPUT_DIM, self.cfg.INPUT_EMBED_SIZE), nn.ReLU(),
+            nn.Linear(self.cfg.GLOBAL_INPUT_DIM, self.cfg.INPUT_EMBED_SIZE),
+            nn.ReLU(),
         )
         self.box_encoder = nn.GRU(
             input_size=self.cfg.INPUT_EMBED_SIZE,
@@ -45,30 +46,39 @@ class BiTraPGMM(nn.Module):
         self.hidden_size = self.cfg.ENC_HIDDEN_SIZE
         self.GMM = GMM2D if self.cfg.DEC_OUTPUT_DIM == 2 else GMM4D
         self.p_z_x = CategoricalLatent(
-            self.cfg, input_size=self.hidden_size, dropout=self.cfg.PRIOR_DROPOUT,
+            self.cfg,
+            input_size=self.hidden_size,
+            dropout=self.cfg.PRIOR_DROPOUT,
         )
         self.q_z_xy = CategoricalLatent(
-            self.cfg, input_size=self.hidden_size + self.cfg.GOAL_HIDDEN_SIZE, dropout=0.0,
+            self.cfg,
+            input_size=self.hidden_size + self.cfg.GOAL_HIDDEN_SIZE,
+            dropout=0.0,
         )
 
         # goal predictor
         self.h_to_gmm_mu = nn.Linear(
-            self.hidden_size + self.cfg.LATENT_DIM, self.cfg.DEC_OUTPUT_DIM,
+            self.hidden_size + self.cfg.LATENT_DIM,
+            self.cfg.DEC_OUTPUT_DIM,
         )
         self.h_to_gmm_log_var = nn.Linear(
-            self.hidden_size + self.cfg.LATENT_DIM, self.cfg.DEC_OUTPUT_DIM,
+            self.hidden_size + self.cfg.LATENT_DIM,
+            self.cfg.DEC_OUTPUT_DIM,
         )
         self.h_to_gmm_corr = nn.Linear(
-            self.hidden_size + self.cfg.LATENT_DIM, int(self.cfg.DEC_OUTPUT_DIM / 2),
+            self.hidden_size + self.cfg.LATENT_DIM,
+            int(self.cfg.DEC_OUTPUT_DIM / 2),
         )
         # vel predictor
         self.h_to_gmm_log_pis_per_t = nn.Linear(self.cfg.DEC_HIDDEN_SIZE * 2, 1)
         self.h_to_gmm_mu_per_t = nn.Linear(self.cfg.DEC_HIDDEN_SIZE * 2, self.cfg.DEC_OUTPUT_DIM)
         self.h_to_gmm_log_var_per_t = nn.Linear(
-            self.cfg.DEC_HIDDEN_SIZE * 2, self.cfg.DEC_OUTPUT_DIM,
+            self.cfg.DEC_HIDDEN_SIZE * 2,
+            self.cfg.DEC_OUTPUT_DIM,
         )
         self.h_to_gmm_corr_per_t = nn.Linear(
-            self.cfg.DEC_HIDDEN_SIZE * 2, int(self.cfg.DEC_OUTPUT_DIM / 2),
+            self.cfg.DEC_HIDDEN_SIZE * 2,
+            int(self.cfg.DEC_OUTPUT_DIM / 2),
         )
         self.integrator = SingleIntegrator(dt=self.cfg.dt, device="cuda")
         self.integrator_reverse = SingleIntegrator(dt=self.cfg.dt, device="cuda")
@@ -87,7 +97,8 @@ class BiTraPGMM(nn.Module):
             nn.ReLU(),
         )
         self.traj_dec_forward = nn.GRUCell(
-            input_size=self.cfg.DEC_INPUT_SIZE, hidden_size=self.cfg.DEC_HIDDEN_SIZE,
+            input_size=self.cfg.DEC_INPUT_SIZE,
+            hidden_size=self.cfg.DEC_HIDDEN_SIZE,
         )
 
         self.enc_h_to_back_h = nn.Sequential(
@@ -120,7 +131,8 @@ class BiTraPGMM(nn.Module):
             # use GRU  and initialize encoder state
             initial_h = self.node_future_encoder_h(cur_state)
             initial_h = torch.stack(
-                [initial_h, torch.zeros_like(initial_h, device=initial_h.device)], dim=0,
+                [initial_h, torch.zeros_like(initial_h, device=initial_h.device)],
+                dim=0,
             )
             _, target_h = self.gt_goal_encoder(target, initial_h)
             target_h = target_h.permute(1, 0, 2)
@@ -132,7 +144,8 @@ class BiTraPGMM(nn.Module):
             if self.cfg.Z_CLIP:
                 self.p_z_x(enc_h, self.param_scheduler.z_logit_clip)
                 self.q_z_xy(
-                    torch.cat([enc_h, target_h], dim=-1), self.param_scheduler.z_logit_clip,
+                    torch.cat([enc_h, target_h], dim=-1),
+                    self.param_scheduler.z_logit_clip,
                 )
             else:
                 self.p_z_x(enc_h)
@@ -180,10 +193,13 @@ class BiTraPGMM(nn.Module):
         return log_pis, mus, log_var, corrs
 
     def encode_variable_length_seqs(
-        self, original_seqs, lower_indices=None, upper_indices=None, total_length=None,
+        self,
+        original_seqs,
+        lower_indices=None,
+        upper_indices=None,
+        total_length=None,
     ):
-        """Take the input_x, pack it to remove NaN, embed, and run GRU
-        """
+        """Take the input_x, pack it to remove NaN, embed, and run GRU"""
         bs, tf = original_seqs.shape[:2]
         if lower_indices is None:
             lower_indices = torch.zeros(bs, dtype=torch.int)
@@ -209,13 +225,14 @@ class BiTraPGMM(nn.Module):
         packed_output, h_x = self.box_encoder(packed_seqs)
         # pad zeros to the end so that the last non zero value
         output, _ = rnn.pad_packed_sequence(
-            packed_output, batch_first=True, total_length=total_length,
+            packed_output,
+            batch_first=True,
+            total_length=total_length,
         )
         return output, h_x
 
     def encoder(self, x, first_history_indices=None):
-        """x: encoder inputs
-        """
+        """x: encoder inputs"""
         outputs, _ = self.encode_variable_length_seqs(x, lower_indices=first_history_indices)
         outputs = F.dropout(outputs, p=self.cfg.DROPOUT, training=self.training)
         if first_history_indices is not None:
@@ -251,7 +268,10 @@ class BiTraPGMM(nn.Module):
         # 2-3. latent net and goal decoder
         z_mode = False
         Z, full_Z, KLD = self.categorical_latent_net(
-            h_x, input_x[:, -1, :], target_y, z_mode=False,
+            h_x,
+            input_x[:, -1, :],
+            target_y,
+            z_mode=False,
         )  # , z_mode=False)
         mutual_info_p = mutual_inf_mc(self.p_z_x.dist)
         mutual_info_q = mutual_inf_mc(self.q_z_xy.dist) if self.q_z_xy.dist else mutual_info_p
@@ -296,10 +316,13 @@ class BiTraPGMM(nn.Module):
         else:
             # test, also get the full_dist results.
             dec_h_full = torch.cat(
-                [h_x.unsqueeze(1).repeat(1, full_Z.shape[1], 1), full_Z], dim=-1,
+                [h_x.unsqueeze(1).repeat(1, full_Z.shape[1], 1), full_Z],
+                dim=-1,
             )
             pred_traj_full = self.pred_future_traj_GMM(
-                dec_h_full, loc_gmm_goal_full, K=loc_gmm_goal_full.mus.shape[2],
+                dec_h_full,
+                loc_gmm_goal_full,
+                K=loc_gmm_goal_full.mus.shape[2],
             )
             pred_traj, _, _ = self.get_eval_GMM(
                 pred_traj["mus"],
@@ -357,7 +380,8 @@ class BiTraPGMM(nn.Module):
             loc_gmm_reverse = self.integrator_reverse.integrate_distribution(loc_gmm_reverse)
             target_reverse = (
                 torch.cat(
-                    [self.integrator.initial_conditions["pos"][:, None, :], target[:, :-1]], dim=1,
+                    [self.integrator.initial_conditions["pos"][:, None, :], target[:, :-1]],
+                    dim=1,
                 )
                 .unsqueeze(1)
                 .flip(2)
@@ -519,7 +543,8 @@ class BiTraPGMM(nn.Module):
 
         # generate backward input
         backward_input = torch.cat(
-            [dec_h.view(-1, dec_h.shape[-1]), self.traj_dec_input_backward(inv_loc_mus)], dim=-1,
+            [dec_h.view(-1, dec_h.shape[-1]), self.traj_dec_input_backward(inv_loc_mus)],
+            dim=-1,
         )
 
         backward_outputs = defaultdict(list)
@@ -530,7 +555,11 @@ class BiTraPGMM(nn.Module):
                 torch.cat([backward_h, forward_outputs[:, t]], dim=-1),
             )
             backward_input = self.generate_backward_input(
-                dec_h, log_pis_t, mu_t, log_var_t, corrs_t,
+                dec_h,
+                log_pis_t,
+                mu_t,
+                log_var_t,
+                corrs_t,
             )
             backward_outputs["mus"].append(mu_t.view(-1, K, mu_t.shape[-1]))
             backward_outputs["log_vars"].append(log_var_t.view(-1, K, log_var_t.shape[-1]))
@@ -542,8 +571,7 @@ class BiTraPGMM(nn.Module):
         return backward_outputs
 
     def generate_backward_input(self, dec_h, log_pi_t, mu_t, log_var_t=None, corrs_t=None):
-        """Generate the backward RNN inputs
-        """
+        """Generate the backward RNN inputs"""
         if log_pi_t.shape[0] != corrs_t.shape[0]:
             log_pi_t = torch.ones_like(corrs_t[..., :1])
         gmm = self.GMM(log_pi_t, mu_t.unsqueeze(1), log_var_t.unsqueeze(1), corrs_t.unsqueeze(1))

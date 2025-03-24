@@ -56,8 +56,7 @@ class Resize:
         return (oh, ow)
 
     def __call__(self, images, target):
-        """images: a list of PIL Image object
-        """
+        """images: a list of PIL Image object"""
         if self.enforced_size is None:
             size = self.get_size(images.size)
             images = F.resize(images, size)
@@ -102,8 +101,7 @@ class ToTensor:
 
 
 class PointCrop:
-    """NOTE: crop the image centered at the defined pixel point
-    """
+    """NOTE: crop the image centered at the defined pixel point"""
 
     def __init__(self, crop_size):
         if isinstance(crop_size, (tuple, list)):

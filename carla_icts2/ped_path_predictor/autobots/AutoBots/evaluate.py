@@ -6,8 +6,6 @@ from datasets.argoverse.dataset import ArgoH5Dataset
 from datasets.interaction_dataset.dataset import InteractionDataset
 from datasets.nuscenes.dataset import NuscenesH5Dataset
 from datasets.trajnetpp.dataset import TrajNetPPDataset
-from process_args import get_eval_args
-
 from ped_path_predictor.autobots.AutoBots.models.autobot_ego import AutoBotEgo
 from ped_path_predictor.autobots.AutoBots.models.autobot_joint import AutoBotJoint
 from ped_path_predictor.autobots.AutoBots.utils import (
@@ -16,6 +14,7 @@ from ped_path_predictor.autobots.AutoBots.utils import (
     min_xde_K,
     yaw_from_predictions,
 )
+from process_args import get_eval_args
 
 
 class Evaluator:
@@ -170,7 +169,8 @@ class Evaluator:
 
     def _compute_marginal_errors(self, preds, ego_gt, agents_gt, agents_in):
         agent_masks = torch.cat(
-            (torch.ones((len(agents_in), 1)).to(self.device), agents_in[:, -1, :, -1]), dim=-1,
+            (torch.ones((len(agents_in), 1)).to(self.device), agents_in[:, -1, :, -1]),
+            dim=-1,
         ).view(1, 1, len(agents_in), -1)
         agent_masks[agent_masks == 0] = float("nan")
         agents_gt = (
@@ -193,7 +193,9 @@ class Evaluator:
             ade_error = (
                 (
                     torch.norm(
-                        preds[k, :, :, :, :2].transpose(0, 1) - agents_gt[:, :, :, :2], 2, dim=-1,
+                        preds[k, :, :, :, :2].transpose(0, 1) - agents_gt[:, :, :, :2],
+                        2,
+                        dim=-1,
                     )
                     * agents_masks
                 )
@@ -246,7 +248,10 @@ class Evaluator:
                     self._data_to_device(data)
                 )
                 pred_obs, mode_probs = self.autobot_model(
-                    ego_in, agents_in, context_img, agent_types,
+                    ego_in,
+                    agents_in,
+                    context_img,
+                    agent_types,
                 )
 
                 if self.interact_eval:
@@ -264,7 +269,10 @@ class Evaluator:
 
                 # Marginal metrics
                 ade_losses, fde_losses = self._compute_marginal_errors(
-                    pred_obs, ego_out, agents_out, agents_in,
+                    pred_obs,
+                    ego_out,
+                    agents_out,
+                    agents_in,
                 )
                 val_marg_ade_losses.append(ade_losses.reshape(-1, self.model_config.num_modes))
                 val_marg_fde_losses.append(fde_losses.reshape(-1, self.model_config.num_modes))
@@ -279,7 +287,9 @@ class Evaluator:
 
                 # Joint metrics
                 scene_ade_losses, scene_fde_losses = self._compute_joint_errors(
-                    pred_obs, ego_out, agents_out,
+                    pred_obs,
+                    ego_out,
+                    agents_out,
                 )
                 val_scene_ade_losses.append(scene_ade_losses)
                 val_scene_fde_losses.append(scene_fde_losses)
@@ -294,16 +304,24 @@ class Evaluator:
             val_mode_probs = np.concatenate(val_mode_probs)
 
             val_minade_c = min_xde_K(
-                val_marg_ade_losses, val_marg_mode_probs, K=self.model_config.num_modes,
+                val_marg_ade_losses,
+                val_marg_mode_probs,
+                K=self.model_config.num_modes,
             )
             val_minfde_c = min_xde_K(
-                val_marg_fde_losses, val_marg_mode_probs, K=self.model_config.num_modes,
+                val_marg_fde_losses,
+                val_marg_mode_probs,
+                K=self.model_config.num_modes,
             )
             val_sminade_c = min_xde_K(
-                val_scene_ade_losses, val_mode_probs, K=self.model_config.num_modes,
+                val_scene_ade_losses,
+                val_mode_probs,
+                K=self.model_config.num_modes,
             )
             val_sminfde_c = min_xde_K(
-                val_scene_fde_losses, val_mode_probs, K=self.model_config.num_modes,
+                val_scene_fde_losses,
+                val_mode_probs,
+                K=self.model_config.num_modes,
             )
 
             print("Marg. minADE c:", val_minade_c[0], "Marg. minFDE c:", val_minfde_c[0])
@@ -336,7 +354,9 @@ class Evaluator:
             val_mode_probs = np.concatenate(val_mode_probs)
             val_minade_c = min_xde_K(val_ade_losses, val_mode_probs, K=self.model_config.num_modes)
             val_minade_10 = min_xde_K(
-                val_ade_losses, val_mode_probs, K=min(self.model_config.num_modes, 10),
+                val_ade_losses,
+                val_mode_probs,
+                K=min(self.model_config.num_modes, 10),
             )
             val_minade_5 = min_xde_K(val_ade_losses, val_mode_probs, K=5)
             val_minfde_c = min_xde_K(val_fde_losses, val_mode_probs, K=self.model_config.num_modes)

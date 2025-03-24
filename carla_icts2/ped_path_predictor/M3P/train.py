@@ -9,11 +9,10 @@ from datetime import datetime as dt
 
 import numpy as np
 import torch
-from torch import nn, optim
-from torch.optim.lr_scheduler import MultiStepLR
-
 from ped_path_predictor.M3P.model import M2P3
 from ped_path_predictor.new_util import getDataloaders, singleDatasets
+from torch import nn, optim
+from torch.optim.lr_scheduler import MultiStepLR
 
 path_int = "./ped_path_predictor/data/new_car/all_int.npy"
 path_non_int = "./ped_path_predictor/data/new_car/all_non_int.npy"
@@ -56,7 +55,10 @@ class M2P3Wrapper:
 
         self.optimiser = optim.Adam(self.model.parameters(), lr=lr, eps=1e-4)
         self.optimiser_scheduler = MultiStepLR(
-            self.optimiser, milestones=[5, 10, 15, 20], gamma=0.5, verbose=True,
+            self.optimiser,
+            milestones=[5, 10, 15, 20],
+            gamma=0.5,
+            verbose=True,
         )
 
         if path is not None:
@@ -92,11 +94,15 @@ class M2P3Wrapper:
 
     def l2_loss_fde(self, pred, data):
         fde_loss = torch.norm(
-            (pred[:, :, -1, :2].transpose(0, 1) - data[-1, :, :2].unsqueeze(1)), 2, dim=-1,
+            (pred[:, :, -1, :2].transpose(0, 1) - data[-1, :, :2].unsqueeze(1)),
+            2,
+            dim=-1,
         )
         ade_loss = (
             torch.norm(
-                (pred[:, :, :, :2].transpose(1, 2) - data[:, :, :2].unsqueeze(0)), 2, dim=-1,
+                (pred[:, :, :, :2].transpose(1, 2) - data[:, :, :2].unsqueeze(0)),
+                2,
+                dim=-1,
             )
             .mean(dim=1)
             .transpose(0, 1)
@@ -117,11 +123,7 @@ class M2P3Wrapper:
 
             a, f = (
                 torch.square(ego_preds[:, :, :2] - ego_gt[:, :, :2]).sum(-1).sqrt().sum().item(),
-                torch.square(ego_preds[-1, :, :2] - ego_gt[-1, :, :2])
-                .sum(-1)
-                .sqrt()
-                .sum()
-                .item(),
+                torch.square(ego_preds[-1, :, :2] - ego_gt[-1, :, :2]).sum(-1).sqrt().sum().item(),
             )
 
             # # make output relative to the last observed frame
@@ -166,7 +168,8 @@ class M2P3Wrapper:
                 loss = self.l2_loss_fde(output.unsqueeze(0).transpose(1, 2), ped_out)
 
                 kld_loss = torch.mean(
-                    -0.5 * torch.sum(1 + log_var - mean**2 - log_var.exp(), dim=2), dim=1,
+                    -0.5 * torch.sum(1 + log_var - mean**2 - log_var.exp(), dim=2),
+                    dim=1,
                 )
 
                 loss = loss + kld_loss
@@ -218,7 +221,9 @@ class M2P3Wrapper:
                 pred_obs = self.model.inference(ped_in)
 
                 ade_losses, fde_losses, a, f = self._compute_ego_errors(
-                    pred_obs, ped_out, ego_in=ped_in,
+                    pred_obs,
+                    ped_out,
+                    ego_in=ped_in,
                 )
 
                 eval_loss += a / n_pred

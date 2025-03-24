@@ -63,7 +63,8 @@ class BoxList:
         elif mode == "xywh":
             TO_REMOVE = 1
             bbox = torch.cat(
-                (xmin, ymin, xmax - xmin + TO_REMOVE, ymax - ymin + TO_REMOVE), dim=-1,
+                (xmin, ymin, xmax - xmin + TO_REMOVE, ymax - ymin + TO_REMOVE),
+                dim=-1,
             )
             bbox = BoxList(bbox, self.size, mode=mode)
         elif mode == "cxcywh":
@@ -109,7 +110,9 @@ class BoxList:
         :param size: The requested size in pixels, as a 2-tuple:
             (width, height).
         """
-        ratios = tuple(float(s) / float(s_orig) for s, s_orig in zip(size, self.size, strict=False))
+        ratios = tuple(
+            float(s) / float(s_orig) for s, s_orig in zip(size, self.size, strict=False)
+        )
         if ratios[0] == ratios[1]:
             ratio = ratios[0]
             scaled_box = self.bbox * ratio
@@ -162,7 +165,8 @@ class BoxList:
             transposed_ymax = image_height - ymin
 
         transposed_boxes = torch.cat(
-            (transposed_xmin, transposed_ymin, transposed_xmax, transposed_ymax), dim=-1,
+            (transposed_xmin, transposed_ymin, transposed_xmax, transposed_ymax),
+            dim=-1,
         )
         bbox = BoxList(transposed_boxes, self.size, mode="xyxy")
         # bbox._copy_extra_fields(self)

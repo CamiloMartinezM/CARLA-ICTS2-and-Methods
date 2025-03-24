@@ -16,8 +16,7 @@ def preprocess(path):
 
 
 def get_obs_pred_like(data, observed_frame_num, predicting_frame_num):
-    """Get input observed data and output predicted data
-    """
+    """Get input observed data and output predicted data"""
     obs = []
     pred = []
     count = 0

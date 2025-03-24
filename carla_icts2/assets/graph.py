@@ -28,8 +28,7 @@ def sldist3(c1, c2):
 
 
 class Graph:
-    """A simple directed, weighted graph
-    """
+    """A simple directed, weighted graph"""
 
     def __init__(self, graph_file=None, node_density=50):
         self._nodes = set()

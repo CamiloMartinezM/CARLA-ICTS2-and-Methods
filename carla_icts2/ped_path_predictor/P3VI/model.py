@@ -42,10 +42,12 @@ class P3VI(nn.Module):
         self.n_predict_frames = n_predict_frames
 
         self.attention_cf = TimeDistributed(
-            LinearReLu(2, 50), batch_first=False,
+            LinearReLu(2, 50),
+            batch_first=False,
         )  # input batch x timesteps x 2
         self.attention_traj = TimeDistributed(
-            LinearReLu(2, 50), batch_first=False,
+            LinearReLu(2, 50),
+            batch_first=False,
         )  # input batch x timesteps x 2
 
         self.encoder_cf = nn.GRU(input_size=50, hidden_size=128)

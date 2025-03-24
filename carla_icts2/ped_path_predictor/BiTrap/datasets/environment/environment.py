@@ -8,7 +8,12 @@ from .node_type import NodeTypeEnum
 
 class Environment:
     def __init__(
-        self, node_type_list, standardization, scenes=None, attention_radius=None, robot_type=None,
+        self,
+        node_type_list,
+        standardization,
+        scenes=None,
+        attention_radius=None,
+        robot_type=None,
     ):
         self.scenes = scenes
         self.node_type_list = node_type_list
