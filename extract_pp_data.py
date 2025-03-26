@@ -4,18 +4,23 @@ import subprocess
 import time
 import time as t
 from multiprocessing import Process
+from tracemalloc import start
 
 import numpy as np
 
 from carla_icts2.benchmark.environment import GIDASBenchmark
-from carla_icts2.config import logger
+from carla_icts2.config import VIDEOS_DIR, logger
 from carla_icts2.scenarios_config import Config
 from carla_icts2.utils.loading import load_yaml
-from carla_icts2.utils.recording import SpectatorRecorder
+from carla_icts2.utils.recording import (
+    SpectatorRecorder,
+    stitch_videos_side_by_side,
+    videos_in_folder,
+)
 from carla_icts2.utils.run import run_server_command
 
 
-def run_during(config: dict) -> None:
+def run(config: dict) -> None:
     """Run during the simulation (execution of CARLA)."""
     for scenario in config["scenarios"]:
         Config.scenarios = [scenario]
@@ -44,7 +49,14 @@ def run_during(config: dict) -> None:
         # Initialize the spectator recorder if enabled
         spectator_recorder = None
         if config["video"]["save"]:
-            spectator_recorder = SpectatorRecorder(carla_world, config["video"])
+            spectator_recorder = SpectatorRecorder(
+                carla_world,
+                config["video"],
+                width=Config.width,
+                height=Config.height,
+                scenario=scenario,
+                camera_type=Config.camera,
+            )
 
         data = []
         data_car = []
@@ -84,6 +96,7 @@ def run_during(config: dict) -> None:
             try:
                 while episode_length < Config.max_episode_length:
                     world_frame = carla_world.get_snapshot().frame  # Get current simulation frame
+
                     # x, y, icr, son = env.extract_step()
                     # ep_data.append((x, y, icr, son))
                     # print(episode_length, f"x = {x}, y = {y}, icr = {icr}, son = {son}")
@@ -156,6 +169,9 @@ def run_during(config: dict) -> None:
 
         env.close()
 
+        # Run after the simulation ends
+        run_afterwards()
+
 
 def run_server(config: dict) -> subprocess.CompletedProcess:
     """Run the Carla server with the given `config`."""
@@ -171,6 +187,24 @@ def run_before() -> None:
 def run_afterwards() -> None:
     """Run after the main function even if there is a `KeyboardInterrupt`."""
     kill_carla_server()
+
+    # Loop through the recorded videos and stitch them together
+    for scenario_folder in VIDEOS_DIR.iterdir():
+        if scenario_folder.is_dir():
+            # Get the list of videos in the folder, but only the views that we're interested in
+            videos = videos_in_folder(
+                scenario_folder,
+                startswith=("bev_follow_vehicle", "pedestrian_pov_view", "vehicle_pov_view"),
+            )
+            if len(videos) > 1:
+                if len(videos) != 3:
+                    logger.warning(
+                        f"Expected 3 videos in {scenario_folder}, found {len(videos)}.",
+                    )
+
+                logger.info(f"Stitching {len(videos)} videos: {videos} in {scenario_folder}")
+                stitch_videos_side_by_side(videos, output_path=scenario_folder / "all_views.mp4")
+                logger.success(f"Stitched video saved to {scenario_folder / 'all_views.mp4'}")
 
 
 def kill_carla_server() -> None:
@@ -189,7 +223,7 @@ if __name__ == "__main__":
     # Add necessary run config parameters to the Config class
     Config.port = run_config["carla"]["port"]
     Config.scenarios = run_config["scenarios"]
-    Config.camera = run_config["camera"]
+    Config.camera = run_config["camera"][0]
     Config.max_episode_length = run_config["carla"]["max_episode_length"]
 
     logger.info(f"Env. port: {Config.port}")
@@ -202,8 +236,6 @@ if __name__ == "__main__":
     p.start()
     t.sleep(10)
 
-    try:
-        run_during(run_config)
-    except KeyboardInterrupt:
-        # Run commands after the execution of CARLA
-        run_afterwards()
+    run(run_config)
+
+    # run_afterwards()

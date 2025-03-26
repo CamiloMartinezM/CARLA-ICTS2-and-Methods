@@ -735,8 +735,8 @@ class Config:
     # Simulator Parameters
     host = "127.0.0.1"
     port = 2000
-    width = 1920
-    height = 1080
+    width = 2560 # 1920
+    height = 1440 # 1080
     display = True
     filter = "vehicle.audi.tt"
     rolename = "hero"
@@ -772,3 +772,7 @@ class Config:
 
     # hyleap
     hyleap_training_epidsodes = 5000
+
+    # Camera: ["pedestrian_pov", "vehicle_pov", "bev_static", "bev_follow_vehicle", "default"]
+    # This is set via the config.yaml
+    camera: str | None = None

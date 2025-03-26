@@ -106,43 +106,63 @@ class World:
         # Define the functions to update the camera based on the provided specifications
         self.define_camera_based_on_specs(camera_specs=args.camera)
 
-    def define_camera_based_on_specs(self, camera_specs: list[str]) -> None:
+    def define_camera_based_on_specs(self, camera_specs: str) -> None:
         """Define the function to update the camera based on the provided specifications.
 
         Specifically, it defines the `self.update_camera_func` and `self.update_camera_args` attrs
         which will be called in the `tick` method.
 
         Args:
-            camera_specs (list[str]): A list of camera specifications. Could be:
+            camera_specs (str): A camera specification. Could be:
                 - "pedestrian_pov"
                 - "vehicle_pov"
                 - "bev_static"
                 - "bev_follow_vehicle"
+                - "bev_follow_pedestrian"
         """
-        if camera_specs == ["pedestrian_pov"]:
+        if camera_specs == "pedestrian_pov":
             self.update_camera_func = self.update_walker_pov_camera
-        elif camera_specs == ["vehicle_pov"]:
+        elif camera_specs == "vehicle_pov":
             self.update_camera_func = self.update_player_pov_camera
-        elif camera_specs == ["bev_static"]:
+        elif camera_specs == "bev_static":
             self.update_camera_func = self.update_bev_camera
-            self.update_camera_args = {"follow_player": False}
-        elif camera_specs == ["bev_follow_vehicle"]:
+            self.update_camera_args = {"follow_player": False, "follow_walker": False}
+        elif camera_specs == "bev_follow_vehicle":
             self.update_camera_func = self.update_bev_camera
-            self.update_camera_args = {"follow_player": True}
+            self.update_camera_args = {"follow_player": True, "follow_walker": False}
+        elif camera_specs == "bev_follow_pedestrian":
+            self.update_camera_func = self.update_bev_camera
+            self.update_camera_args = {"follow_player": False, "follow_walker": True}
+        else:
+            logger.warning(f"Unrecognized camera specification: {camera_specs}. Using default.")
 
-    def update_bev_camera(self, *, follow_player: bool = False) -> None:
+    def update_bev_camera(
+        self, *, follow_player: bool = False, follow_walker: bool = False
+    ) -> None:
         """Create and attach a Bird's Eye View (BEV) camera.
 
         Args:
             follow_player (bool): If True, the camera will follow the vehicle. Default is False.
+            follow_walker (bool): If True, the camera will follow the walker. Default is False.
         """
+        if follow_player and follow_walker:
+            logger.error(
+                "Cannot follow both player and walker at the same time. "
+                "Setting to follow vehicle only.",
+            )
+            follow_player = True
+
+        if follow_walker or not self.already_spawned_bev_camera:
+            transform = self.walker.get_transform()
+
         if follow_player or not self.already_spawned_bev_camera:
             transform = self.player.get_transform()
-            location = carla.Location(x=transform.location.x, y=transform.location.y, z=70)
-            self.world.get_spectator().set_transform(
-                carla.Transform(location, carla.Rotation(yaw=180.0, pitch=-90.0)),
-            )
-            self.already_spawned_bev_camera = True
+
+        location = carla.Location(x=transform.location.x, y=transform.location.y, z=20)
+        self.already_spawned_bev_camera = True
+        self.world.get_spectator().set_transform(
+            carla.Transform(location, carla.Rotation(yaw=180.0, pitch=-90.0)),
+        )
 
     def update_player_pov_camera(self) -> None:
         """Create and attach a POV camera inside the car."""
@@ -589,6 +609,7 @@ class World:
         # Run the camera update function if it is defined. If it's not defined, then the default
         # camera will be used
         if self.update_camera_func is not None:
+            logger.debug(f"Running {self.update_camera_func.__name__}()")
             if self.update_camera_args is not None:
                 self.update_camera_func(**self.update_camera_args)
             else:
@@ -1121,15 +1142,21 @@ class World:
         # Precise head orientation based on active controllers
         ho_ped = "Ignoring"  # Default
         if (
-            hasattr(self, "look_behind_right")
-            and hasattr(self.look_behind_right, "done")
-            and self.look_behind_right.done
-        ) or (
-            hasattr(self, "look_behind_left")
-            and hasattr(self.look_behind_left, "done")
-            and self.look_behind_left.done
-        ) or (
-            hasattr(self, "turn_head") and hasattr(self.turn_head, "done") and self.turn_head.done
+            (
+                hasattr(self, "look_behind_right")
+                and hasattr(self.look_behind_right, "done")
+                and self.look_behind_right.done
+            )
+            or (
+                hasattr(self, "look_behind_left")
+                and hasattr(self.look_behind_left, "done")
+                and self.look_behind_left.done
+            )
+            or (
+                hasattr(self, "turn_head")
+                and hasattr(self.turn_head, "done")
+                and self.turn_head.done
+            )
         ):
             ho_ped = "Facing"
 

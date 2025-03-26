@@ -14,6 +14,8 @@ PROJ_ROOT = Path(__file__).resolve().parents[1]
 logger.info(f"PROJ_ROOT path is: {PROJ_ROOT}")
 
 ASSETS_DIR = PROJ_ROOT / "carla_icts2" / "assets"
+OUTPUT_DIR = PROJ_ROOT / "output"
+VIDEOS_DIR = OUTPUT_DIR / "videos"
 
 # Make sure the paths exist
 for path in [ASSETS_DIR]:

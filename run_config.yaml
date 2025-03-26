@@ -9,7 +9,7 @@ carla:
   benchmark: true
   carla_server: true
   set_variables: ["DRI_PRIME=1"]
-  max_episode_length: 100 # Maximum number of frames in an episode, 500
+  max_episode_length: 300 # Maximum number of frames in an episode, 500
   iterations: 1 # Force the number of iterations to this value, set to 1 for testing
 
 # Logic Configuration
@@ -29,11 +29,21 @@ scenarios: [
   ]
 
 # Camera Configuration
-camera: ["bev_follow_vehicle"] # Possible are: ["pedestrian_pov", "vehicle_pov", "bev_static", "bev_follow_vehicle", "default"]
+camera: ["bev_follow_pedestrian"] # Possible are: ["pedestrian_pov", "vehicle_pov", "bev_static", "bev_follow_vehicle", "bev_follow_pedestrian", "default"]
 
 # Video Configuration
 video:
   save: true # Whether to save the video
   save_frames: true # Whether to save the frames in output/videos/frames folder
   fps: 25 # Frames per second for the output video
-  output_path: "output/videos/spectator_view.mp4" # Path for the saved video
+
+  # Whether to use ffmpeg for video encoding
+  # Otherwise, it will use cv2.VideoWriter by default
+  use_ffmpeg: true
+
+  output_path: "output/videos" # Path to save the video
+  scenario_as_folder: true # Whether to use the scenario name as a folder inside the output path
+  camera_in_filename: true # Whether to use the camera name in the filename
+  filename: "view" # Filename of the video
+  format: "avi" # Format of the video, options: "avi", "mp4", "mkv"
+
