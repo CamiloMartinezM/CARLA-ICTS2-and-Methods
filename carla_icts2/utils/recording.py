@@ -1,9 +1,10 @@
 """Recording module for CARLA simulator to capture the spectator's view."""
 
+import json
 import platform
+import subprocess
 from pathlib import Path
 from queue import Empty, Queue
-import subprocess
 
 import carla
 import cv2
@@ -19,13 +20,13 @@ from carla_icts2.config import logger
 # https://discussion.fedoraproject.org/t/cleanest-way-to-install-all-video-codecs-on-fedora-kde-40/134005
 # https://docs.opencv.org/4.x/dd/d43/tutorial_py_video_display.html
 CODEC_PREFERENCES = {
-    "Linux": ["MJPG", "H264", "AVC1", "XVID", "X264", "DIVX", "WMV1", "WMV2"],
+    "Linux": ["H264", "MJPG", "AVC1", "XVID", "X264", "DIVX", "WMV1", "WMV2"],
     "Windows": ["DIVX", "XVID"],  # More to be tested
     "Darwin": ["X264", "MJPG", "DIVX"],  # macOS
 }
 
 
-def get_best_codec() -> str | None:
+def get_best_codec(video_format: str = "mp4") -> str | None:
     """Return the best available video codec based on the current platform."""
     system = platform.system()
     codecs_to_test = CODEC_PREFERENCES.get(system, [])
@@ -39,7 +40,7 @@ def get_best_codec() -> str | None:
         fourcc = cv2.VideoWriter_fourcc(*codec)
         try:
             # Try to create a dummy VideoWriter to test the codec
-            test_writer = cv2.VideoWriter("test.avi", fourcc, 1, (100, 100))
+            test_writer = cv2.VideoWriter(f"test.{video_format}", fourcc, 1, (100, 100))
             if test_writer.isOpened():
                 test_writer.release()
                 logger.info(f"Working video codec: {codec}")
@@ -48,8 +49,8 @@ def get_best_codec() -> str | None:
             logger.warning(f"Failed to initialize codec {codec}: {e}")
 
     # Remove the test file if it was created
-    if Path("test.avi").exists():
-        Path("test.avi").unlink()
+    if Path(f"test.{video_format}").exists():
+        Path(f"test.{video_format}").unlink()
 
     # If no codec is found, log an error
     logger.error(
@@ -183,6 +184,8 @@ def stitch_videos_side_by_side(
     fps: int = 25,
     width: int = 1920,
     height: int = 1080,
+    *,
+    use_ffmpeg: bool = False,
 ) -> None:
     """Stitch multiple videos side by side into one video.
 
@@ -192,6 +195,7 @@ def stitch_videos_side_by_side(
         fps (int): Frames per second for the final video.
         width (int): Width that each video has to be resized to, before stitching.
         height (int): Height that each video has to be resized to, before stitching.
+        use_ffmpeg (bool): Whether to use ffmpeg for stitching instead of OpenCV.
     """
     # Standard dimensions - use the width and height from the EEG videos
     standard_width = width
@@ -200,10 +204,31 @@ def stitch_videos_side_by_side(
     # Process the videos to ensure they all have the same dimensions
     processed_videos = []
     for i, video_path in enumerate(video_paths):
-        cap = cv2.VideoCapture(str(video_path))
-        v_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        v_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        cap.release()
+        # Get video dimensions
+        if use_ffmpeg:
+            # Get dimensions using ffprobe
+            cmd = [
+                "ffprobe",
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=width,height",
+                "-of",
+                "json",
+                str(video_path),
+            ]
+
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            data = json.loads(result.stdout)
+            v_width = int(data["streams"][0]["width"])
+            v_height = int(data["streams"][0]["height"])
+        else:
+            cap = cv2.VideoCapture(str(video_path))
+            v_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            v_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            cap.release()
 
         # If dimensions don't match, resize the video
         if v_width != standard_width or v_height != standard_height:
@@ -214,49 +239,96 @@ def stitch_videos_side_by_side(
         else:
             processed_videos.append(video_path)
 
-    # Open all processed videos
-    videos = [cv2.VideoCapture(video) for video in processed_videos]
-
-    # Use the shortest video length
-    frame_counts = [int(video.get(cv2.CAP_PROP_FRAME_COUNT)) for video in videos]
-    shortest_video_frames = min(frame_counts)
-
-    logger.info(f"Using {shortest_video_frames} frames for the stitched video")
-
     # Calculate total width and use standard height
-    total_width = standard_width * len(videos)
+    total_width = standard_width * len(processed_videos)
 
-    # Create output video
-    logger.info(f"Creating output video with dimensions: {total_width}x{standard_height}")
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    video_out = cv2.VideoWriter(output_path, fourcc, fps, (total_width, standard_height))
+    if use_ffmpeg:
+        # Create a filter complex string to stitch videos side by side
+        inputs = []
+        filter_parts = []
 
-    # Read and stitch frames
-    for frame_idx in range(shortest_video_frames):
-        frames = []
+        # Create input arguments for each video
+        for i, video in enumerate(processed_videos):
+            inputs.extend(["-i", str(video)])
+            filter_parts.append(f"[{i}:v]")
+
+        # Add the hstack filter
+        filter_complex = f"{' '.join(filter_parts)}hstack=inputs={len(processed_videos)}[outv]"
+
+        # Create the ffmpeg command
+        cmd = [
+            "ffmpeg",
+            "-y",  # Overwrite output files without asking
+            "-loglevel",
+            "error",  # Minimize verbosity (or use "quiet" for complete silence)
+        ]
+        cmd.extend(inputs)
+        cmd.extend(
+            [
+                "-filter_complex",
+                filter_complex,
+                "-map",
+                "[outv]",
+                "-r",
+                str(fps),
+                "-c:v",
+                "libx264",  # Use H.264 codec
+                "-preset",
+                "medium",  # Medium quality/speed tradeoff
+                "-crf",
+                "23",  # Constant Rate Factor (quality)
+                str(output_path),
+            ]
+        )
+
+        # Execute the command
+        logger.info("Running FFmpeg command to stitch videos")
+        subprocess.run(cmd, check=True)  # noqa: S603
+
+    else:
+        # Use OpenCV method (original implementation)
+        # Open all processed videos
+        videos = [cv2.VideoCapture(str(video)) for video in processed_videos]
+
+        # Use the shortest video length
+        frame_counts = [int(video.get(cv2.CAP_PROP_FRAME_COUNT)) for video in videos]
+        shortest_video_frames = min(frame_counts)
+
+        logger.info(f"Using {shortest_video_frames} frames for the stitched video")
+
+        # Create output video
+        logger.info(f"Creating output video with dimensions: {total_width}x{standard_height}")
+        fourcc = cv2.VideoWriter_fourcc(
+            *get_best_codec(video_format="mp4")
+        )  # TODO: Do not hardcode mp4
+        video_out = cv2.VideoWriter(str(output_path), fourcc, fps, (total_width, standard_height))
+
+        # Read and stitch frames
+        for frame_idx in range(shortest_video_frames):
+            frames = []
+            for video in videos:
+                ret, frame = video.read()
+                if not ret:
+                    logger.error(f"Error reading frame {frame_idx} from a video")
+                    break
+                frames.append(frame)
+
+            if len(frames) == len(videos):
+                # Concatenate frames horizontally
+                stitched_frame = np.hstack(frames)
+
+                # Write the stitched frame
+                video_out.write(stitched_frame)
+
+        video_out.release()
+
+        # Release the video captures
         for video in videos:
-            ret, frame = video.read()
-            if not ret:
-                logger.error(f"Error reading frame {frame_idx} from a video")
-                break
-            frames.append(frame)
-
-        if len(frames) == len(videos):
-            # Concatenate frames horizontally
-            stitched_frame = np.hstack(frames)
-
-            # Write the stitched frame
-            video_out.write(stitched_frame)
-
-    video_out.release()
-
-    # Release the video captures
-    for video in videos:
-        video.release()
+            video.release()
 
     # Clean up temporary resized videos
     for path in processed_videos:
-        if Path(path).stem.startswith("temp_resized_"):
+        if isinstance(path, (str, Path)) and Path(path).stem.startswith("temp_resized_"):
             Path(path).unlink()
             logger.info(f"Removed temporary file: {path}")
 

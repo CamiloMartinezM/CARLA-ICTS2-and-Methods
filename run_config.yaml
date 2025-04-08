@@ -1,7 +1,7 @@
 # Runtime Configuration
 carla:
   path: "/home/camilo/Applications/carla-0-9-15-linux"
-  quality: "Epic" # Options: "Low"
+  quality: "Low" # Options: "Low"
   port: 2000
   server_mode: true # Whether to launch CARLA in server mode
   fps: 25
@@ -11,6 +11,9 @@ carla:
   set_variables: ["DRI_PRIME=1"]
   max_episode_length: 300 # Maximum number of frames in an episode, 500
   iterations: 1 # Force the number of iterations to this value, set to 1 for testing
+  width: 800 # Width of the camera
+  height: 600 # Height of the camera
+  load_complete_map: true # Whether to load the complete map, False will load a simplistic map
 
 # Logic Configuration
 scenarios: [
@@ -29,7 +32,7 @@ scenarios: [
   ]
 
 # Camera Configuration
-camera: ["bev_follow_pedestrian"] # Possible are: ["pedestrian_pov", "vehicle_pov", "bev_static", "bev_follow_vehicle", "bev_follow_pedestrian", "default"]
+camera: ["vehicle_pov"] # Possible are: ["pedestrian_pov", "vehicle_pov", "bev_static", "bev_follow_vehicle", "bev_follow_pedestrian", "default"]
 
 # Video Configuration
 video:
@@ -45,5 +48,5 @@ video:
   scenario_as_folder: true # Whether to use the scenario name as a folder inside the output path
   camera_in_filename: true # Whether to use the camera name in the filename
   filename: "view" # Filename of the video
-  format: "avi" # Format of the video, options: "avi", "mp4", "mkv"
+  format: "mp4" # Format of the video, options: "avi", "mp4", "mkv"
 

@@ -34,7 +34,17 @@ ignore = [
     "BLE001",  # Do not catch blind exception: `Exception`
     "C901",    # `add_sequential_seconds` is too complex (13 > 10)
     "PLR0912", # Too many branches (13 > 12)
-    "PLR0915", # Too many statements (51 > 50)
+    "UP031",   # Use format specifiers instead of percent format
+    "S101",    # Use of `assert` detected
+    "EM101",   # Exception must not use a string literal, assign to variable first
+    "PLR0913", # Too many arguments in function definition (6 > 5)
+    "PLR0915", # Too many statements (65 > 50)
+    "TRY301",  # Abstract `raise` to an inner function
+    "PTH207",  # Replace `glob` with `Path.glob` or `Path.rglob`
+    "PTH103",  # `os.makedirs()` should be replaced by `Path.mkdir(parents=True)`
+
+    # Actually, just ignore all PTH rules
+    "PTH",
 ]
 
 [tool.ruff.format]

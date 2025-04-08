@@ -7,6 +7,7 @@ from multiprocessing import Process
 from tracemalloc import start
 
 import numpy as np
+from cyclopts import App
 
 from carla_icts2.benchmark.environment import GIDASBenchmark
 from carla_icts2.config import VIDEOS_DIR, logger
@@ -18,6 +19,8 @@ from carla_icts2.utils.recording import (
     videos_in_folder,
 )
 from carla_icts2.utils.run import run_server_command
+
+app = App()
 
 
 def run(config: dict) -> None:
@@ -170,7 +173,7 @@ def run(config: dict) -> None:
         env.close()
 
         # Run after the simulation ends
-        run_afterwards()
+        postprocessing()
 
 
 def run_server(config: dict) -> subprocess.CompletedProcess:
@@ -184,8 +187,18 @@ def run_before() -> None:
     kill_carla_server()
 
 
-def run_afterwards() -> None:
-    """Run after the main function even if there is a `KeyboardInterrupt`."""
+@app.command(name="postprocess")
+def postprocessing(*, use_ffmpeg: bool = True) -> None:
+    """Run after the main function and stitches the videos together.
+
+    Executes:
+    1. Kill the Carla server
+    2. Stitch the recorded videos together inside the scenario folders
+    3. Save the stitched video as `all_views.mp4` in the same folder
+
+    Args:
+        use_ffmpeg (bool): Whether to use ffmpeg for stitching videos. Defaults to True.
+    """
     kill_carla_server()
 
     # Loop through the recorded videos and stitch them together
@@ -202,11 +215,21 @@ def run_afterwards() -> None:
                         f"Expected 3 videos in {scenario_folder}, found {len(videos)}.",
                     )
 
-                logger.info(f"Stitching {len(videos)} videos: {videos} in {scenario_folder}")
-                stitch_videos_side_by_side(videos, output_path=scenario_folder / "all_views.mp4")
+                logger.info(
+                    f"Stitching {len(videos)} videos: {[str(v) for v in videos]} "
+                    f"in {scenario_folder}"
+                )
+                stitch_videos_side_by_side(
+                    videos,
+                    output_path=scenario_folder / "all_views.mp4",
+                    width=Config.width,
+                    height=Config.height,
+                    use_ffmpeg=use_ffmpeg,
+                )
                 logger.success(f"Stitched video saved to {scenario_folder / 'all_views.mp4'}")
 
 
+@app.command(name="kill")
 def kill_carla_server() -> None:
     """Kill the Carla server process."""
     logger.info("Killing previous CarlaUE4-Linux-Shipping process")
@@ -217,7 +240,9 @@ def kill_carla_server() -> None:
     )
 
 
-if __name__ == "__main__":
+@app.default()
+def main() -> None:
+    """Run the complete script."""
     run_config = load_yaml("run_config.yaml")
 
     # Add necessary run config parameters to the Config class
@@ -225,8 +250,13 @@ if __name__ == "__main__":
     Config.scenarios = run_config["scenarios"]
     Config.camera = run_config["camera"][0]
     Config.max_episode_length = run_config["carla"]["max_episode_length"]
+    Config.width = run_config["carla"]["width"]
+    Config.height = run_config["carla"]["height"]
+    Config.load_complete_map = run_config["carla"]["load_complete_map"]
 
+    # Print the configuration
     logger.info(f"Env. port: {Config.port}")
+    logger.info(f"Camera: {Config.width}x{Config.height}")
     logger.info(f"Scenarios: {Config.scenarios}")
 
     # Run commands before the execution of CARLA
@@ -237,5 +267,8 @@ if __name__ == "__main__":
     t.sleep(10)
 
     run(run_config)
+    postprocessing()
 
-    # run_afterwards()
+
+if __name__ == "__main__":
+    app()
