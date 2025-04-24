@@ -138,7 +138,10 @@ class World:
             logger.warning(f"Unrecognized camera specification: {camera_specs}. Using default.")
 
     def update_bev_camera(
-        self, *, follow_player: bool = False, follow_walker: bool = False
+        self,
+        *,
+        follow_player: bool = False,
+        follow_walker: bool = False,
     ) -> None:
         """Create and attach a Bird's Eye View (BEV) camera.
 
@@ -167,7 +170,8 @@ class World:
 
     def update_player_pov_camera(self) -> None:
         """Create and attach a POV camera inside the car."""
-        offset = carla.Location(x=0.3, y=0.0, z=1.5)
+        # offset = carla.Location(x=0.3, y=0.0, z=1.5)
+        offset = carla.Location(x=0.6, y=-0.4, z=1.2)
 
         # Compute the offset in the vehicle's local frame.
         # Here we rotate the offset vector by the vehicle's yaw.
@@ -277,7 +281,7 @@ class World:
 
             # Clamp asin argument for safety
             asin_arg = max(-1.0, min(1.0, head_forward_vector.z))
-            pitch = math.degrees(math.asin(asin_arg)) - 5  # Make it look slightly down
+            pitch = math.degrees(math.asin(asin_arg)) - 10  # Make it look slightly down
 
             # Ensure camera is upright relative to the world
             final_rotation = carla.Rotation(pitch=pitch, yaw=yaw, roll=0.0)
@@ -303,14 +307,7 @@ class World:
 
             final_transform = carla.Transform(final_location, final_rotation)
 
-        # # Adjust the camera position to be at the pedestrian’s eye level
-        # new_location = self.walker.get_transform().location + offset
-
-        # # Keep the rotation aligned with the pedestrian's rotation
-        # new_rotation = self.walker.get_transform().rotation
-
-        # # Update the spectator view
-        # new_transform = carla.Transform(new_location, new_rotation)
+        # Update the spectator view
         self.world.get_spectator().set_transform(final_transform)
 
     def get_car_blueprint(self):
@@ -722,7 +719,6 @@ class World:
         # Run the camera update function if it is defined. If it's not defined, then the default
         # camera will be used
         if self.update_camera_func is not None:
-            logger.debug(f"Running {self.update_camera_func.__name__}()")
             if self.update_camera_args is not None:
                 self.update_camera_func(**self.update_camera_args)
             else:

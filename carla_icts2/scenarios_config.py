@@ -51,7 +51,7 @@ class IConfig01(ScenarioConfig):
         # self.spwaning_distances = [25,35]
         self.ped_speed_range = [1.6, 2.0]  # 1.8
         self.spwaning_distances = [47.5, 55]  # 28
-        self.walking_distances = [3, 4] # [5, 8]  # 5
+        self.walking_distances = [3, 4]  # [5, 8]  # 5
         self.looking_distances = [0.85, 0.85]  # 0.85
         self.crossing_distances = [3, 5]  # 3
         self.reenter_distances = [3, 4]  # 8
@@ -735,8 +735,8 @@ class Config:
     # Simulator Parameters
     host = "127.0.0.1"
     port = 2000
-    width = 1920 # 1920
-    height = 1080 # 1080
+    width = 1920  # 1920
+    height = 1080  # 1080
     display = True
     filter = "vehicle.audi.tt"
     rolename = "hero"
@@ -777,3 +777,4 @@ class Config:
     # This is set via the config.yaml
     camera: str | None = None
     load_complete_map: bool = False
+    debug: bool = False

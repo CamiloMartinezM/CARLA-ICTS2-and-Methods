@@ -20,6 +20,9 @@ def run_server_command(config: dict) -> str:
     if carla["quality"]:
         cmd += f" -quality-level={carla['quality']}"
 
+    if carla.get("render_offscreen", False):
+        cmd += " -RenderOffScreen"
+
     if carla["carla_server"]:
         cmd += " -carla-server"
 
