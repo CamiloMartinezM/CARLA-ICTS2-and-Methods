@@ -13,7 +13,7 @@ from carla_icts2.benchmark.environment.ped_controller import ControllerConfig
 from carla_icts2.benchmark.environment.world import World
 from carla_icts2.benchmark.learner_example import Learner
 from carla_icts2.benchmark.scenarios.scenario import Scenario
-from carla_icts2.config import ASSETS_DIR
+from carla_icts2.config import ASSETS_DIR, logger
 from carla_icts2.scenarios_config import (
     Config,
     Config01,
@@ -63,24 +63,30 @@ class GIDASBenchmark(gym.Env):
         self.setting = setting
         self._max_episode_steps = 500
         self.clock = pygame.time.Clock()
-        print("Load World")
         hud = HUD(Config.width, Config.height)
-        with Path(ASSETS_DIR / "Town01_my.xodr").open("r") as odr:
-            self.world = self.client.generate_opendrive_world(
-                odr.read(),
-                carla.OpendriveGenerationParameters(2.0, 50.0, 0.0, 200.0, False, True),
-            )
 
-        # self.client.load_world('Town01_Opt', carla.MapLayer.Buildings)
+        if Config.load_complete_map:
+            logger.info("Loading complete map Town01_Opt...")
+            # self.client.load_world("Town01_Opt")
+            self.client.load_world("Town01_Opt", carla.MapLayer.Buildings)
+        else:
+            logger.info("Loading simplistic world Town01_Opt...")
+            with Path(ASSETS_DIR / "Town01_my.xodr").open("r") as odr:
+                self.world = self.client.generate_opendrive_world(
+                    odr.read(),
+                    carla.OpendriveGenerationParameters(2.0, 50.0, 0.0, 200.0, False, True),
+                )
+
+        # self.client.load_world("Town01_Opt", carla.MapLayer.Buildings)
         self.first_sleep = True
         wld = self.client.get_world()
         self.extract = False
         self.prev_vel = 20
-        print("Loaded ")
         # time.sleep(5)
         # wld.unload_map_layer(carla.MapLayer.StreetLights)
         # wld.unload_map_layer(carla.MapLayer.Props)
         # wld.unload_map_layer(carla.MapLayer.Particles)
+        logger.info("World loaded.")
         self.map = wld.get_map()
         settings = wld.get_settings()
         settings.fixed_delta_seconds = Config.simulation_step

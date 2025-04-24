@@ -15,6 +15,7 @@ matplotlib
 opencv-python
 scikit-learn
 psutil
+cyclopts
 
 # For PyTorch
 # --index-url https://download.pytorch.org/whl/cu126

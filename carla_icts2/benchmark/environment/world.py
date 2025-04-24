@@ -2,6 +2,7 @@
 Time: 23.03.21 14:27
 """
 
+import math
 import random
 import sys
 
@@ -79,7 +80,7 @@ class World:
             carla.MapLayer.Ground,
             carla.MapLayer.ParkedVehicles,
             carla.MapLayer.Particles,
-            carla.MapLayer.Props,
+            # carla.MapLayer.Props,
             carla.MapLayer.StreetLights,
             carla.MapLayer.Walls,
             carla.MapLayer.All,
@@ -137,7 +138,10 @@ class World:
             logger.warning(f"Unrecognized camera specification: {camera_specs}. Using default.")
 
     def update_bev_camera(
-        self, *, follow_player: bool = False, follow_walker: bool = False
+        self,
+        *,
+        follow_player: bool = False,
+        follow_walker: bool = False,
     ) -> None:
         """Create and attach a Bird's Eye View (BEV) camera.
 
@@ -166,7 +170,8 @@ class World:
 
     def update_player_pov_camera(self) -> None:
         """Create and attach a POV camera inside the car."""
-        offset = carla.Location(x=0.3, y=0.0, z=1.5)
+        # offset = carla.Location(x=0.3, y=0.0, z=1.5)
+        offset = carla.Location(x=0.6, y=-0.4, z=1.2)
 
         # Compute the offset in the vehicle's local frame.
         # Here we rotate the offset vector by the vehicle's yaw.
@@ -186,19 +191,124 @@ class World:
         new_transform = carla.Transform(new_location, new_rotation)
         self.world.get_spectator().set_transform(new_transform)
 
+    def get_head_world_transform(self) -> carla.Transform | None:
+        """Retrieve the world transform of the pedestrian's head bone ('crl_Head__C').
+
+        Args:
+            pedestrian: The carla.Actor (walker) object.
+
+        Returns:
+            carla.Transform: The world transform of the head bone, or None if not found or bones
+                cannot be retrieved.
+        """
+        try:
+            bones_out = self.walker.get_bones()
+            if not bones_out or not bones_out.bone_transforms:
+                logger.warning(f"Could not retrieve valid bones for pedestrian {self.walker.id}")
+                return None
+
+            # Find the head bone transform in the list
+            for bone_info in bones_out.bone_transforms:
+                if bone_info.name == "crl_Head__C":
+                    return bone_info.world  # Return the pre-computed world transform
+
+            logger.warning(f"Head bone 'crl_Head__C' not found for pedestrian {self.walker.id}")
+            return None
+
+        except Exception as e:
+            logger.error(
+                f"Error getting bones for pedestrian {self.walker.id}: {e}", exc_info=True
+            )
+            return None
+
     def update_walker_pov_camera(self) -> None:
         """Create and attach a POV camera at the pedestrian's eye level."""
-        offset = carla.Location(x=0.0, y=0.0, z=1.7)
+        # offset = carla.Location(x=0.0, y=0.0, z=1.7)
+        eye_forward_offset = 0.4  # How far in front of the head bone origin
+        eye_up_offset = 0.05  # How far above the head bone origin
+        eye_right_offset = 0.0  # Sideways offset (usually 0)
 
-        # Adjust the camera position to be at the pedestrian’s eye level
-        new_location = self.walker.get_transform().location + offset
+        # --- Get Head Bone's World Transform ---
+        head_transform = self.get_head_world_transform()
 
-        # Keep the rotation aligned with the pedestrian's rotation
-        new_rotation = self.walker.get_transform().rotation
+        if head_transform is None:
+            # --- Fallback: Use the actor's base transform + fixed Z offset ---
+            # This is less accurate but prevents errors if the head bone isn't found.
+            logger.warning(
+                f"Head bone 'crl_Head__C' not found for {self.walker.id}. Using fallback view."
+            )
+            pedestrian_transform = self.walker.get_transform()
+            fallback_location = pedestrian_transform.location + carla.Location(
+                z=1.7
+            )  # Approx eye level from ground
+            final_transform = carla.Transform(fallback_location, pedestrian_transform.rotation)
+        else:
+            # --- Use Head Bone Transform for Position and Orientation Basis ---
+
+            # # This works to create a 3rd person view
+            # # 1. Calculate Final Camera POSITION
+            # # Apply the offset relative to the head bone's local coordinate system
+            # final_location = head_transform.transform(offset)
+
+            # # 2. Calculate Final Camera ROTATION based on head's forward direction
+            # # Get the head bone's forward vector in world coordinates
+            # forward_vector = head_transform.get_forward_vector()
+
+            # # Calculate Yaw and Pitch from the forward vector to orient the camera
+            # # Note: CARLA's coordinate system: X=Forward, Y=Left, Z=Up
+            # # atan2(y, x) gives the angle from the positive X-axis
+            # yaw = math.degrees(math.atan2(forward_vector.y, forward_vector.x)) - 90
+
+            # # asin gives the angle with the XY plane. Negative Z for looking down (positive pitch).
+            # # Clamp the argument to avoid domain errors due to floating point inaccuracies.
+            # asin_arg = max(-1.0, min(1.0, forward_vector.z))
+            # pitch = math.degrees(math.asin(asin_arg))
+
+            # # Create the final rotation with Roll=0 to keep the camera upright
+            # final_rotation = carla.Rotation(pitch=pitch, yaw=yaw, roll=0.0)
+
+            # final_transform = carla.Transform(final_location, final_rotation)
+
+            # # This works to create a POV view
+            # 1. Calculate Final Camera ROTATION based on head's forward direction
+            # Get the head bone's forward vector in world coordinates
+            head_forward_vector = head_transform.get_forward_vector()
+
+            # Calculate Yaw and Pitch from the forward vector
+            # -90° makes the camera look forward instead of to the side
+            yaw = math.degrees(math.atan2(head_forward_vector.y, head_forward_vector.x)) - 90
+            # ************************************************************
+
+            # Clamp asin argument for safety
+            asin_arg = max(-1.0, min(1.0, head_forward_vector.z))
+            pitch = math.degrees(math.asin(asin_arg)) - 10  # Make it look slightly down
+
+            # Ensure camera is upright relative to the world
+            final_rotation = carla.Rotation(pitch=pitch, yaw=yaw, roll=0.0)
+
+            # 2. Calculate Final Camera POSITION based on the calculated rotation and head origin
+            head_origin = head_transform.location
+
+            # Get the direction vectors *from the calculated final rotation*
+            camera_forward = final_rotation.get_forward_vector()
+            camera_up = final_rotation.get_up_vector()
+            camera_right = final_rotation.get_right_vector()
+
+            # Calculate the world offset vector based on the desired eye position relative to the
+            # head origin
+            world_offset = (
+                camera_forward * eye_forward_offset
+                + camera_up * eye_up_offset
+                + camera_right * eye_right_offset
+            )
+
+            # Add the world offset to the head bone's origin
+            final_location = head_origin + world_offset
+
+            final_transform = carla.Transform(final_location, final_rotation)
 
         # Update the spectator view
-        new_transform = carla.Transform(new_location, new_rotation)
-        self.world.get_spectator().set_transform(new_transform)
+        self.world.get_spectator().set_transform(final_transform)
 
     def get_car_blueprint(self):
         blueprint = random.choice(self.world.get_blueprint_library().filter(self._actor_filter))
@@ -312,15 +422,15 @@ class World:
         if scenario_type == "01_int":
             self.choice = None
             self.setup_01_int(obstacles, conf)
-            cam_transform = carla.Transform(
-                carla.Location(
-                    spawn_point.location.x,
-                    spawn_point.location.y - 25,
-                    spawn_point.location.z + 7,
-                ),
-                carla.Rotation(-30, 270, 0),
-            )
-            self.world.get_spectator().set_transform(cam_transform)
+            # cam_transform = carla.Transform(
+            #     carla.Location(
+            #         spawn_point.location.x,
+            #         spawn_point.location.y - 25,
+            #         spawn_point.location.z + 7,
+            #     ),
+            #     carla.Rotation(-30, 270, 0),
+            # )
+            # self.world.get_spectator().set_transform(cam_transform)
             # p = self.player.get_location()
             # print(p)
             # self.world.debug.draw_point(p+carla.Location(0,-2,2), size=0.1, color=carla.Color(r=0,g=255,b=255), life_time=0)
@@ -378,15 +488,15 @@ class World:
         if scenario_type == "05_int":
             self.choice = None
             self.setup_05_int(obstacles, conf)
-            cam_transform = carla.Transform(
-                carla.Location(
-                    spawn_point.location.x,
-                    spawn_point.location.y - 25,
-                    spawn_point.location.z + 7,
-                ),
-                carla.Rotation(-30, 270, 0),
-            )
-            self.world.get_spectator().set_transform(cam_transform)
+            # cam_transform = carla.Transform(
+            #     carla.Location(
+            #         spawn_point.location.x,
+            #         spawn_point.location.y - 25,
+            #         spawn_point.location.z + 7,
+            #     ),
+            #     carla.Rotation(-30, 270, 0),
+            # )
+            # self.world.get_spectator().set_transform(cam_transform)
             # p = self.player.get_location()
             # print(p)
             # self.world.debug.draw_point(p+carla.Location(0,-2,2), size=0.1, color=carla.Color(r=0,g=255,b=255), life_time=0)
@@ -609,7 +719,6 @@ class World:
         # Run the camera update function if it is defined. If it's not defined, then the default
         # camera will be used
         if self.update_camera_func is not None:
-            logger.debug(f"Running {self.update_camera_func.__name__}()")
             if self.update_camera_args is not None:
                 self.update_camera_func(**self.update_camera_args)
             else:
@@ -2024,6 +2133,7 @@ class World:
             obstacles[0][0],
             carla.Transform(spawn_loc, obstacles[0][1].rotation),
         )
+        print(self.walker)
         self.walker.apply_control(carla.WalkerControl(carla.Vector3D(0, 0, 0), self.ped_speed))
         self.world.tick()
 

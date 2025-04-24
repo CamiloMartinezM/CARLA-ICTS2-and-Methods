@@ -7,17 +7,21 @@ from multiprocessing import Process
 from tracemalloc import start
 
 import numpy as np
+from cyclopts import App
 
 from carla_icts2.benchmark.environment import GIDASBenchmark
 from carla_icts2.config import VIDEOS_DIR, logger
 from carla_icts2.scenarios_config import Config
 from carla_icts2.utils.loading import load_yaml
 from carla_icts2.utils.recording import (
+    MultiCameraRecorder,
     SpectatorRecorder,
     stitch_videos_side_by_side,
     videos_in_folder,
 )
 from carla_icts2.utils.run import run_server_command
+
+app = App()
 
 
 def run(config: dict) -> None:
@@ -46,17 +50,29 @@ def run(config: dict) -> None:
         # Get the CARLA world instance
         carla_world = env.world.world
 
-        # Initialize the spectator recorder if enabled
-        spectator_recorder = None
-        if config["video"]["save"]:
-            spectator_recorder = SpectatorRecorder(
-                carla_world,
+        # --- Initialize Multi-Camera Recorder ---
+        multi_camera_recorder = None
+        camera_views_to_record = config.get("camera", [])  # Get list from config
+        if config.get("video", {}).get("save", False) and camera_views_to_record:
+            multi_camera_recorder = MultiCameraRecorder(
+                env.world,
                 config["video"],
+                camera_views=camera_views_to_record,
                 width=Config.width,
                 height=Config.height,
                 scenario=scenario,
-                camera_type=Config.camera,
+                debug=Config.debug,
             )
+            # multi_camera_recorder = SpectatorRecorder(
+            #     env.world,
+            #     config["video"],
+            #     width=Config.width,
+            #     height=Config.height,
+            #     scenario=scenario,
+            #     camera_type=Config.camera,
+            # )
+        else:
+            logger.info("Video recording disabled or no camera views specified.")
 
         data = []
         data_car = []
@@ -78,13 +94,15 @@ def run(config: dict) -> None:
             iterations = len(env.episodes) + len(env.test_episodes) + len(env.val_episodes)
 
         # Check if the number of iterations is greater than 1 and a spectator recorder is enabled
-        if iterations > 1 and spectator_recorder is not None:
+        if iterations > 1 and multi_camera_recorder is not None:
             logger.warning(
                 "The number of iterations is greater than 1 and a spectator recorder is enabled. "
                 "This has untested behavior and may not work as expected.",
             )
 
         logger.info(f"Running scenario: {scenario} for {iterations} iterations")
+
+        t.sleep(10)  # Wait for the server to be ready
         for i in range(iterations):
             state = env.reset_extract()
             episode_length = 0
@@ -106,8 +124,8 @@ def run(config: dict) -> None:
                     prev_data = data
 
                     # Synchronize spectator recording
-                    if spectator_recorder:
-                        spectator_recorder.tick(world_frame)
+                    if multi_camera_recorder is not None:
+                        multi_camera_recorder.tick(world_frame)
 
                     # * Include radius of 50 m of perception
                     # * Videos (BEV and POV from car and pedestrian) of interactive scenario
@@ -163,14 +181,16 @@ def run(config: dict) -> None:
         #     print(arr[0])
         #     print(len(arr))
 
-        # Stop recording when the simulation ends
-        if spectator_recorder:
-            spectator_recorder.destroy()
+        # --- Cleanup after each scenario ---
+        if multi_camera_recorder:
+            logger.info(f"Destroying recorder for scenario {scenario}...")
+            multi_camera_recorder.destroy()  # This now saves the videos
+            multi_camera_recorder = None  # Ensure it's reset for the next scenario
 
         env.close()
 
-        # Run after the simulation ends
-        run_afterwards()
+    # Run after the simulation ends
+    postprocessing()
 
 
 def run_server(config: dict) -> subprocess.CompletedProcess:
@@ -184,13 +204,37 @@ def run_before() -> None:
     kill_carla_server()
 
 
-def run_afterwards() -> None:
-    """Run after the main function even if there is a `KeyboardInterrupt`."""
+@app.command(name="postprocess")
+def postprocessing(
+    width: int | None = None,
+    height: int | None = None,
+    *,
+    use_ffmpeg: bool = True,
+) -> None:
+    """Run after the main function and stitches the videos together.
+
+    Executes:
+    1. Kill the Carla server;
+    2. Stitch the recorded videos together inside the scenario folders;
+    3. Save the stitched video as `all_views.mp4` in the same folder.
+
+    Args:
+        width (int | None): Width that each video should be resized to before stitching together.
+            If None, it takes the `Config.width` value.
+        height (int | None): Height that each video should be resized to before stitching together.
+            If None, it takes the `Config.height` value.
+        use_ffmpeg (bool): Whether to use ffmpeg for stitching videos. Defaults to True.
+    """
     kill_carla_server()
 
     # Loop through the recorded videos and stitch them together
     for scenario_folder in VIDEOS_DIR.iterdir():
         if scenario_folder.is_dir():
+            # If an all_views file already exists, skip
+            if (scenario_folder / "all_views.mp4").exists():
+                logger.info(f"Skipping {scenario_folder} as all_views.mp4 already exists.")
+                continue
+
             # Get the list of videos in the folder, but only the views that we're interested in
             videos = videos_in_folder(
                 scenario_folder,
@@ -202,11 +246,21 @@ def run_afterwards() -> None:
                         f"Expected 3 videos in {scenario_folder}, found {len(videos)}.",
                     )
 
-                logger.info(f"Stitching {len(videos)} videos: {videos} in {scenario_folder}")
-                stitch_videos_side_by_side(videos, output_path=scenario_folder / "all_views.mp4")
+                logger.info(
+                    f"Stitching {len(videos)} videos: {[str(v) for v in videos]} "
+                    f"in {scenario_folder}",
+                )
+                stitch_videos_side_by_side(
+                    videos,
+                    output_path=scenario_folder / "all_views.mp4",
+                    width=Config.width if width is None else width,
+                    height=Config.height if height is None else height,
+                    use_ffmpeg=use_ffmpeg,
+                )
                 logger.success(f"Stitched video saved to {scenario_folder / 'all_views.mp4'}")
 
 
+@app.command(name="kill")
 def kill_carla_server() -> None:
     """Kill the Carla server process."""
     logger.info("Killing previous CarlaUE4-Linux-Shipping process")
@@ -217,7 +271,9 @@ def kill_carla_server() -> None:
     )
 
 
-if __name__ == "__main__":
+@app.default()
+def main() -> None:
+    """Run the complete script."""
     run_config = load_yaml("run_config.yaml")
 
     # Add necessary run config parameters to the Config class
@@ -225,8 +281,14 @@ if __name__ == "__main__":
     Config.scenarios = run_config["scenarios"]
     Config.camera = run_config["camera"][0]
     Config.max_episode_length = run_config["carla"]["max_episode_length"]
+    Config.width = run_config["carla"]["width"]
+    Config.height = run_config["carla"]["height"]
+    Config.load_complete_map = run_config["carla"]["load_complete_map"]
+    Config.debug = run_config["carla"]["debug"]
 
+    # Print the configuration
     logger.info(f"Env. port: {Config.port}")
+    logger.info(f"Camera: {Config.camera}, {Config.width}x{Config.height}")
     logger.info(f"Scenarios: {Config.scenarios}")
 
     # Run commands before the execution of CARLA
@@ -234,8 +296,22 @@ if __name__ == "__main__":
 
     p = Process(target=run_server, args=(run_config,))
     p.start()
+    logger.info("Waiting for CARLA server to start...")
     t.sleep(10)
 
-    run(run_config)
+    try:
+        run(run_config)
+    except Exception as e:
+        logger.error(f"An error occurred in the main run function: {e}", exc_info=True)
+        raise
+    finally:
+        # Ensure server is killed even if the script crashes
+        postprocessing()
+        if p.is_alive():
+            p.terminate()
+            p.join()
+        logger.info("Main script finished.")
 
-    # run_afterwards()
+
+if __name__ == "__main__":
+    app()
