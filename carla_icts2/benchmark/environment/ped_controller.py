@@ -1,7 +1,10 @@
 import math
+import time
 from enum import Enum
 
 import carla
+
+from carla_icts2.config import logger
 
 
 class PathController:
@@ -59,6 +62,157 @@ class PathController:
 
     def set_done(self):
         self.done = True
+
+
+class LookAcrossStreetLeft(object):
+    """
+    Controller to make the walker look left (across the street, towards +X),
+    assuming the walker's body is facing along the curb (-Y, Yaw=180).
+    """
+
+    def __init__(self, walker, start_pos=None, duration=0.5):
+        self.walker = walker
+        self.start_pos = start_pos
+        self.done = False
+        self.duration = duration
+        self.start_time = None
+        self.state = "Idle"  # <-- Initialize state here
+
+    def step(self):
+        # ...(rest of the step method remains the same)...
+
+        if self.done:
+            return "Done"
+
+        # Trigger condition based on proximity to start_pos
+        # Use l2_distance for accurate proximity check
+        current_loc = self.walker.get_location()
+        # Check if start_pos is valid before calculating distance
+        if (
+            self.state == "Idle"
+            and self.start_pos is not None
+            and l2_distance(current_loc, self.start_pos) <= 0.3
+        ):  # Increased threshold slightly
+            # Triggered - Start Looking
+            self.state = "Looking"
+            self.start_time = time.time()
+            logger.debug("LookAcrossStreetLeft triggered.")  # Add log
+
+            bones = self.walker.get_bones()
+            new_pose = []
+            for bone in bones.bone_transforms:
+                # Walker facing Yaw=180 (-Y). We want to look towards +X (90 deg right turn).
+                # Need negative yaw relative to forward direction.
+                if bone.name == "crl_neck__C":
+                    bone.relative.rotation.pitch += 40  # Look slightly up/level
+                    bone.relative.rotation.yaw -= 80  # Turn head RIGHT relative to body
+                    new_pose.append((bone.name, bone.relative))
+                elif bone.name == "crl_Head__C":
+                    bone.relative.rotation.pitch -= 15  # Adjust head level
+                    bone.relative.rotation.roll -= 5  # Slight tilt
+                    bone.relative.rotation.yaw -= 10  # Fine tune head right turn
+                    new_pose.append((bone.name, bone.relative))
+                elif bone.name == "crl_spine01__C":
+                    bone.relative.rotation.roll += 25  # Twist spine RIGHT
+                    new_pose.append((bone.name, bone.relative))
+                else:
+                    new_pose.append((bone.name, bone.relative))
+
+            control = carla.WalkerBoneControlIn()
+            control.bone_transforms = new_pose
+            self.walker.set_bones(control)
+            self.walker.blend_pose(self.duration)
+
+        elif self.state == "Looking":
+            # Check if duration has passed
+            if time.time() - self.start_time >= self.duration:
+                self.done = True  # Mark as done, actual reset handled externally by ResetPose
+                self.state = "Done"
+                logger.debug("LookAcrossStreetLeft finished blending.")  # Add log
+                return "Done"
+        # else if state is "Idle" and trigger condition not met, or state is "Done"
+        # just return "Running" or "Done" respectively
+        elif self.state == "Done":
+            return "Done"
+
+        return "Running"  # Controller is active (Idle or Looking)
+
+
+class RaiseHandBriefly(object):
+    """
+    Controller to make the walker briefly raise their right hand.
+    """
+
+    def __init__(self, walker, start_pos=None, raise_duration=0.3, hold_duration=0.5):
+        self.walker = walker
+        self.start_pos = start_pos
+        self.raise_duration = raise_duration
+        self.hold_duration = hold_duration
+        self.state = "Idle"  # Idle, Raising, Holding, Lowering, Done
+        self.start_time = None
+        self.initial_bones = None  # To store initial pose for lowering
+
+    def step(self):
+        if self.state == "Done":
+            return "Done"
+
+        # Trigger condition
+        if self.state == "Idle" and self.start_pos is not None:
+            direction = self.walker.get_location() - self.start_pos
+            direction_norm = math.sqrt(direction.x**2 + direction.y**2)
+            if direction_norm > 0.2:
+                return "Running"  # Not yet triggered
+            else:
+                # Triggered - Start Raising
+                self.state = "Raising"
+                self.start_time = time.time()
+                # Store initial pose of relevant bones if needed for smooth lowering
+                # self.initial_bones = self._get_initial_arm_bones() # Implement this if needed
+
+                bones = self.walker.get_bones()
+                new_pose = []
+                for bone in bones.bone_transforms:
+                    # Modify Right Arm bones
+                    if bone.name == "crl_arm__R":
+                        bone.relative.rotation.pitch -= 70  # Raise arm forward/up
+                        bone.relative.rotation.roll += 20  # Slight outward roll
+                        new_pose.append((bone.name, bone.relative))
+                    elif bone.name == "crl_shoulder__R":
+                        bone.relative.rotation.pitch -= 10  # Adjust shoulder
+                        new_pose.append((bone.name, bone.relative))
+                    # elif bone.name == "crl_foreArm__R":
+                    #     bone.relative.rotation.pitch += 0 # Keep forearm straight initially
+                    #     new_pose.append((bone.name, bone.relative))
+                    else:
+                        new_pose.append((bone.name, bone.relative))
+                control = carla.WalkerBoneControlIn()
+                control.bone_transforms = new_pose
+                self.walker.set_bones(control)
+                self.walker.blend_pose(self.raise_duration)
+
+        elif self.state == "Raising":
+            if time.time() - self.start_time >= self.raise_duration:
+                self.state = "Holding"
+                self.start_time = time.time()  # Reset timer for hold duration
+
+        elif self.state == "Holding":
+            if time.time() - self.start_time >= self.hold_duration:
+                self.state = "Lowering"
+                self.start_time = time.time()
+                # Reset to default pose smoothly
+                # Using blend_pose(0) effectively tells CARLA to return to the base animation
+                self.walker.blend_pose(
+                    0
+                )  # Start blending back to default over ~0.5s (default blend time)
+
+        elif self.state == "Lowering":
+            # We rely on the default blend_pose(0) to finish.
+            # We can estimate completion or just mark as done after a short delay.
+            # Let's assume the default blend takes about 0.5s
+            if time.time() - self.start_time >= 0.5:
+                self.state = "Done"
+
+        return "Running"  # Controller is active
 
 
 class LookBehindRight:
@@ -715,6 +869,13 @@ class ControllerConfig:
         self.reenter_distance = 0
         self.op_reenter_distance = 0
         self.char = "yielding"
+
+        # --- NEW Parameters specifically for IConfig07 ---
+        self.walk_offset_x = 0.0  # Default value for compatibility
+        self.walk_along_y = 0.0  # Default value for compatibility
+        self.crossing_distance_x = 0.0  # Default value (might overlap with crossing_distance)
+        self.sprint_speed_multiplier = 1.0  # Default multiplier is 1 (no sprint)
+        self.wait_duration = 0.0  # Default wait duration
 
 
 class ICR(Enum):

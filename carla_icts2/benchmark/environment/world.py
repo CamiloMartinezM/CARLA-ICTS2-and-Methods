@@ -5,6 +5,7 @@ Time: 23.03.21 14:27
 import math
 import random
 import sys
+import time
 
 import carla
 import numpy as np
@@ -16,11 +17,13 @@ from carla_icts2.benchmark.environment.ped_controller import (
     ControllerConfig,
     InternalStateSetter,
     LeanForward,
+    LookAcrossStreetLeft,
     LookBehindLeft,
     LookBehindLeftSpine,
     LookBehindRight,
     PathController,
     RaiseArm,
+    RaiseHandBriefly,
     Relaxer,
     ResetPose,
     TurnHeadLeftWalk,
@@ -97,7 +100,7 @@ class World:
             self.next_weather()
         self.random = False
         self.dummy_car = False
-        self.debug = False
+        self.debug = True
 
         # Variables needed to set up the spectator camera
         self.update_camera_func = None
@@ -162,7 +165,7 @@ class World:
         if follow_player or not self.already_spawned_bev_camera:
             transform = self.player.get_transform()
 
-        location = carla.Location(x=transform.location.x, y=transform.location.y, z=20)
+        location = carla.Location(x=transform.location.x, y=transform.location.y, z=10)
         self.already_spawned_bev_camera = True
         self.world.get_spectator().set_transform(
             carla.Transform(location, carla.Rotation(yaw=180.0, pitch=-90.0)),
@@ -520,6 +523,21 @@ class World:
             # self.world.debug.draw_point(p+carla.Location(0,-2,2), size=0.1, color=carla.Color(r=0,g=255,b=255), life_time=0)
             if not self.random:
                 self.player.set_target_velocity(carla.Vector3D(0, -6, 0))
+
+        elif scenario_type == "07_int":
+            self.setup_07_int(obstacles, conf)
+            # Set initial camera focus if needed
+            cam_transform = carla.Transform(
+                carla.Location(
+                    spawn_point.location.x,
+                    spawn_point.location.y - 30,  # Adjust camera Y offset
+                    spawn_point.location.z + 10,  # Adjust camera Z offset
+                ),
+                carla.Rotation(-30, 270, 0),
+            )
+            self.world.get_spectator().set_transform(cam_transform)
+            if not self.random:  # Assuming self.random controls if velocity is set
+                self.player.set_target_velocity(carla.Vector3D(0, -8, 0))  # Adjust target velocity
 
         elif scenario_type == "01_non_int":
             self.choice = None
@@ -1162,6 +1180,155 @@ class World:
             self.iss_crossed_2.step()
 
             self.relaxer.step()
+
+        elif self.scenario[0] == "07_int":
+            # Scenario 7: Walk -> Stop -> Look -> Raise Hand -> Decide -> Sprint/Wait Logic
+            current_time = time.time()
+            hand_status = "Idle"  # Default status
+            look_status = "Idle"  # Default status
+
+            # 1. Walk to Curb Point
+            if not self.at_curb:
+                status1 = self.path_controller_1.step()
+                if status1 == "Done":
+                    self.at_curb = True
+                    self.walker.apply_control(
+                        carla.WalkerControl(direction=carla.Vector3D(0, 0, 0), speed=0.0)
+                    )  # Stop
+                    logger.info("Scenario 07: Reached curb point, stopping.")
+                    # Reset flags for next phases
+                    self.look_started = False
+                    self.look_finished = False
+                    self.hand_raise_started = False
+                    self.hand_raise_finished = False
+                    self.decided_action = None
+
+            # 2. Look Across Street (if at curb and not started/finished)
+            elif self.at_curb and not self.look_started:
+                look_status = self.look_across_street_left.step()
+                if look_status != "Idle" and look_status != "Done":  # i.e., "Running"
+                    self.look_started = True
+                    logger.info("Scenario 07: Starting look across street.")
+                elif look_status == "Done":  # Can happen if duration is tiny
+                    self.look_started = True
+                    self.look_finished = True
+                    logger.info("Scenario 07: Look finished immediately.")
+
+            # 3. Wait for Look to Finish
+            elif self.at_curb and self.look_started and not self.look_finished:
+                look_status = self.look_across_street_left.step()
+                if look_status == "Done":
+                    self.look_finished = True
+                    logger.info("Scenario 07: Look finished.")
+                    # Immediately try to start hand raise
+                    self.hand_raise_started = False
+                    self.hand_raise_finished = False
+
+            # 4. Raise Hand (if look finished and hand raise not started/finished)
+            elif self.at_curb and self.look_finished and not self.hand_raise_started:
+                hand_status = self.raise_hand_briefly.step()
+                if hand_status != "Idle" and hand_status != "Done":
+                    self.hand_raise_started = True
+                    logger.info("Scenario 07: Starting hand raise.")
+                elif hand_status == "Done":
+                    self.hand_raise_started = True
+                    self.hand_raise_finished = True
+                    self.wait_start_time = current_time  # Start decision timer
+                    logger.info("Scenario 07: Hand raise finished immediately.")
+
+            # 5. Wait for Hand Raise to Finish
+            elif self.at_curb and self.hand_raise_started and not self.hand_raise_finished:
+                hand_status = self.raise_hand_briefly.step()
+                if hand_status == "Done":
+                    self.hand_raise_finished = True
+                    self.wait_start_time = current_time  # Start decision timer NOW
+                    logger.info("Scenario 07: Hand raise finished.")
+
+            # 6. Make Decision (only if at curb, look finished, hand raise finished, and no decision yet)
+            elif (
+                self.at_curb
+                and self.look_finished
+                and self.hand_raise_finished
+                and self.decided_action is None
+            ):
+                distance_to_car = y_distance(self.curb_point, self.player.get_location()) - 2
+                car_in_db = self.decision_trigger(distance_to_car, self.db)
+                time_elapsed_decision = (
+                    current_time - self.wait_start_time
+                )  # Time since hand raise finished
+
+                # Reset pose BEFORE deciding, so pedestrian looks neutral during decision/wait
+                self.reset_pose.step()
+
+                if self.char == "yielding":
+                    if car_in_db:
+                        if time_elapsed_decision < self.wait_duration:
+                            self.decided_action = "Wait"
+                            logger.info("Scenario 07: Decided to Wait (Yielding, Car Close).")
+                            self.walker.icr = ICR.PLANNING_TO
+                            self.walker.son = SON.YIELDING
+                        else:
+                            self.decided_action = "Sprint"  # Waited long enough
+                            logger.info("Scenario 07: Yielding timeout, deciding to Sprint.")
+                    else:  # Car is far
+                        self.decided_action = "Sprint"
+                        logger.info("Scenario 07: Yielding, car far, deciding to Sprint.")
+                elif self.char == "forcing":
+                    self.decided_action = "Sprint"  # Forcing always sprints
+                    logger.info("Scenario 07: Forcing, deciding to Sprint.")
+
+                # Apply sprint speed immediately if sprinting
+                if self.decided_action == "Sprint":
+                    sprint_speed = self.ped_speed * self.sprint_multiplier
+                    self.path_controller_2.cur_speed = sprint_speed
+                    logger.info(f"Scenario 07: Setting sprint speed: {sprint_speed:.2f} m/s")
+                    self.walker.icr = ICR.GOING_TO
+                    self.walker.son = SON.FORCING
+                    # Start moving immediately by calling step controller
+                    self.path_controller_2.step()
+
+            # 7. Execute Action (Wait or Sprint)
+            elif self.decided_action == "Wait":
+                self.walker.apply_control(
+                    carla.WalkerControl(direction=carla.Vector3D(0, 0, 0), speed=0.0)
+                )  # Stay stopped
+                # Re-evaluate periodically
+                distance_to_car = y_distance(self.curb_point, self.player.get_location()) - 2
+                car_in_db = self.decision_trigger(distance_to_car, self.db)
+                time_elapsed_decision = current_time - self.wait_start_time
+                if not car_in_db or time_elapsed_decision >= self.wait_duration:
+                    logger.info("Scenario 07: Wait finished or car passed, switching to sprint.")
+                    self.decided_action = "Sprint"
+                    sprint_speed = self.ped_speed * self.sprint_multiplier
+                    self.path_controller_2.cur_speed = sprint_speed
+                    logger.info(f"Scenario 07: Setting sprint speed: {sprint_speed:.2f} m/s")
+                    self.walker.icr = ICR.GOING_TO
+                    self.walker.son = SON.FORCING
+                    # Start moving immediately
+                    self.path_controller_2.step()
+
+            elif self.decided_action == "Sprint":
+                status2 = self.path_controller_2.step()
+                if status2 == "Done":
+                    logger.info("Scenario 07: Finished crossing (sprint path).")
+                    self.decided_action = "CrossingDone"
+                    # Start optional continuation path
+                    self.path_controller_3.step()
+                    self.walker.icr = ICR.VERY_LOW
+                    self.walker.son = SON.AVERTING
+
+            # 8. Optional Continuation after Crossing
+            elif self.decided_action == "CrossingDone":
+                status3 = self.path_controller_3.step()
+                if status3 == "Done":
+                    self.decided_action = "FinishedScenario"
+                    self.walker.apply_control(
+                        carla.WalkerControl(direction=carla.Vector3D(0, 0, 0), speed=0.0)
+                    )
+
+            # Update dummy car controller
+            if self.dummy_car and hasattr(self, "car_controller"):
+                self.car_controller.step()
 
         if self.scenario[0] == "01_non_int":
             self.path_controller_1.step()
@@ -2644,6 +2811,135 @@ class World:
                 breaking_point,
                 speed=speed - 1 if car_behave else speed - 0.5,
                 yielding=car_behave,
+            )
+
+    def setup_07_int(self, obstacles, conf):
+        """Setup for Interactive Scenario 7: Based on 05_int + Hand Raise"""
+        logger.info("Setting up Scenario 07_int: Based on 05_int + Hand Raise")
+        # --- Parameters ---
+        spawning_distance = conf.spawning_distance
+        # Use parameter names consistent with IConfig05/IConfig07
+        walking_distance_X = conf.walking_distance_X
+        walking_distance_Y = conf.walking_distance_Y
+        crossing_distance = conf.crossing_distance  # Reusing this name for simplicity
+        self.sprint_multiplier = conf.sprint_speed_multiplier
+        self.wait_duration = conf.wait_duration
+        self.char = conf.char
+        self.ped_speed = conf.ped_speed
+
+        self.db = (
+            [-1, 15] if self.char == "yielding" else [-1, 20]
+        )  # Decision Box from 05_int (adjust if needed)
+        mult = 1.0 if self.char == "yielding" else 1.1 * 1.1 * 1.1  # Speed multiplier from 05_int
+
+        # --- Spawn & Base Location (Identical to 05_int) ---
+        base_loc = obstacles[0][1].location + carla.Location(0, -spawning_distance, 0)
+        spawn_loc = base_loc  # Spawn at base_loc
+        spawn_rotation = obstacles[0][
+            1
+        ].rotation  # Use rotation from scenario def (usually 90.0 for 05_int)
+        # Ensure correct starting Yaw if scenario def doesn't provide it reliably
+        # spawn_rotation.yaw = 90.0 # Explicitly face East like 05_int start
+
+        self.walker = self.world.try_spawn_actor(
+            obstacles[0][0],
+            carla.Transform(spawn_loc, spawn_rotation),
+        )
+        if self.walker is None:
+            logger.error("Failed to spawn walker for scenario 07_int")
+            return
+        self.walker.apply_control(carla.WalkerControl(carla.Vector3D(0, 0, 0), self.ped_speed))
+        self.world.tick()
+
+        # --- Path 1: Walk Towards Curb (Identical to 05_int's first path) ---
+        offsets_1 = [(walking_distance_X, -walking_distance_Y)]
+        path_1 = self._compute_plans(
+            offsets_1,
+            base_loc,
+            color=carla.Color(r=255, g=100, b=0) if self.debug else None,
+        )
+        if not path_1:
+            logger.error("Scenario 07_int: Path 1 calculation failed.")
+            return
+        self.path_controller_1 = PathController(self.world, self.walker, path_1, self.ped_speed)
+        self.curb_point = path_1[-1]  # Point where pedestrian reaches near curb
+
+        # --- Path 2: Cross Street (Sprint or Normal) ---
+        # Crosses by crossing_distance in +X direction from curb_point
+        target_across_loc = self.curb_point + carla.Location(int(crossing_distance), 0, 0)
+        offsets_2 = [(target_across_loc.x - base_loc.x, -(target_across_loc.y - base_loc.y))]
+        self.path_2 = self._compute_plans(
+            offsets_2,
+            base_loc,
+            color=carla.Color(r=255, g=0, b=0) if self.debug else None,
+        )
+        # Initial speed is base speed * mult (from 05_int logic), might be overridden by sprint
+        self.path_controller_2 = PathController(
+            self.world,
+            self.walker,
+            self.path_2,
+            self.ped_speed * mult,
+        )
+
+        # --- Path 3: Optional Continue (Similar to 05_int) ---
+        offsets_3 = [
+            (walking_distance_X + crossing_distance + 5, -walking_distance_Y),  # Further +X
+            (walking_distance_X + crossing_distance + 5, -walking_distance_Y - 5),
+        ]  # Walk along other side
+        path_3 = self._compute_plans(
+            offsets_3,
+            base_loc,
+            color=carla.Color(r=0, g=0, b=255) if self.debug else None,
+        )
+        self.path_controller_3 = PathController(
+            self.world, self.walker, path_3, self.ped_speed
+        )  # Optional
+
+        # --- Initialize Controllers & State ---
+        self.look_across_street_left = LookAcrossStreetLeft(
+            self.walker, self.curb_point, duration=0.5
+        )  # Look triggered at curb
+        self.raise_hand_briefly = RaiseHandBriefly(
+            self.walker, self.curb_point, raise_duration=0.2, hold_duration=0.4
+        )  # Hand raise triggered after look
+        self.reset_pose = ResetPose(self.walker)  # Generic reset
+
+        self.at_curb = False
+        self.look_started = False
+        self.look_finished = False
+        self.hand_raise_started = False
+        self.hand_raise_finished = False
+        self.wait_start_time = None
+        self.decided_action = None  # "Wait", "Sprint", "CrossNormal", "CrossingDone"
+
+        # --- Debugging & Initial State ---
+        if self.debug:
+            self._draw_point(spawn_loc, color=carla.Color(0, 255, 255))
+            self._draw_point(self.curb_point, color=carla.Color(255, 255, 0))
+            if self.path_2:
+                self._draw_point(self.path_2[0], color=carla.Color(255, 0, 255))
+            self.desc_p = self.curb_point  # Decision point is at the curb
+            self._draw_db(self.db, color=carla.Color(0, 0, 255))
+
+        self.walker.icr = ICR.INTERESTED
+        self.walker.initial_son = SON.YIELDING if conf.char == "yielding" else SON.FORCING
+        self.walker.son = self.walker.initial_son
+
+        # --- Setup Dummy Car (Similar to 05_int/previous 07_int) ---
+        if self.dummy_car:
+            player_loc = self.player.get_location()
+            car_yielding = self.char == "yielding"
+            estimated_car_speed_mps = 8.0  # Example speed
+            self.car_controller = CarController(
+                self.player,
+                braking_point=carla.Location(player_loc.x, self.curb_point.y + self.db[0] - 5, 0.5)
+                if car_yielding
+                else None,
+                speed=estimated_car_speed_mps,
+                yielding=car_yielding,
+            )
+            logger.debug(
+                f"Car controller initialized with speed: {estimated_car_speed_mps:.1f} m/s"
             )
 
     def _compute_plans(self, offsets, position, color=None):

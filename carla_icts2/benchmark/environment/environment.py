@@ -28,6 +28,7 @@ from carla_icts2.scenarios_config import (
     IConfig04,
     IConfig05,
     IConfig06,
+    IConfig07,
 )
 
 
@@ -176,6 +177,11 @@ class GIDASBenchmark(gym.Env):
                 self.episodes.extend(IConfig06().get_training())
                 self.val_episodes.extend(IConfig06().get_validation())
                 self.test_episodes.extend(IConfig06().get_test())
+
+            elif scenario == "07_int":
+                self.episodes.extend(IConfig07().get_training())
+                self.val_episodes.extend(IConfig07().get_validation())
+                self.test_episodes.extend(IConfig07().get_test())
 
             else:
                 # Used for backwards compatibility

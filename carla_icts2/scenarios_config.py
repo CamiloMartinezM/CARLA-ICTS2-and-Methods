@@ -17,6 +17,13 @@ class ControllerConfig:
         self.op_reenter_distance = 0
         self.char = "yielding"
 
+        # --- NEW Parameters specifically for IConfig07 ---
+        self.walk_offset_x = 0.0  # Default value for compatibility
+        self.walk_along_y = 0.0  # Default value for compatibility
+        self.crossing_distance_x = 0.0  # Default value (might overlap with crossing_distance)
+        self.sprint_speed_multiplier = 1.0  # Default multiplier is 1 (no sprint)
+        self.wait_duration = 0.0  # Default wait duration
+
 
 class ScenarioConfig:
     def __init__(self):
@@ -359,6 +366,80 @@ class IConfig06(ScenarioConfig):
                                 conf.char = char
                                 scenes.append(("06_int", conf))
         print("Total scenes count (int-6): ", len(scenes))
+        return scenes
+
+
+class IConfig07(ScenarioConfig):
+    """
+    Configuration for Interactive Scenario 7: "The Sudden Sprint".
+    Pedestrian walks to the curb, stops, looks across, potentially waves,
+    then based on car proximity and character, either waits briefly or
+    suddenly sprints across the street.
+    """
+
+    def __init__(self):
+        self.ped_speed_range = [1.0, 1.4]  # Initial walking speed
+        self.spawning_distances = [45, 55]  # How far ahead the interaction starts
+        self.walking_distances_X = [1, 2]  # Offset from curb to spawn/walk
+        self.walking_distances_Y = [2, 5]  # Distance walked towards curb
+        self.crossing_distances = [7, 10]  # How far the pedestrian sprints/crosses
+        self.sprint_speed_multiplier = [2.5, 3.5]  # Factor to multiply base speed for sprint
+        self.wait_duration = [0.5, 1.5]  # Seconds to wait if yielding and car is close
+        self.character = ["forcing", "yielding"]
+        super(IConfig07, self).__init__()
+        # Adjust split if needed, otherwise inherits parent's split
+        # self.split = [0.6, 0.8, 1.0] # Example different split
+
+    def get_scenes(self):
+        scenes = []
+        for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1] + 0.1, 0.1):
+            for spawning_distance in np.arange(
+                self.spawning_distances[0],
+                self.spawning_distances[1] + 2.5,
+                2.5,
+            ):
+                for walking_distance_X in np.arange(
+                    self.walking_distances_X[0],
+                    self.walking_distances_X[1] + 0.5,
+                    0.5,
+                ):
+                    for walking_distance_Y in np.arange(
+                        self.walking_distances_Y[0],
+                        self.walking_distances_Y[1] + 1,
+                        1,
+                    ):
+                        for crossing_distance in np.arange(
+                            self.crossing_distances[0],
+                            self.crossing_distances[1] + 1,
+                            1,
+                        ):
+                            for sprint_multiplier in np.arange(
+                                self.sprint_speed_multiplier[0],
+                                self.sprint_speed_multiplier[1] + 0.2,
+                                0.2,
+                            ):
+                                for wait_dur in np.arange(
+                                    self.wait_duration[0],
+                                    self.wait_duration[1] + 0.2,
+                                    0.2,
+                                ):
+                                    for char in self.character:
+                                        conf = ControllerConfig(speed)
+                                        conf.spawning_distance = int(spawning_distance)
+                                        conf.walking_distance_X = walking_distance_X
+                                        conf.walking_distance_Y = walking_distance_Y
+                                        conf.crossing_distance = (
+                                            crossing_distance  # Re-use for simplicity
+                                        )
+                                        conf.sprint_speed_multiplier = sprint_multiplier
+                                        conf.wait_duration = wait_dur
+                                        conf.char = char
+                                        # Add other needed parameters if reused from ControllerConfig base
+                                        conf.looking_distance = 0  # Not used in the same way
+                                        conf.reenter_distance = 0  # Not used
+                                        conf.op_reenter_distance = 0  # Not used
+                                        scenes.append(("07_int", conf))
+        print("Total scenes count (int-7): ", len(scenes))
         return scenes
 
 

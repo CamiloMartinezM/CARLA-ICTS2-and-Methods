@@ -19,12 +19,13 @@ carla:
 
 # Logic Configuration
 scenarios: [
-    "01_int",
+    # "01_int",
     # "02_int",
     # "03_int",
     # "04_int",
     # "05_int",
     # "06_int",
+    "07_int",
     # "01_non_int",
     # "02_non_int",
     # "03_non_int",
@@ -35,9 +36,9 @@ scenarios: [
 
 # Camera Configuration
 camera:
+  - "pedestrian_pov"
   - "bev_follow_vehicle"
   - "vehicle_pov"
-  - "pedestrian_pov"
   # ["vehicle_pov"] # Possible are: ["pedestrian_pov", "vehicle_pov", "bev_static", "bev_follow_vehicle", "bev_follow_pedestrian", "default"]
 
 # Video Configuration
