@@ -1,10 +1,8 @@
 """Extract pedestrian and car data from the CARLA simulator using the GIDAS benchmark."""
 
 import subprocess
-import time
 import time as t
 from multiprocessing import Process
-from tracemalloc import start
 
 import numpy as np
 from cyclopts import App
@@ -15,7 +13,6 @@ from carla_icts2.scenarios_config import Config
 from carla_icts2.utils.loading import load_yaml
 from carla_icts2.utils.recording import (
     MultiCameraRecorder,
-    SpectatorRecorder,
     stitch_videos_side_by_side,
     videos_in_folder,
 )
