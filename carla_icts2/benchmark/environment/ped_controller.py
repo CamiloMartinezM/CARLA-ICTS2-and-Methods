@@ -61,6 +61,462 @@ class PathController:
         self.done = True
 
 
+# Works:
+# class LookAcrossStreetLeft(object):
+#     """
+#     Controller to make the walker look left (North, Yaw=0 world)
+#     assuming the walker has stopped at the curb facing East (Yaw=90 world).
+#     Focuses mainly on Yaw rotation.
+#     """
+
+#     def __init__(self, walker, start_pos=None, duration=0.4):  # Slightly longer duration
+#         self.walker = walker
+#         self.start_pos = start_pos
+#         self.done = False
+#         self.duration = duration
+#         self.start_time = None
+#         self.state = "Idle"
+
+#     def step(self):
+#         if self.done:
+#             return "Done"
+
+#         current_loc = self.walker.get_location()
+
+#         # Trigger condition
+#         if (
+#             self.state == "Idle"
+#             and self.start_pos is not None
+#             and l2_distance(current_loc, self.start_pos) <= 0.3
+#         ):
+#             self.state = "Looking"
+#             self.start_time = time.time()
+#             logger.debug("LookAcrossStreetLeft triggered (Yaw only).")
+
+#             bones = self.walker.get_bones()
+#             new_pose = []
+#             # Target World Yaw = 0 (North). Walker World Yaw = 90 (East). Relative change = -90.
+#             target_relative_yaw = -90
+#             for bone in bones.bone_transforms:
+#                 if bone.name == "crl_neck__C":
+#                     bone.relative.rotation.pitch = 0  # Keep level
+#                     bone.relative.rotation.roll = 0  # Keep level
+#                     bone.relative.rotation.yaw = target_relative_yaw * 0.6  # Distribute turn
+#                     new_pose.append((bone.name, bone.relative))
+#                 elif bone.name == "crl_Head__C":
+#                     bone.relative.rotation.pitch = 0
+#                     bone.relative.rotation.roll = 0
+#                     bone.relative.rotation.yaw = target_relative_yaw * 0.4  # Distribute turn
+#                     new_pose.append((bone.name, bone.relative))
+#                 # Optional minimal spine twist if needed
+#                 # elif bone.name == "crl_spine01__C":
+#                 #     bone.relative.rotation.roll = 0
+#                 #     bone.relative.rotation.yaw = target_relative_yaw * 0.1
+#                 #     new_pose.append((bone.name, bone.relative))
+#                 else:
+#                     new_pose.append((bone.name, bone.relative))  # Keep others default
+
+#             control = carla.WalkerBoneControlIn()
+#             control.bone_transforms = new_pose
+#             self.walker.set_bones(control)
+#             self.walker.blend_pose(self.duration)  # Blend over specified duration
+
+#         elif self.state == "Looking":
+#             if time.time() - self.start_time >= self.duration:
+#                 self.state = "Done"
+#                 self.done = True
+#                 logger.debug("LookAcrossStreetLeft finished blending.")
+#                 return "Done"
+
+#         elif self.state == "Done":
+#             return "Done"
+
+#         return "Running"
+
+# Works meh:
+# import numpy as np
+
+
+# class LookAcrossStreetLeft(object):
+#     """
+#     Controller to make the walker look left (North, World Yaw=0, World Pitch=0).
+#     Calculates required relative rotation to achieve the target world orientation.
+#     Focuses rotation primarily on the neck.
+#     """
+
+#     def __init__(
+#         self, walker, start_pos=None, duration=0.6, target_world_yaw=0.0, target_world_pitch=0.0
+#     ):
+#         self.walker = walker
+#         self.start_pos = start_pos
+#         self.duration = duration
+#         self.target_world_yaw = target_world_yaw
+#         self.target_world_pitch = target_world_pitch  # Allow specifying target pitch
+#         self.done = False
+#         self.start_time = None
+#         self.state = "Idle"
+#         self._target_pose_set = False
+
+#     def _get_bone_world_transform(self, bone_transforms, bone_name):
+#         for bone_info in bone_transforms:
+#             if bone_info.name == bone_name:
+#                 return bone_info.world
+#         return None
+
+#     def _matrix_to_carla_rotation(self, matrix):
+#         # (Keep the matrix_to_carla_rotation function from the previous version)
+#         rot_mat = matrix[:3, :3]
+#         sin_pitch = -rot_mat[2, 0]
+#         sin_pitch = np.clip(sin_pitch, -1.0, 1.0)
+#         pitch = math.degrees(math.asin(sin_pitch))
+#         cos_pitch = math.cos(math.radians(pitch))
+#         if abs(cos_pitch) > 1e-6:
+#             sin_yaw = rot_mat[1, 0] / cos_pitch
+#             cos_yaw = rot_mat[0, 0] / cos_pitch
+#             yaw = math.degrees(math.atan2(sin_yaw, cos_yaw))
+#             sin_roll = rot_mat[2, 1] / cos_pitch
+#             cos_roll = rot_mat[2, 2] / cos_pitch
+#             roll = math.degrees(math.atan2(sin_roll, cos_roll))
+#         else:
+#             yaw = 0
+#             sin_roll = -rot_mat[1][2]
+#             cos_roll = rot_mat[1][1]
+#             roll = math.degrees(math.atan2(sin_roll, cos_roll))
+#         return carla.Rotation(pitch=pitch, yaw=yaw, roll=roll)
+
+#     def _calculate_target_relative_rotation(self, bone_world_tf, parent_world_tf):
+#         """Calculates the full relative rotation needed for the bone to achieve the target world yaw/pitch."""
+#         if not bone_world_tf or not parent_world_tf:
+#             return carla.Rotation()
+
+#         # --- Target World Rotation: Target Yaw, Target Pitch, Current Roll ---
+#         target_world_rotation = carla.Rotation(
+#             pitch=self.target_world_pitch,  # Explicitly target pitch 0
+#             yaw=self.target_world_yaw,
+#             roll=bone_world_tf.rotation.roll,  # Keep current roll to avoid weird tilt
+#         )
+#         target_bone_world_tf = carla.Transform(bone_world_tf.location, target_world_rotation)
+
+#         # --- Calculate Relative Transform Matrix---
+#         try:
+#             parent_world_inv_matrix = np.linalg.inv(parent_world_tf.get_matrix())
+#             target_bone_world_matrix = target_bone_world_tf.get_matrix()
+#             target_bone_relative_matrix = np.dot(parent_world_inv_matrix, target_bone_world_matrix)
+#         except np.linalg.LinAlgError:
+#             return carla.Rotation()
+
+#         target_relative_rotation = self._matrix_to_carla_rotation(target_bone_relative_matrix)
+#         return target_relative_rotation
+
+#     def step(self):
+#         if self.done:
+#             return "Done"
+#         current_loc = self.walker.get_location()
+
+#         if self.state == "Idle":
+#             if self.start_pos is not None and l2_distance(current_loc, self.start_pos) <= 0.3:
+#                 self.state = "Looking"
+#                 self.start_time = time.time()
+#                 self._target_pose_set = False
+#                 logger.info(
+#                     f"LookAcrossStreetLeft triggered. Target Head World Yaw: {self.target_world_yaw:.1f}, Pitch: {self.target_world_pitch:.1f}"
+#                 )
+#                 return "Running"
+#             else:
+#                 return "Idle"
+
+#         elif self.state == "Looking":
+#             if not self._target_pose_set:
+#                 bones_out = self.walker.get_bones()
+#                 if not bones_out or not bones_out.bone_transforms:
+#                     logger.warning("LookAcrossStreetLeft: Could not get bones.")
+#                     self.state = "Done"
+#                     self.done = True
+#                     return "Done"
+
+#                 bone_transforms_list = bones_out.bone_transforms
+#                 new_pose = []
+#                 try:
+#                     spine01_world = self._get_bone_world_transform(
+#                         bone_transforms_list, "crl_spine01__C"
+#                     )
+#                     neck_world = self._get_bone_world_transform(
+#                         bone_transforms_list, "crl_neck__C"
+#                     )
+#                     head_world = self._get_bone_world_transform(
+#                         bone_transforms_list, "crl_Head__C"
+#                     )
+#                     parent_for_neck = (
+#                         spine01_world if spine01_world else self.walker.get_transform()
+#                     )
+#                     parent_for_head = neck_world if neck_world else parent_for_neck
+
+#                     # Calculate the full target *relative* rotations needed for Yaw=0, Pitch=0
+#                     target_neck_relative_rot = self._calculate_target_relative_rotation(
+#                         neck_world, parent_for_neck
+#                     )
+#                     target_head_relative_rot = self._calculate_target_relative_rotation(
+#                         head_world, parent_for_head
+#                     )
+
+#                     # Inversion might still be needed based on coordinate system mapping
+#                     # Let's try *without* inversion first, now that pitch is also targeted.
+#                     # If it looks right instead of left, add the negation back.
+#                     final_neck_yaw = target_neck_relative_rot.yaw
+#                     final_head_yaw = target_head_relative_rot.yaw
+#                     logger.debug(
+#                         f"Calculated Target Relative -> Neck Yaw: {final_neck_yaw:.1f}, Pitch: {target_neck_relative_rot.pitch:.1f}"
+#                     )
+#                     logger.debug(
+#                         f"Calculated Target Relative -> Head Yaw: {final_head_yaw:.1f}, Pitch: {target_head_relative_rot.pitch:.1f}"
+#                     )
+
+#                     for bone in bone_transforms_list:
+#                         current_relative_loc = bone.relative.location
+#                         current_relative_rot = bone.relative.rotation  # Keep original roll
+
+#                         if bone.name == "crl_neck__C":
+#                             # Apply calculated target relative yaw and pitch, keep original roll
+#                             new_rotation = carla.Rotation(
+#                                 pitch=target_neck_relative_rot.pitch,  # Use calculated pitch
+#                                 yaw=final_neck_yaw,
+#                                 roll=current_relative_rot.roll,
+#                             )
+#                             new_pose.append(
+#                                 (bone.name, carla.Transform(current_relative_loc, new_rotation))
+#                             )
+#                         elif bone.name == "crl_Head__C":
+#                             new_rotation = carla.Rotation(
+#                                 pitch=target_head_relative_rot.pitch,  # Use calculated pitch
+#                                 yaw=final_head_yaw,
+#                                 roll=current_relative_rot.roll,
+#                             )
+#                             new_pose.append(
+#                                 (bone.name, carla.Transform(current_relative_loc, new_rotation))
+#                             )
+#                         else:
+#                             new_pose.append((bone.name, bone.relative))
+
+#                     control = carla.WalkerBoneControlIn()
+#                     control.bone_transforms = new_pose
+#                     self.walker.set_bones(control)
+#                     self.walker.blend_pose(self.duration)
+#                     self._target_pose_set = True
+#                     logger.debug(
+#                         "LookAcrossStreetLeft: Target pose (Yaw=0, Pitch=0 world target) blend started."
+#                     )
+
+#                 except Exception as e:
+#                     logger.error(f"Error calculating/applying look pose: {e}", exc_info=True)
+#                     self.state = "Done"
+#                     self.done = True
+#                     return "Done"
+
+#             # Check blend duration
+#             if time.time() - self.start_time >= self.duration:
+#                 self.state = "Done"
+#                 self.done = True
+#                 try:
+#                     bones_final = self.walker.get_bones()
+#                     final_head_transform = self._get_bone_world_transform(
+#                         bones_final.bone_transforms, "crl_Head__C"
+#                     )
+#                     if final_head_transform:
+#                         logger.info(
+#                             f"LookAcrossStreetLeft finished blending. Final Head World Yaw: {final_head_transform.rotation.yaw:.1f}, Pitch: {final_head_transform.rotation.pitch:.1f}"
+#                         )
+#                     else:
+#                         logger.warning(
+#                             "LookAcrossStreetLeft finished, could not get final head transform."
+#                         )
+#                 except Exception as e:
+#                     logger.warning(f"Exception getting final head transform after blend: {e}")
+#                 return "Done"
+#             else:
+#                 return "Running"
+
+
+#         elif self.state == "Done":
+#             return "Done"
+#         return "Idle"
+# Optional: Apply a fraction of the neck's *change* in relative yaw to the spine?
+# elif bone.name == "crl_spine01__C":
+#     spine_yaw_change = (
+#         self._normalize_angle(
+#             target_neck_relative_rot.yaw - current_relative_rot.yaw
+#         )
+#         * 0.1
+#     )  # Small fraction
+#     new_rotation = carla.Rotation(
+#         pitch=current_relative_rot.pitch,
+#         yaw=current_relative_rot.yaw + spine_yaw_change,
+#         roll=current_relative_rot.roll,
+#     )
+#     new_pose.append(
+#         (bone.name, carla.Transform(current_relative_loc, new_rotation))
+#     )
+class LookAcrossStreetLeft(object):
+    """
+    Controller to make the walker look left (North, Yaw=0 world)
+    assuming the walker has stopped at the curb facing East (Yaw=90 world).
+    Uses REDUCED relative yaw to avoid unnatural twisting.
+    """
+
+    def __init__(self, walker, start_pos=None, duration=0.4):
+        self.walker = walker
+        self.start_pos = start_pos
+        self.done = False
+        self.duration = duration
+        self.start_time = None
+        self.state = "Idle"
+
+    def step(self):
+        if self.done:
+            return "Done"
+
+        current_loc = self.walker.get_location()
+
+        # Trigger condition
+        if (
+            self.state == "Idle"
+            and self.start_pos is not None
+            and l2_distance(current_loc, self.start_pos) <= 0.3
+        ):
+            self.state = "Looking"
+            self.start_time = time.time()
+            logger.debug("LookAcrossStreetLeft triggered (Reduced Yaw).")
+
+            bones = self.walker.get_bones()
+            new_pose = []
+            # --- REDUCED YAW --- Aim for maybe -60 to -70 degrees relative total
+            neck_relative_yaw = -45  # Reduced from -80 * 0.6
+            head_relative_yaw = -20  # Reduced from -80 * 0.4 + -10
+            # Total relative yaw is now approx -65 degrees
+
+            for bone in bones.bone_transforms:
+                if bone.name == "crl_neck__C":
+                    bone.relative.rotation.pitch = 0  # Keep level
+                    bone.relative.rotation.roll = 0  # Keep level
+                    bone.relative.rotation.yaw = neck_relative_yaw  # Apply reduced yaw
+                    new_pose.append((bone.name, bone.relative))
+                elif bone.name == "crl_Head__C":
+                    bone.relative.rotation.pitch = 0  # Keep level
+                    bone.relative.rotation.roll = 0  # Keep level
+                    bone.relative.rotation.yaw = head_relative_yaw  # Apply reduced yaw
+                    new_pose.append((bone.name, bone.relative))
+                # Remove spine twist for simplicity
+                # elif bone.name == "crl_spine01__C":
+                #     pass # Don't modify spine roll/yaw
+                else:
+                    # Ensure other bones maintain their default relative transform from the base animation
+                    # If just appending bone.relative, it might capture an intermediate state.
+                    # It's safer to not include bones we aren't actively changing unless
+                    # we know their default relative transform. Let's only include neck/head.
+                    if bone.name not in ["crl_neck__C", "crl_Head__C"]:
+                        new_pose.append((bone.name, bone.relative))
+
+            control = carla.WalkerBoneControlIn()
+            # Only apply transforms for the bones we are controlling
+            controlled_bones_pose = [
+                (b[0], b[1]) for b in new_pose if b[0] in ["crl_neck__C", "crl_Head__C"]
+            ]
+            if not controlled_bones_pose:
+                logger.warning("LookAcrossStreetLeft: No neck or head bones found in pose list!")
+            else:
+                control.bone_transforms = controlled_bones_pose
+                self.walker.set_bones(control)
+                self.walker.blend_pose(self.duration)
+
+        elif self.state == "Looking":
+            if time.time() - self.start_time >= self.duration:
+                self.state = "Done"
+                self.done = True
+                logger.debug("LookAcrossStreetLeft finished blending.")
+                return "Done"
+
+        elif self.state == "Done":
+            return "Done"
+
+        return "Running"
+
+
+class RaiseHandBriefly(object):
+    """
+    Controller to make the walker briefly raise their right hand.
+    """
+
+    def __init__(self, walker, start_pos=None, raise_duration=0.3, hold_duration=0.5):
+        self.walker = walker
+        self.start_pos = start_pos
+        self.raise_duration = raise_duration
+        self.hold_duration = hold_duration
+        self.state = "Idle"  # Idle, Raising, Holding, Lowering, Done
+        self.start_time = None
+        self.initial_bones = None  # To store initial pose for lowering
+
+    def step(self):
+        if self.state == "Done":
+            return "Done"
+
+        # Trigger condition
+        if self.state == "Idle" and self.start_pos is not None:
+            direction = self.walker.get_location() - self.start_pos
+            direction_norm = math.sqrt(direction.x**2 + direction.y**2)
+            if direction_norm > 0.2:
+                return "Running"  # Not yet triggered
+            else:
+                # Triggered - Start Raising
+                self.state = "Raising"
+                self.start_time = time.time()
+                # Store initial pose of relevant bones if needed for smooth lowering
+                # self.initial_bones = self._get_initial_arm_bones() # Implement this if needed
+
+                bones = self.walker.get_bones()
+                new_pose = []
+                for bone in bones.bone_transforms:
+                    # Modify Right Arm bones
+                    if bone.name == "crl_arm__R":
+                        bone.relative.rotation.pitch -= 70  # Raise arm forward/up
+                        bone.relative.rotation.roll += 20  # Slight outward roll
+                        new_pose.append((bone.name, bone.relative))
+                    elif bone.name == "crl_shoulder__R":
+                        bone.relative.rotation.pitch -= 10  # Adjust shoulder
+                        new_pose.append((bone.name, bone.relative))
+                    # elif bone.name == "crl_foreArm__R":
+                    #     bone.relative.rotation.pitch += 0 # Keep forearm straight initially
+                    #     new_pose.append((bone.name, bone.relative))
+                    else:
+                        new_pose.append((bone.name, bone.relative))
+                control = carla.WalkerBoneControlIn()
+                control.bone_transforms = new_pose
+                self.walker.set_bones(control)
+                self.walker.blend_pose(self.raise_duration)
+
+        elif self.state == "Raising":
+            if time.time() - self.start_time >= self.raise_duration:
+                self.state = "Holding"
+                self.start_time = time.time()  # Reset timer for hold duration
+
+        elif self.state == "Holding":
+            if time.time() - self.start_time >= self.hold_duration:
+                self.state = "Lowering"
+                self.start_time = time.time()
+                # Reset to default pose smoothly
+                # Using blend_pose(0) effectively tells CARLA to return to the base animation
+                self.walker.blend_pose(
+                    0
+                )  # Start blending back to default over ~0.5s (default blend time)
+
+        elif self.state == "Lowering":
+            # We rely on the default blend_pose(0) to finish.
+            # We can estimate completion or just mark as done after a short delay.
+            # Let's assume the default blend takes about 0.5s
+            if time.time() - self.start_time >= 0.5:
+                self.state = "Done"
+
+        return "Running"  # Controller is active
+
+
 class LookBehindRight:
     def __init__(self, walker, start_pos, char, scenario="standard"):
         self.walker = walker
