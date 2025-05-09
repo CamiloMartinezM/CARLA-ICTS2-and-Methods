@@ -6,6 +6,7 @@ import math
 import random
 import sys
 import time
+import time
 
 import carla
 import numpy as np
@@ -724,6 +725,14 @@ class World:
         self.semseg_sensor = CameraManager(self.player, self.hud, self._gamma)
         self.semseg_sensor.transform_index = semseg_pos_index
         self.semseg_sensor.set_sensor(semseg_index, notify=False)
+
+    def _normalize_angle(self, angle):
+        """Normalize angle to be within [-180, 180]"""
+        while angle <= -180:
+            angle += 360
+        while angle > 180:
+            angle -= 360
+        return angle
 
     def tick(self, clock):
         self.counter += 1

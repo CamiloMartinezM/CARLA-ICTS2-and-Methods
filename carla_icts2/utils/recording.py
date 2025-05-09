@@ -388,7 +388,7 @@ def videos_in_folder(
 # Define standard camera configurations
 CAMERA_CONFIGS = {
     "vehicle_pov": {
-        "relative_transform": carla.Transform(carla.Location(x=-0.25, y=-0.5, z=1.25)),
+        "relative_transform": carla.Transform(carla.Location(x=-0.35, y=-0.5, z=1.25)),
         "attach_to": "vehicle",  # Special keyword for vehicle actor
         "attachment_type": carla.AttachmentType.Rigid,
         "fov": "75",
@@ -407,11 +407,12 @@ CAMERA_CONFIGS = {
     "bev_follow_vehicle": {
         # High above, following vehicle, looking down
         "relative_transform": carla.Transform(
-            carla.Location(z=10),
-            carla.Rotation(yaw=90.0, roll=90, pitch=-100),
+            carla.Location(z=8),
+            carla.Rotation(yaw=90.0, roll=90, pitch=-110),
         ),
         "attach_to": "vehicle",
         "attachment_type": carla.AttachmentType.SpringArm,  # Smoother following
+        "fov": "95",
     },
     "bev_follow_pedestrian": {
         # High above, following pedestrian, looking down
@@ -748,13 +749,6 @@ class MultiCameraRecorder:
         except Exception as e:
             logger.error(f"Error processing frame {image.frame} for '{view_name}': {e}")
             return
-
-        if self.debug:
-            mean_val = np.mean(array)  # For debugging
-            logger.debug(
-                f"Callback '{view_name}': "
-                f"Frame {image.frame}, TS {image.timestamp:.4f}, Mean {mean_val:.2f}",
-            )
 
         # Save the image to disk if needed (for ffmpeg or explicit saving)
         if self._intermediate_frame_saving:

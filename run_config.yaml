@@ -9,12 +9,12 @@ carla:
   benchmark: true
   carla_server: true
   render_offscreen: false # Whether to render offscreen
-  debug: false # Whether to turn on the debug mode (logging verbosely)
+  debug: true # Whether to turn on the debug mode (logging verbosely)
   set_variables: ["DRI_PRIME=1"]
-  max_episode_length: 700 # Maximum number of frames in an episode, 500
+  max_episode_length: 600 # Maximum number of frames in an episode, 500
   iterations: 1 # Force the number of iterations to this value, set to 1 for testing
-  width: 800 # Width of the camera
-  height: 600 # Height of the camera
+  width: 1024 # Width of the camera
+  height: 720 # Height of the camera
   load_complete_map: true # Whether to load the complete map, False will load a simplistic map
 
 # Logic Configuration
@@ -38,6 +38,9 @@ scenarios: [
 camera:
   - "pedestrian_pov"
   - "bev_follow_vehicle"
+  - "bev_follow_pedestrian"
+  - "pedestrian_pov"
+  # - "bev_follow_vehicle"
   - "vehicle_pov"
   # ["vehicle_pov"] # Possible are: ["pedestrian_pov", "vehicle_pov", "bev_static", "bev_follow_vehicle", "bev_follow_pedestrian", "default"]
 

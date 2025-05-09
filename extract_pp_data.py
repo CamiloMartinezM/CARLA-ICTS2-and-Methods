@@ -227,10 +227,10 @@ def postprocessing(
     # Loop through the recorded videos and stitch them together
     for scenario_folder in VIDEOS_DIR.iterdir():
         if scenario_folder.is_dir():
-            # If an all_views file already exists, skip
+            # If an all_views file already exists, delete it to re-generate it
             if (scenario_folder / "all_views.mp4").exists():
-                logger.info(f"Skipping {scenario_folder} as all_views.mp4 already exists.")
-                continue
+                logger.warning(f"Deleting already existing {scenario_folder / 'all_views.mp4'}.")
+                (scenario_folder / "all_views.mp4").unlink()
 
             # Get the list of videos in the folder, but only the views that we're interested in
             videos = videos_in_folder(

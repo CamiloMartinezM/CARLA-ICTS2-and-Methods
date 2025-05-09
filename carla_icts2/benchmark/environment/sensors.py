@@ -10,7 +10,7 @@ import carla
 import cv2
 import numpy as np
 import pygame
-from carla import ColorConverter as cc
+from carla import ColorConverter as cc  # type: ignore[attr-defined]
 
 from carla_icts2.benchmark.environment.utils import get_actor_display_name
 from carla_icts2.scenarios_config import Config
