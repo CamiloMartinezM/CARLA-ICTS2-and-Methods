@@ -2824,31 +2824,49 @@ class World:
 
     def setup_07_int(self, obstacles, conf):
         """Setup for Interactive Scenario 7: Based on 05_int + Hand Raise"""
-        logger.info("Setting up Scenario 07_int: Based on 05_int + Hand Raise")
         # --- Parameters ---
         spawning_distance = conf.spawning_distance
+
         # Use parameter names consistent with IConfig05/IConfig07
         walking_distance_X = conf.walking_distance_X
         walking_distance_Y = conf.walking_distance_Y
-        crossing_distance = conf.crossing_distance  # Reusing this name for simplicity
+        crossing_distance = conf.crossing_distance
+
+        # Distance walked across the street after sprinting (i.e., same direction as the sprint)
+        walk_after_crossing_X = conf.walk_after_crossing_X
+
+        # Distance walked perpendicular to the street after crossing (i.e., along the curb)
+        walk_after_crossing_Y = conf.walk_after_crossing_Y
+
         self.sprint_multiplier = conf.sprint_speed_multiplier
         self.wait_duration = conf.wait_duration
         self.char = conf.char
         self.ped_speed = conf.ped_speed
 
-        self.db = (
-            [-1, 15] if self.char == "yielding" else [-1, 20]
-        )  # Decision Box from 05_int (adjust if needed)
+        self.db = [-1, 15] if self.char == "yielding" else [-1, 20]  # Decision Box from 05_int
         mult = 1.0 if self.char == "yielding" else 1.1 * 1.1 * 1.1  # Speed multiplier from 05_int
+
+        if self.debug:
+            logger.debug(
+                f"Setup Scenario 07_int: Spawning distance: {spawning_distance:.2f}, "
+                f"Crossing distance: {crossing_distance:.2f}, "
+                f"Walking distance X: {walking_distance_X:.2f}, "
+                f"Walking distance Y: {walking_distance_Y:.2f}, "
+                f"Walk after crossing X: {walk_after_crossing_X:.2f}, "
+                f"Walk after crossing Y: {walk_after_crossing_Y:.2f}, "
+                f"Wait duration: {self.wait_duration:.2f}, "
+                f"Character: {self.char}, "
+                f"Pedestrian speed: {self.ped_speed:.2f}",
+            )
 
         # --- Spawn & Base Location (Identical to 05_int) ---
         base_loc = obstacles[0][1].location + carla.Location(0, -spawning_distance, 0)
         spawn_loc = base_loc  # Spawn at base_loc
-        spawn_rotation = obstacles[0][
-            1
-        ].rotation  # Use rotation from scenario def (usually 90.0 for 05_int)
+
+        # Use rotation from scenario def (usually 90.0 for 05_int)
         # Ensure correct starting Yaw if scenario def doesn't provide it reliably
         # spawn_rotation.yaw = 90.0 # Explicitly face East like 05_int start
+        spawn_rotation = obstacles[0][1].rotation
 
         self.walker = self.world.try_spawn_actor(
             obstacles[0][0],
@@ -2892,24 +2910,39 @@ class World:
 
         # --- Path 3: Optional Continue (Similar to 05_int) ---
         offsets_3 = [
-            (walking_distance_X + crossing_distance + 5, -walking_distance_Y),  # Further +X
-            (walking_distance_X + crossing_distance + 5, -walking_distance_Y - 5),
+            (
+                walking_distance_X + crossing_distance + walk_after_crossing_X,
+                -walking_distance_Y,
+            ),  # Further +X
+            (
+                walking_distance_X + crossing_distance + walk_after_crossing_X,
+                -walking_distance_Y - walk_after_crossing_Y,
+            ),
         ]  # Walk along other side
+
         path_3 = self._compute_plans(
             offsets_3,
             base_loc,
             color=carla.Color(r=0, g=0, b=255) if self.debug else None,
         )
         self.path_controller_3 = PathController(
-            self.world, self.walker, path_3, self.ped_speed
-        )  # Optional
+            self.world,
+            self.walker,
+            path_3,
+            self.ped_speed,
+        )
 
         # --- Initialize Controllers & State ---
         self.look_across_street_left = LookAcrossStreetLeft(
-            self.walker, self.curb_point, duration=0.5
+            self.walker,
+            self.curb_point,
+            duration=0.5,
         )  # Look triggered at curb
         self.raise_hand_briefly = RaiseHandBriefly(
-            self.walker, self.curb_point, raise_duration=0.2, hold_duration=0.4
+            self.walker,
+            self.curb_point,
+            raise_duration=0.2,
+            hold_duration=0.4,
         )  # Hand raise triggered after look
         self.reset_pose = ResetPose(self.walker)  # Generic reset
 
@@ -2928,7 +2961,7 @@ class World:
             if self.path_2:
                 self._draw_point(self.path_2[0], color=carla.Color(255, 0, 255))
             self.desc_p = self.curb_point  # Decision point is at the curb
-            self._draw_db(self.db, color=carla.Color(0, 0, 255))
+            self._draw_db(self.db, color=carla.Color(255, 0, 255))
 
         self.walker.icr = ICR.INTERESTED
         self.walker.initial_son = SON.YIELDING if conf.char == "yielding" else SON.FORCING
@@ -2938,7 +2971,7 @@ class World:
         if self.dummy_car:
             player_loc = self.player.get_location()
             car_yielding = self.char == "yielding"
-            estimated_car_speed_mps = 8.0  # Example speed
+            estimated_car_speed_mps = 5.0  # Example speed
             self.car_controller = CarController(
                 self.player,
                 braking_point=carla.Location(player_loc.x, self.curb_point.y + self.db[0] - 5, 0.5)

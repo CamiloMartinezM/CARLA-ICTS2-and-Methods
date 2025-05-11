@@ -1,28 +1,9 @@
 # config.py
+from typing import ClassVar
+
 import numpy as np
 
-
-## Needed to put it here to do some weired circular import problem
-## Same class in ped_controller.py
-class ControllerConfig:
-    def __init__(self, ped_speed=1.0, ped_distance=30.0):
-        self.ped_speed = ped_speed
-        self.ped_distance = ped_distance
-        # Has to be initialized due weired initial call
-        self.spawning_distance = 0
-        self.walking_distance = 0
-        self.looking_distance = 0
-        self.crossing_distance = 0
-        self.reenter_distance = 0
-        self.op_reenter_distance = 0
-        self.char = "yielding"
-
-        # --- NEW Parameters specifically for IConfig07 ---
-        self.walk_offset_x = 0.0  # Default value for compatibility
-        self.walk_along_y = 0.0  # Default value for compatibility
-        self.crossing_distance_x = 0.0  # Default value (might overlap with crossing_distance)
-        self.sprint_speed_multiplier = 1.0  # Default multiplier is 1 (no sprint)
-        self.wait_duration = 0.0  # Default wait duration
+from carla_icts2.benchmark.environment.ped_controller import ControllerConfig
 
 
 class ScenarioConfig:
@@ -30,8 +11,11 @@ class ScenarioConfig:
         rng = np.random.default_rng(seed=42)
         self.scenes = rng.permutation(self.get_scenes())
         self.n_scenes = len(self.scenes)
-        # self.split = [0.18,0.35,0.55] # 0.2, 0.2, 0.6
+        # self.split = [0.18, 0.35, 0.55] # 0.2, 0.2, 0.6
         self.split = [0.5, 0.6, 1.0]
+
+        # Re-defined by classes inheriting from this class
+        self.id = None
 
     def get_scenes(self):
         return []
@@ -51,6 +35,10 @@ class ScenarioConfig:
         upper = int(self.split[2] * self.n_scenes)
         return self.scenes[lower:upper]
 
+    def __str__(self) -> str:
+        """Return a string representation of the scenario configuration."""
+        return f"ScenarioConfig(id={self.id}, n_scenes={self.n_scenes}, split={self.split})"
+
 
 class IConfig01(ScenarioConfig):
     def __init__(self):
@@ -65,7 +53,9 @@ class IConfig01(ScenarioConfig):
         self.op_reenter_distances = [5, 5]  # 5
         self.character = ["forcing", "yielding"]  # , "yielding"]
         # self.character = ["yielding", "forcing"]
-        super(IConfig01, self).__init__()
+        super().__init__()
+
+        self.id = "01_int"  # Unique identifier for this scenario
 
     def get_scenes(self):
         scenes = []
@@ -106,7 +96,6 @@ class IConfig01(ScenarioConfig):
                                     conf.op_reenter_distance = crossing_distance
                                     conf.char = char
                                     scenes.append(("01_int", conf))
-        print("Total scenes count (int-1): ", len(scenes))
         return scenes
 
 
@@ -120,7 +109,9 @@ class IConfig02(ScenarioConfig):
         self.op_reenter_distances = [3, 4]  # 1
         self.character = ["forcing", "yielding"]  # forcing
         # character = ["yielding", "forcing"]
-        super(IConfig02, self).__init__()
+        super().__init__()
+
+        self.id = "02_int"  # Unique identifier for this scenario
 
     def get_scenes(self):
         scenes = []
@@ -159,7 +150,6 @@ class IConfig02(ScenarioConfig):
                                     conf.op_reenter_distance = op_reenter_distance
                                     conf.char = char
                                     scenes.append(("02_int", conf))
-        print("Total scenes count (int-2): ", len(scenes))
         return scenes
 
 
@@ -170,7 +160,9 @@ class IConfig03(ScenarioConfig):
         self.looking_distances = [0.07, 0.13]
         # self.character = ["yielding"]#, "yielding"]
         self.character = ["forcing", "yielding"]
-        super(IConfig03, self).__init__()
+        super().__init__()
+
+        self.id = "03_int"  # Unique identifier for this scenario
 
     def get_scenes(self):
         scenes = []
@@ -191,7 +183,6 @@ class IConfig03(ScenarioConfig):
                         conf.looking_distance = looking_distance
                         conf.char = char
                         scenes.append(("03_int", conf))
-        print("Total scenes count (int-3): ", len(scenes))
         return scenes
 
 
@@ -212,7 +203,9 @@ class IConfig04(ScenarioConfig):
 
         self.character = ["forcing", "yielding"]  # , "yielding"]
         # self.character = ["yielding", "forcing"]
-        super(IConfig04, self).__init__()
+        super().__init__()
+
+        self.id = "04_int"  # Unique identifier for this scenario
 
     def get_scenes(self):
         scenes = []
@@ -257,7 +250,6 @@ class IConfig04(ScenarioConfig):
                                     conf.crossing_distanceY = crossing_distanceY
                                     conf.char = char
                                     scenes.append(("04_int", conf))
-        print("Total scenes count (int-4): ", len(scenes))
         return scenes
 
 
@@ -281,7 +273,9 @@ class IConfig05(ScenarioConfig):
         # self.op_reenter_distances = [5, 5]  # 5
         self.character = ["forcing", "yielding"]  # , "yielding"]
         # self.character = ["yielding", "forcing"]
-        super(IConfig05, self).__init__()
+        super().__init__()
+
+        self.id = "05_int"  # Unique identifier for this scenario
 
     def get_scenes(self):
         scenes = []
@@ -320,7 +314,6 @@ class IConfig05(ScenarioConfig):
                                     conf.uncertain_steps = uncertain_steps
                                     conf.char = char
                                     scenes.append(("05_int", conf))
-        print("Total scenes count (int-5): ", len(scenes))
         return scenes
 
 
@@ -336,7 +329,9 @@ class IConfig06(ScenarioConfig):
 
         self.character = ["forcing", "yielding"]  # , "yielding"]
         # self.character = ["yielding"]  # , "yielding"]
-        super(IConfig06, self).__init__()
+        super().__init__()
+
+        self.id = "06_int"  # Unique identifier for this scenario
 
     def get_scenes(self):
         scenes = []
@@ -365,32 +360,43 @@ class IConfig06(ScenarioConfig):
                                 conf.car_avoid_Y = car_avoid_Y
                                 conf.char = char
                                 scenes.append(("06_int", conf))
-        print("Total scenes count (int-6): ", len(scenes))
         return scenes
 
 
 class IConfig07(ScenarioConfig):
-    """
-    Configuration for Interactive Scenario 7: "The Sudden Sprint".
-    Pedestrian walks to the curb, stops, looks across, potentially waves,
-    then based on car proximity and character, either waits briefly or
-    suddenly sprints across the street.
+    """Configuration for Interactive Scenario 7: "The Sudden Sprint".
+
+    Pedestrian walks to the curb, stops, looks across, potentially waves, then based on car
+    proximity and character, either waits briefly or suddenly sprints across the street.
     """
 
-    def __init__(self):
-        self.ped_speed_range = [1.0, 1.4]  # Initial walking speed
-        self.spawning_distances = [45, 55]  # How far ahead the interaction starts
+    def __init__(self) -> None:
+        """Initialize the configuration for the Interactive Scenario 07."""
+        self.ped_speed_range = [1.1, 1.3]  # Initial walking speed
+        self.spawning_distances = [40, 50]  # How far ahead the interaction starts
         self.walking_distances_X = [1, 2]  # Offset from curb to spawn/walk
         self.walking_distances_Y = [2, 5]  # Distance walked towards curb
-        self.crossing_distances = [7, 10]  # How far the pedestrian sprints/crosses
+        self.crossing_distances = [7, 8]  # How far the pedestrian sprints/crosses
         self.sprint_speed_multiplier = [2.5, 3.5]  # Factor to multiply base speed for sprint
         self.wait_duration = [0.5, 1.5]  # Seconds to wait if yielding and car is close
         self.character = ["forcing", "yielding"]
-        super(IConfig07, self).__init__()
+
+        # Distance to walk across the street after sprinting
+        # (i.e., in the same direction of the sprint)
+        self.walk_after_crossing_X = 2.5
+
+        # Distance to walk on the other side of the street after crossing
+        # (i.e., perpendicular to the sprint, along the curb)
+        self.walk_after_crossing_Y = 10
+
+        super().__init__()
+
+        self.id = "07_int"  # Unique identifier for this scenario
         # Adjust split if needed, otherwise inherits parent's split
         # self.split = [0.6, 0.8, 1.0] # Example different split
 
-    def get_scenes(self):
+    def get_scenes(self) -> list[tuple[str, ControllerConfig]]:
+        """Generate all possible scenes for this scenario."""
         scenes = []
         for speed in np.arange(self.ped_speed_range[0], self.ped_speed_range[1] + 0.1, 0.1):
             for spawning_distance in np.arange(
@@ -428,18 +434,15 @@ class IConfig07(ScenarioConfig):
                                         conf.spawning_distance = int(spawning_distance)
                                         conf.walking_distance_X = walking_distance_X
                                         conf.walking_distance_Y = walking_distance_Y
-                                        conf.crossing_distance = (
-                                            crossing_distance  # Re-use for simplicity
-                                        )
+                                        conf.crossing_distance = crossing_distance
                                         conf.sprint_speed_multiplier = sprint_multiplier
                                         conf.wait_duration = wait_dur
                                         conf.char = char
-                                        # Add other needed parameters if reused from ControllerConfig base
-                                        conf.looking_distance = 0  # Not used in the same way
-                                        conf.reenter_distance = 0  # Not used
-                                        conf.op_reenter_distance = 0  # Not used
+
+                                        # Fixed parameters for this scenario
+                                        conf.walk_after_crossing_Y = self.walk_after_crossing_Y
+                                        conf.walk_after_crossing_X = self.walk_after_crossing_X
                                         scenes.append(("07_int", conf))
-        print("Total scenes count (int-7): ", len(scenes))
         return scenes
 
 
@@ -453,7 +456,9 @@ class Config01(ScenarioConfig):
         self.cross_walk_delta = []
         self.character = ["forcing"]
         # character = ["yielding", "forcing"]
-        super(Config01, self).__init__()
+        super().__init__()
+
+        self.id = "01_non_int"  # Unique identifier for this scenario
 
     def get_scenes(self):
         scenes = []
@@ -486,7 +491,6 @@ class Config01(ScenarioConfig):
                                 conf.walking_distance = walking_distance
                                 conf.char = char
                                 scenes.append(("01_non_int", conf))
-        print("Total scenes count (non-int-1): ", len(scenes))
         return scenes
 
 
@@ -500,7 +504,9 @@ class Config02(ScenarioConfig):
         self.cross_walk_delta = []
         self.character = ["forcing"]
         # character = ["yielding", "forcing"]
-        super(Config02, self).__init__()
+        super().__init__()
+
+        self.id = "02_non_int"  # Unique identifier for this scenario
 
     def get_scenes(self):
         scenes = []
@@ -533,7 +539,6 @@ class Config02(ScenarioConfig):
                                 conf.walking_distance = walking_distance
                                 conf.char = char
                                 scenes.append(("02_non_int", conf))
-        print("Total scenes count (non-int-2): ", len(scenes))
         return scenes
 
 
@@ -547,7 +552,9 @@ class Config03(ScenarioConfig):
         self.cross_walk_delta = []
         self.character = ["forcing"]
         # character = ["yielding", "forcing"]
-        super(Config03, self).__init__()
+        super().__init__()
+
+        self.id = "03_non_int"  # Unique identifier for this scenario
 
     def get_scenes(self):
         scenes = []
@@ -580,7 +587,6 @@ class Config03(ScenarioConfig):
                                 conf.walking_distance = walking_distance
                                 conf.char = char
                                 scenes.append(("03_non_int", conf))
-        print("Total scenes count (non-int-3): ", len(scenes))
         return scenes
 
 
@@ -594,7 +600,9 @@ class Config04(ScenarioConfig):
         self.cross_walk_delta = []
         self.character = ["forcing"]
         # character = ["yielding", "forcing"]
-        super(Config04, self).__init__()
+        super().__init__()
+
+        self.id = "04_non_int"  # Unique identifier for this scenario
 
     def get_scenes(self):
         scenes = []
@@ -627,7 +635,6 @@ class Config04(ScenarioConfig):
                                 conf.walking_distance = walking_distance
                                 conf.char = char
                                 scenes.append(("04_non_int", conf))
-        print("Total scenes count (non-int-4): ", len(scenes))
         return scenes
 
 
@@ -641,7 +648,9 @@ class Config05(ScenarioConfig):
         self.cross_walk_delta = []
         self.character = ["forcing"]
         # character = ["yielding", "forcing"]
-        super(Config05, self).__init__()
+        super().__init__()
+
+        self.id = "05_non_int"  # Unique identifier for this scenario
 
     def get_scenes(self):
         scenes = []
@@ -674,7 +683,6 @@ class Config05(ScenarioConfig):
                                 conf.walking_distance = walking_distance
                                 conf.char = char
                                 scenes.append(("05_non_int", conf))
-        print("Total scenes count (non-int-5): ", len(scenes))
         return scenes
 
 
@@ -688,7 +696,9 @@ class Config06(ScenarioConfig):
         self.cross_walk_delta = []
         self.character = ["forcing"]
         # character = ["yielding", "forcing"]
-        super(Config06, self).__init__()
+        super().__init__()
+
+        self.id = "06_non_int"  # Unique identifier for this scenario
 
         # self.ped_speed_range =  [1.5,1.5] #6
         # self.spwaning_distances = [1,1] #3
@@ -731,7 +741,6 @@ class Config06(ScenarioConfig):
                                 conf.walking_distance = walking_distance
                                 conf.char = char
                                 scenes.append(("06_non_int", conf))
-        print("Total scenes count (non-int-6): ", len(scenes))
         return scenes
 
 
@@ -756,7 +765,7 @@ class Config:
     ped_speed_range = [1.8, 2.2]
     ped_distance_range = [25, 30]
     # car_speed_range = [6, 9]
-    scenarios = [
+    scenarios: ClassVar[list[str]] = [
         "01_int",
         "02_int",
         "03_int",
@@ -766,15 +775,25 @@ class Config:
         "01_non_int",
         "02_non_int",
         "03_non_int",
-    ]  # ,'02_non_int','03_non_int']#,'02_non_int']#,"02_int", "03_int"  #, '02', '03', '04', '05', '06', '07', '08', '09']
-    # scenarios = ['01_int','02_int','03_int']
-    # scenarios = ['01','02', '03', '04', '05', '06', '07', '08', '09']
+    ]
+
     val_scenarios = (["06"],)  # '02', '03', '04', '05', '06', '07', '08', '09']
     val_ped_speed_range = ([0.2, 0.5], [2.1, 2.8])
     val_ped_distance_range = [4.25, 49.25]
     # val_car_speed_range = [6, 9]
 
-    test_scenarios = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10"]
+    test_scenarios: ClassVar[list[str]] = [
+        "01",
+        "02",
+        "03",
+        "04",
+        "05",
+        "06",
+        "07",
+        "08",
+        "09",
+        "10",
+    ]
     test_ped_speed_range = [0.25, 2.85]
     test_ped_distance_range = [4.75, 49.75]
     # test_car_speed_range = [6, 9]

@@ -3,6 +3,7 @@ import time
 from enum import Enum
 
 import carla
+import numpy as np
 
 from carla_icts2.config import logger
 
@@ -861,7 +862,6 @@ class ControllerConfig:
     def __init__(self, ped_speed=1.0, ped_distance=30.0):
         self.ped_speed = ped_speed
         self.ped_distance = ped_distance
-        # Has to be initialized due weired initial call
         self.spawning_distance = 0
         self.walking_distance = 0
         self.looking_distance = 0
@@ -871,11 +871,26 @@ class ControllerConfig:
         self.char = "yielding"
 
         # --- NEW Parameters specifically for IConfig07 ---
-        self.walk_offset_x = 0.0  # Default value for compatibility
-        self.walk_along_y = 0.0  # Default value for compatibility
-        self.crossing_distance_x = 0.0  # Default value (might overlap with crossing_distance)
         self.sprint_speed_multiplier = 1.0  # Default multiplier is 1 (no sprint)
+        self.walking_distance_X = None
+        self.walking_distance_Y = None
+        self.walk_after_crossing_X = None
+        self.walk_after_crossing_Y = None
         self.wait_duration = 0.0  # Default wait duration
+
+    def __str__(self) -> str:
+        """Return a string representation of the object.
+
+        E.g.: `ControllerConfig(ped_speed=1.0, ped_distance=30.0, spawning_distance=0, ...)`
+        """
+        desc = "ControllerConfig("
+        for attr, value in self.__dict__.items():
+            desc += f"{attr}="
+            if type(value) is float or type(value) is np.float64:
+                desc += f"{value:.4f}, "
+            else:
+                desc += f"{value}, "
+        return desc.rstrip(", ") + ")"
 
 
 class ICR(Enum):

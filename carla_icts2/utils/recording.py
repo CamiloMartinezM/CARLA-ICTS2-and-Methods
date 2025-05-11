@@ -417,7 +417,7 @@ CAMERA_CONFIGS = {
     "bev_follow_pedestrian": {
         # High above, following pedestrian, looking down
         "relative_transform": carla.Transform(
-            carla.Location(z=10),
+            carla.Location(z=20),
             carla.Rotation(yaw=180.0, pitch=-90),
         ),
         "attach_to": "pedestrian",
