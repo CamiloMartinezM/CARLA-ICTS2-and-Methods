@@ -15,6 +15,7 @@ matplotlib
 opencv-python
 scikit-learn
 psutil
+prettytable
 cyclopts
 
 # For PyTorch

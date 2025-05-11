@@ -1,6 +1,5 @@
 """Recording module for CARLA simulator to capture the spectator's view."""
 
-import functools  # Added for partial
 import json
 import math
 import platform
@@ -12,7 +11,6 @@ from queue import Empty, Queue
 import carla
 import cv2
 import numpy as np
-from sympy import capture
 
 from carla_icts2.benchmark.environment.world import World
 from carla_icts2.config import logger
@@ -398,6 +396,22 @@ CAMERA_CONFIGS = {
         "attachment_type": carla.AttachmentType.Rigid,
         "fov": "75",
     },
+    "pedestrian_frontal": {
+        # Positioned IN FRONT of the pedestrian, looking AT them.
+        # x=2.0 means 2 meters in front of the pedestrian's local +X axis.
+        # z=1.6 means 1.6 meters up from the pedestrian's origin.
+        # Rotation(yaw=180.0) means the camera, initially facing its own +X,
+        # is turned 180 degrees to face back towards the pedestrian's origin.
+        "relative_transform": carla.Transform(
+            carla.Location(x=2.5, y=0.0, z=1.6),
+            carla.Rotation(yaw=180, pitch=-10),
+        ),
+        "attach_to": "pedestrian",
+        "attachment_type": carla.AttachmentType.SpringArm,
+        "fov": "95",  # Slightly narrower FOV might be good, ~70
+        "distance_from_ped": 2.5,
+        "height_offset": 1.6,
+    },
     # TODO: Check if this works
     "bev_static": {
         # Note: Static BEV needs a world location. We'll calculate it based on actors later.
@@ -459,7 +473,8 @@ class MultiCameraRecorder:
         )
         self.cameras: dict[str, carla.Actor] = {}
         # Using separate queues might simplify debugging/logic if one sensor lags
-        # self.queues: dict[str, Queue[tuple[int, np.ndarray]]] = {view: Queue() for view in camera_views}
+        # self.queues: dict[str, Queue[tuple[int, np.ndarray]]] = {view: Queue()
+        #                                                          for view in camera_views}
         # Sticking to one queue for now for simplicity, but add view_name
         self.queue: Queue[tuple[int, str, np.ndarray]] = Queue()
         self.video_fps = config["fps"]
@@ -519,12 +534,42 @@ class MultiCameraRecorder:
         if view_name == "spectator":
             return self.spectator.get_transform()
 
-        # TODO: Missing "bev_follow_vehicle", "bev_follow_pedestrian"
         # Attached to an actor (vehicle or pedestrian)
         if view_config["attach_to"] == "vehicle":
             ref_transform = self.world.player.get_transform()
         elif view_config["attach_to"] == "pedestrian":
             ref_transform = self.get_walker_pov_camera()
+
+            # For other pedestrian-attached cameras like "pedestrian_frontal"
+            if view_name == "pedestrian_frontal":
+                pedestrian_transform = self.world.walker.get_transform()
+
+                # TODO: It's better practice to pass these from run_config.yaml eventually
+                distance_in_front = view_config["distance_from_ped"]
+                height_offset = view_config["height_offset"]
+                camera_yaw_offset = view_config["relative_transform"].rotation.yaw
+                camera_pitch = view_config["relative_transform"].rotation.pitch
+
+                # Calculate offset in pedestrian's local frame
+                # Pedestrian's +X is forward. Camera needs to be at +X relative to ped.
+                local_offset = carla.Location(x=distance_in_front, y=0, z=height_offset)
+
+                # Transform this local offset to world coordinates based on pedestrian's transform
+                camera_location_world = pedestrian_transform.transform(local_offset)
+
+                # Camera rotation: pedestrian's yaw + 180 degrees to face them, plus pitch
+                camera_rotation_world = carla.Rotation(
+                    pitch=pedestrian_transform.rotation.pitch
+                    + camera_pitch,  # Add pitch relative to ped's pitch
+                    yaw=pedestrian_transform.rotation.yaw + camera_yaw_offset,
+                    roll=pedestrian_transform.rotation.roll,
+                )
+
+                ref_transform = carla.Transform(
+                    camera_location_world,
+                    camera_rotation_world,
+                )
+
         # For static cameras like BEV_static
         elif view_name.startswith("bev_"):
             ref_transform = self.get_bev_camera(
@@ -650,7 +695,7 @@ class MultiCameraRecorder:
             # Ensure camera is upright relative to the world
             final_rotation = carla.Rotation(pitch=pitch, yaw=yaw, roll=0.0)
 
-            # 2. Calculate Final Camera POSITION based on the calculated rotation and head origin
+            # Calculate Final Camera POSITION based on the calculated rotation and head origin
             head_origin = head_transform.location
 
             # Get the direction vectors *from the calculated final rotation*

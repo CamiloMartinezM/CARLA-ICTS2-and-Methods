@@ -6,7 +6,6 @@ import math
 import random
 import sys
 import time
-import time
 
 import carla
 import numpy as np
@@ -138,6 +137,8 @@ class World:
         elif camera_specs == "bev_follow_pedestrian":
             self.update_camera_func = self.update_bev_camera
             self.update_camera_args = {"follow_player": False, "follow_walker": True}
+        elif camera_specs == "pedestrian_frontal":
+            self.update_camera_func = self.update_pedestrian_frontal_camera
         else:
             logger.warning(f"Unrecognized camera specification: {camera_specs}. Using default.")
 
@@ -313,6 +314,38 @@ class World:
 
         # Update the spectator view
         self.world.get_spectator().set_transform(final_transform)
+
+    def update_pedestrian_frontal_camera(self) -> None:
+        """Set the spectator to a frontal view of the pedestrian."""
+        if self.walker is None or not self.walker.is_alive:
+            return
+
+        pedestrian_transform = self.walker.get_transform()
+
+        # Use defaults from CAMERA_CONFIGS if available, otherwise hardcode
+        # TODO: It's better practice to pass these from run_config.yaml eventually
+        distance_in_front = 2.5
+        height_offset = 1.6
+        camera_yaw_offset = 180.0
+        camera_pitch = -10.0
+
+        # Calculate offset in pedestrian's local frame
+        # Pedestrian's +X is forward. Camera needs to be at +X relative to ped.
+        local_offset = carla.Location(x=distance_in_front, y=0, z=height_offset)
+
+        # Transform this local offset to world coordinates based on pedestrian's transform
+        camera_location_world = pedestrian_transform.transform(local_offset)
+
+        # Camera rotation: pedestrian's yaw + 180 degrees to face them, plus pitch
+        camera_rotation_world = carla.Rotation(
+            pitch=pedestrian_transform.rotation.pitch
+            + camera_pitch,  # Add pitch relative to ped's pitch
+            yaw=pedestrian_transform.rotation.yaw + camera_yaw_offset,
+            roll=pedestrian_transform.rotation.roll,
+        )
+
+        final_camera_transform = carla.Transform(camera_location_world, camera_rotation_world)
+        self.world.get_spectator().set_transform(final_camera_transform)
 
     def get_car_blueprint(self):
         blueprint = random.choice(self.world.get_blueprint_library().filter(self._actor_filter))

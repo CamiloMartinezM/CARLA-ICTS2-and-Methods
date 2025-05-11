@@ -44,6 +44,7 @@ ignore = [
     "PTH207",  # Replace `glob` with `Path.glob` or `Path.rglob`
     "PTH103",  # `os.makedirs()` should be replaced by `Path.mkdir(parents=True)`
     "N806",    # Variable `walking_distance_X` in function should be lowercase
+    "N803",    # Argument name `M` should be lowercase
 
     # Actually, just ignore all PTH rules
     "PTH",
