@@ -172,20 +172,39 @@ class RaiseHandBriefly(object):
 
                 bones = self.walker.get_bones()
                 new_pose = []
+                # for bone in bones.bone_transforms:
+                #     # Modify Right Arm bones
+                #     if bone.name == "crl_arm__R":
+                #         bone.relative.rotation.pitch -= 70  # Raise arm forward/up
+                #         bone.relative.rotation.roll += 20  # Slight outward roll
+                #         new_pose.append((bone.name, bone.relative))
+                #     elif bone.name == "crl_shoulder__R":
+                #         bone.relative.rotation.pitch -= 10  # Adjust shoulder
+                #         new_pose.append((bone.name, bone.relative))
+                #     # elif bone.name == "crl_foreArm__R":
+                #     #     bone.relative.rotation.pitch += 0 # Keep forearm straight initially
+                #     #     new_pose.append((bone.name, bone.relative))
+                #     else:
+                #         new_pose.append((bone.name, bone.relative))
                 for bone in bones.bone_transforms:
-                    # Modify Right Arm bones
                     if bone.name == "crl_arm__R":
-                        bone.relative.rotation.pitch -= 70  # Raise arm forward/up
-                        bone.relative.rotation.roll += 20  # Slight outward roll
+                        bone.relative.rotation.pitch -= 45
+                        #     bone.relative.rotation.roll = 90
+                        #     # bone.relative.rotation.yaw = 0
                         new_pose.append((bone.name, bone.relative))
-                    elif bone.name == "crl_shoulder__R":
-                        bone.relative.rotation.pitch -= 10  # Adjust shoulder
+                    if bone.name == "crl_shoulder__R":
+                        bone.relative.rotation.pitch -= -1
+                        bone.relative.rotation.roll += 20
+                        # bone.relative.rotation.yaw = 90
                         new_pose.append((bone.name, bone.relative))
-                    # elif bone.name == "crl_foreArm__R":
-                    #     bone.relative.rotation.pitch += 0 # Keep forearm straight initially
-                    #     new_pose.append((bone.name, bone.relative))
+                    if bone.name == "crl_foreArm__R":
+                        bone.relative.rotation.pitch -= 10
+                        bone.relative.rotation.roll += 40
+                        # bone.relative.rotation.yaw = -45
+                        new_pose.append((bone.name, bone.relative))
                     else:
                         new_pose.append((bone.name, bone.relative))
+
                 control = carla.WalkerBoneControlIn()
                 control.bone_transforms = new_pose
                 self.walker.set_bones(control)
@@ -321,6 +340,13 @@ class LookBehindLeftSpine:
 
 
 class RaiseArm:
+    """Raises Arm.
+
+    Designed for scenarios where the pedestrian walks past the `start_pos` to trigger the arm raise
+    and continues moving until it walks past end_pos to stop it. It's not designed for a stationary
+    gesture.
+    """
+
     def __init__(self, walker, start_pos, char, end_pos):
         self.walker = walker
         self.start_pos = start_pos
@@ -349,6 +375,8 @@ class RaiseArm:
 
         bones = self.walker.get_bones()
         new_pose = []
+
+        logger.info("Bones called")
 
         for bone in bones.bone_transforms:
             if bone.name == "crl_arm__R":
@@ -396,6 +424,168 @@ class RaiseArm:
         # self.walker.blend_pose(1.0)
 
         return "Done"
+
+
+# class RaiseArmStationary:
+#     """Raises Arm in a stationary gesture.
+
+#     Improvement over `RaiseArm`, so that if the walker is at the `start_pos` (and not yet past
+#     `end_pos`), it still applies the arm-raising pose.
+#     """
+
+#     def __init__(self, walker, start_pos, char, end_pos):
+#         self.walker = walker
+#         self.start_pos = start_pos
+#         self.end_pos = end_pos
+#         self.done = False
+#         self.has_started_raising = False
+#         if char == "forcing":
+#             self.spine_roll = 60
+#         else:
+#             self.spine_roll = 20
+
+#     def step(self):
+#         if self.done:
+#             return "Done"
+
+#         current_walker_loc = self.walker.get_location()
+
+#         # Check if we should stop raising the arm
+#         if self.has_started_raising:  # Only check end_pos if arm is already up
+#             direction_end = current_walker_loc - self.end_pos
+#             direction_norm_end = math.sqrt(direction_end.x**2 + direction_end.y**2)
+#             if direction_norm_end < 0.3:  # Slightly larger threshold for deactivation
+#                 logger.info("RaiseArm: Reached end_pos, deactivating.")
+#                 self.walker.blend_pose(0)  # Reset to default animation
+#                 self.done = True
+#                 return "Done"
+
+#         # Check if we should start or continue raising the arm
+#         # Condition: Walker is at or just past start_pos, and not yet done.
+#         direction_start = current_walker_loc - self.start_pos
+#         direction_norm_start = math.sqrt(direction_start.x**2 + direction_start.y**2)
+
+#         # Trigger if close to start_pos OR if already started raising and not yet at end_pos
+#         should_apply_pose = False
+#         if not self.has_started_raising:
+#             if direction_norm_start < 0.3:  # If close enough to start_pos
+#                 logger.info("RaiseArm: At start_pos, initiating arm raise.")
+#                 self.has_started_raising = True
+#                 should_apply_pose = True
+#             else:
+#                 # Not yet at start_pos or too far past it without having started
+#                 return "Running"  # Waiting to reach start_pos
+#         elif self.has_started_raising and not self.done:  # Already started, keep arm up
+#             should_apply_pose = True
+
+#         if should_apply_pose:
+#             logger.debug("RaiseArm: Applying arm-raised pose.")  # Changed to debug
+#             bones = self.walker.get_bones()
+#             new_pose = []
+#             for bone in bones.bone_transforms:
+#                 if bone.name == "crl_arm__R":
+#                     bone.relative.rotation.pitch -= 45
+#                     #     bone.relative.rotation.roll = 90
+#                     #     # bone.relative.rotation.yaw = 0
+#                     new_pose.append((bone.name, bone.relative))
+#                 if bone.name == "crl_shoulder__R":
+#                     bone.relative.rotation.pitch -= -1
+#                     bone.relative.rotation.roll += 20
+#                     # bone.relative.rotation.yaw = 90
+#                     new_pose.append((bone.name, bone.relative))
+#                 if bone.name == "crl_foreArm__R":
+#                     bone.relative.rotation.pitch -= 10
+#                     bone.relative.rotation.roll += 40
+#                     # bone.relative.rotation.yaw = -45
+#                     new_pose.append((bone.name, bone.relative))
+#                 else:
+#                     new_pose.append((bone.name, bone.relative))
+
+#             control = carla.WalkerBoneControlIn()
+#             control.bone_transforms = new_pose
+#             self.walker.set_bones(control)
+#             self.walker.blend_pose(0.7)  # Blend a bit faster for a snappier raise
+#             return "Running"  # Pose applied, controller is active
+
+#         return "Running"  # Should not be reached if logic is correct, but as fallback
+
+
+class RaiseArmStationary:
+    def __init__(
+        self, walker, start_pos, char, end_pos
+    ):  # end_pos might be less relevant for pure static raise
+        self.walker = walker
+        self.start_pos = start_pos
+        self.end_pos = end_pos  # Still used for the original "done" condition if needed
+        self.done = False
+        self.pose_applied_this_activation = False  # New flag
+        self.char = char
+        if char == "forcing":
+            self.spine_roll = 60
+        else:
+            self.spine_roll = 20
+
+    def reset_for_new_activation(self):
+        """Call this from World.tick() before starting a new raise sequence."""
+        self.done = False
+        self.pose_applied_this_activation = False
+
+    def step(self):
+        if self.done:
+            return "Done"
+
+        current_walker_loc = self.walker.get_location()
+
+        # Deactivation by reaching end_pos (original logic, might not be hit if stationary)
+        if self.pose_applied_this_activation:  # Only check end_pos if arm is already up
+            direction_end = current_walker_loc - self.end_pos
+            direction_norm_end = math.sqrt(direction_end.x**2 + direction_end.y**2)
+            if direction_norm_end < 0.3:
+                logger.info("RaiseArmStationary: Reached end_pos, deactivating.")
+                self.walker.blend_pose(0)
+                self.done = True
+                return "Done"
+
+        # Activation condition
+        direction_start = current_walker_loc - self.start_pos
+        direction_norm_start = math.sqrt(direction_start.x**2 + direction_start.y**2)
+
+        if not self.pose_applied_this_activation and direction_norm_start < 0.5:
+            logger.info("RaiseArmStationary: At start_pos, applying arm-raised pose ONCE.")
+            self.pose_applied_this_activation = True  # Set the flag
+
+            bones = self.walker.get_bones()
+            new_pose = []
+            for bone in bones.bone_transforms:
+                if bone.name == "crl_arm__R":
+                    bone.relative.rotation.pitch -= 120
+                    #     bone.relative.rotation.roll = 90
+                    #     # bone.relative.rotation.yaw = 0
+                    new_pose.append((bone.name, bone.relative))
+                if bone.name == "crl_shoulder__R":
+                    bone.relative.rotation.pitch -= -1
+                    bone.relative.rotation.roll += 20
+                    # bone.relative.rotation.yaw = 90
+                    new_pose.append((bone.name, bone.relative))
+                if bone.name == "crl_foreArm__R":
+                    bone.relative.rotation.pitch -= 10
+                    bone.relative.rotation.roll += 40
+                    # bone.relative.rotation.yaw = -45
+                    new_pose.append((bone.name, bone.relative))
+                else:
+                    new_pose.append((bone.name, bone.relative))
+
+            control = carla.WalkerBoneControlIn()
+            control.bone_transforms = new_pose
+            self.walker.set_bones(control)
+            self.walker.blend_pose(2)  # Blend to this pose quickly
+
+            return "Running"  # Pose is now being blended to
+
+        # If pose has been applied, or not yet at start_pos, or already done
+        # it means the controller is either waiting, holding the pose (passively), or finished.
+        # The timed deactivation will happen in World.tick()
+        return "Running" if not self.done else "Done"
 
 
 class LookBehindLeft:

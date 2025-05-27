@@ -431,7 +431,7 @@ CAMERA_CONFIGS = {
     "bev_follow_pedestrian": {
         # High above, following pedestrian, looking down
         "relative_transform": carla.Transform(
-            carla.Location(z=20),
+            carla.Location(z=8),
             carla.Rotation(yaw=180.0, pitch=-90),
         ),
         "attach_to": "pedestrian",
@@ -520,7 +520,7 @@ class MultiCameraRecorder:
 
         logger.info(f"Multi-camera recording initialized for views: {list(self.cameras.keys())}")
         # Add a small delay after spawning sensors
-        time.sleep(1.0)
+        time.sleep(5.0)
 
     def _build_output_base_path(self, scenario: str | None) -> Path:
         """Build the base output directory."""
@@ -589,6 +589,7 @@ class MultiCameraRecorder:
 
         # Replace the rotation with the one given in CAMERA_CONFIGS
         if view_name.startswith("bev_"):
+            static_location.z += view_config["relative_transform"].location.z
             rotation = view_config["relative_transform"].rotation
 
         return carla.Transform(static_location, rotation)
@@ -1213,7 +1214,7 @@ class SpectatorRecorder:
                 )
             f.unlink()
 
-    def tick(self, world_frame: int, discard=True) -> None:
+    def tick(self, world_frame: int, *, discard: bool = True) -> None:
         """Synchronize recorded frames with simulation.
 
         Args:

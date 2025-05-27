@@ -193,6 +193,7 @@ def run(config: dict) -> None:
 def run_server(config: dict) -> subprocess.CompletedProcess:
     """Run the Carla server with the given `config`."""
     cmd = run_server_command(config)
+    logger.info(f"Running CARLA server with command: {cmd}")
     return subprocess.run([cmd], shell=True, check=True)  # noqa: S602
 
 

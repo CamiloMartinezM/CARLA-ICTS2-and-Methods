@@ -23,6 +23,7 @@ from carla_icts2.benchmark.environment.ped_controller import (
     LookBehindRight,
     PathController,
     RaiseArm,
+    RaiseArmStationary,
     RaiseHandBriefly,
     Relaxer,
     ResetPose,
@@ -1196,7 +1197,8 @@ class World:
                     self.reset.step()
                     self.path_controller_3.step()
                 elif self.choice == "Continue":
-                    self.raise_arm.step()
+                    status = self.raise_arm.step()
+                    logger.info(f"Called raise_arm, status is {status}")
                     self.reset.step()
                     self.path_controller_2.step()
                 # if self.walker.initial_son == SON.FORCING:
@@ -1226,7 +1228,6 @@ class World:
         elif self.scenario[0] == "07_int":
             # Scenario 7: Walk -> Stop -> Look -> Raise Hand -> Decide -> Sprint/Wait Logic
             current_time = time.time()
-            hand_status = "Idle"  # Default status
             look_status = "Idle"  # Default status
 
             # 1. Walk to Curb Point
@@ -1267,24 +1268,63 @@ class World:
                     self.hand_raise_finished = False
 
             # 4. Raise Hand (if look finished and hand raise not started/finished)
-            elif self.at_curb and self.look_finished and not self.hand_raise_started:
-                hand_status = self.raise_hand_briefly.step()
-                if hand_status != "Idle" and hand_status != "Done":
-                    self.hand_raise_started = True
-                    logger.info("Scenario 07: Starting hand raise.")
-                elif hand_status == "Done":
-                    self.hand_raise_started = True
-                    self.hand_raise_finished = True
-                    self.wait_start_time = current_time  # Start decision timer
-                    logger.info("Scenario 07: Hand raise finished immediately.")
+            # elif (
+            #     self.at_curb
+            #     and self.look_finished
+            #     and (not self.hand_raise_started or not self.hand_raise_finished)
+            # ):
+            #     if not hasattr(self, "raise_arm_active_time_start"):
+            #         self.raise_arm_active_time_start = current_time
+            #         logger.info("Scenario 07: Starting RaiseArm sequence (simulated duration).")
 
-            # 5. Wait for Hand Raise to Finish
-            elif self.at_curb and self.hand_raise_started and not self.hand_raise_finished:
-                hand_status = self.raise_hand_briefly.step()
-                if hand_status == "Done":
+            #     arm_status = self.raise_arm_controller.step()  # This will apply the pose
+            #     self.hand_raise_started = True
+
+            #     raise_arm_duration = 2  # How long to keep arm raised (adjust this)
+            #     logger.info(
+            #         f"Time: {current_time - self.raise_arm_active_time_start}, status={arm_status}"
+            #     )
+            #     if (
+            #         current_time - self.raise_arm_active_time_start
+            #     ) >= raise_arm_duration or arm_status == "Done":
+            #         # Manually mark as done to stop applying pose
+            #         # self.raise_arm_controller.done = True
+            #         self.walker.blend_pose(0)  # Reset pose after arm raise duration
+            #         self.state = "Deciding"
+            #         self.wait_start_time = current_time  # Start decision timer
+            #         self.hand_raise_finished = True
+            #         logger.info(
+            #             f"Scenario 07: RaiseArm sequence finished after {raise_arm_duration}s. "
+            #             "State -> Deciding.",
+            #         )
+            # State 4: Raise Hand (Static Hold)
+            elif (
+                self.at_curb
+                and self.look_finished
+                and (not self.hand_raise_started or not self.hand_raise_finished)
+            ):
+                if not self.hand_raise_started:
+                    # Reset the controller for a new activation if it was used before
+                    self.raise_arm_controller.reset_for_new_activation()
+                    self.raise_arm_controller.step()  # Call once to apply the pose
+                    self.hand_raise_started = True
+                    self.raise_arm_active_time_start = current_time
+                    logger.info("Scenario 07: Initiated static RaiseArm. Pose applied.")
+
+                # Now, just wait for the duration. The pose is "stuck".
+                raise_arm_duration = 2  # How long to keep arm raised (ADJUST THIS)
+
+                if (current_time - self.raise_arm_active_time_start) >= raise_arm_duration:
+                    logger.info(
+                        f"Scenario 07: Static RaiseArm duration ({raise_arm_duration}s) finished."
+                    )
+                    self.walker.blend_pose(0)  # Reset pose to default animation
                     self.hand_raise_finished = True
-                    self.wait_start_time = current_time  # Start decision timer NOW
-                    logger.info("Scenario 07: Hand raise finished.")
+                    # self.state = "Deciding" # <<< ERROR: self.state does not exist in World class
+                    # Correct way to transition (assuming self.decided_action was used for state):
+                    self.wait_start_time = current_time  # Timer for decision phase
+                    # Transition to decision making in the next main elif block
+                    # No explicit state change here, the next elif will catch hand_raise_finished
 
             # 6. Make Decision (only if at curb, look finished, hand raise finished, and no decision yet)
             elif (
@@ -2965,19 +3005,80 @@ class World:
             self.ped_speed,
         )
 
+        # Calculate absolute world location for the end of Path 4
+        # Path 4 starts where Path 3 (sprint) ends, which is sprint_target_loc
+        # Then it moves walk_after_crossing_X further in X and walk_after_crossing_Y further in -Y
+        # No, Path 4 should be relative to sprint_target_loc
+        self.main_ped_final_destination = target_across_loc + carla.Location(
+            walk_after_crossing_X,
+            walk_after_crossing_Y + 1,
+            0,
+        )
+
+        # --- SPAWN SECOND PEDESTRIAN ---
+        self.walker2 = None  # Initialize
+        # Different model
+        ped2_blueprint = self.world.get_blueprint_library().filter("walker.pedestrian.0002")[0]
+
+        # Make them non-collidable for simplicity
+        if ped2_blueprint.has_attribute("is_invincible"):
+            ped2_blueprint.set_attribute("is_invincible", "true")
+
+        # Spawn at the main pedestrian's final destination
+        spawn_loc_ped2 = self.main_ped_final_destination
+
+        # Make ped2 face towards the main pedestrian's approach direction (e.g., -X)
+        spawn_rotation_ped2 = carla.Rotation(yaw=270.0)  # Facing West (-X)
+
+        self.walker2 = self.world.try_spawn_actor(
+            ped2_blueprint,
+            carla.Transform(spawn_loc_ped2, spawn_rotation_ped2),
+        )
+        if self.walker2:
+            # Stand still
+            self.walker2.apply_control(
+                carla.WalkerControl(direction=carla.Vector3D(0, 0, 0), speed=0),
+            )
+            logger.info(f"Spawned second pedestrian at {spawn_loc_ped2}")
+        else:
+            logger.error(f"Failed to spawn second pedestrian at {spawn_loc_ped2}")
+
         # --- Initialize Controllers & State ---
         self.look_across_street_left = LookAcrossStreetLeft(
             self.walker,
             self.curb_point,
             duration=0.5,
         )  # Look triggered at curb
-        self.raise_hand_briefly = RaiseHandBriefly(
+
+        # Define start and end for RaiseArm
+        # Start raising arm slightly after curb_point (where look finishes)
+        # End raising arm just before sprint decision or as sprint starts.
+        # Let's make it active for a short duration/distance.
+        self.raise_arm_start_trigger_point = self.curb_point
+
+        # End point for RaiseArm: a very small distance *after* curb_point, or effectively the
+        # curb_point itself.
+
+        # The RaiseArm controller will keep the arm up until it passes end_pos.
+        # For a brief raise AT the curb, end_pos should be slightly beyond where it stops for
+        # decision.
+
+        # Or, we make end_pos the start of the sprint path.
+        # Arm stays up for a tiny bit of movement if it were to move
+        self.raise_arm_end_trigger_point = self.path_2[0]  # Start of sprint path
+
+        self.raise_arm_controller = RaiseArmStationary(
             self.walker,
-            self.curb_point,
-            raise_duration=0.2,
-            hold_duration=0.4,
-        )  # Hand raise triggered after look
-        self.reset_pose = ResetPose(self.walker)  # Generic reset
+            start_pos=self.raise_arm_start_trigger_point,  # Trigger when past this point
+            char="forcing",
+            # end_pos=self.raise_arm_end_trigger_point,  # Stop when past this point
+            end_pos=self.get_p_from_vector(
+                self.raise_arm_start_trigger_point,
+                self.raise_arm_end_trigger_point,
+                0.5,
+            ),
+        )
+        self.reset_pose = ResetPose(self.walker)  # Still useful after sprint/wait
 
         self.at_curb = False
         self.look_started = False
@@ -3198,3 +3299,8 @@ class World:
         # Destroy POV camera if it exists
         if hasattr(self, "pov_camera") and self.pov_camera is not None:
             self.pov_camera.destroy()
+
+        # Check if walker2 exists and destroy it
+        if hasattr(self, "walker2") and self.walker2 is not None and self.walker2.is_alive:
+            self.walker2.destroy()
+            self.walker2 = None
