@@ -24,7 +24,6 @@ from carla_icts2.benchmark.environment.ped_controller import (
     PathController,
     RaiseArm,
     RaiseArmStationary,
-    RaiseHandBriefly,
     Relaxer,
     ResetPose,
     TurnHeadLeftWalk,
@@ -101,7 +100,7 @@ class World:
             self.next_weather()
         self.random = False
         self.dummy_car = False
-        self.debug = True
+        self.debug = args.debug
 
         # Variables needed to set up the spectator camera
         self.update_camera_func = None
@@ -1267,36 +1266,6 @@ class World:
                     self.hand_raise_started = False
                     self.hand_raise_finished = False
 
-            # 4. Raise Hand (if look finished and hand raise not started/finished)
-            # elif (
-            #     self.at_curb
-            #     and self.look_finished
-            #     and (not self.hand_raise_started or not self.hand_raise_finished)
-            # ):
-            #     if not hasattr(self, "raise_arm_active_time_start"):
-            #         self.raise_arm_active_time_start = current_time
-            #         logger.info("Scenario 07: Starting RaiseArm sequence (simulated duration).")
-
-            #     arm_status = self.raise_arm_controller.step()  # This will apply the pose
-            #     self.hand_raise_started = True
-
-            #     raise_arm_duration = 2  # How long to keep arm raised (adjust this)
-            #     logger.info(
-            #         f"Time: {current_time - self.raise_arm_active_time_start}, status={arm_status}"
-            #     )
-            #     if (
-            #         current_time - self.raise_arm_active_time_start
-            #     ) >= raise_arm_duration or arm_status == "Done":
-            #         # Manually mark as done to stop applying pose
-            #         # self.raise_arm_controller.done = True
-            #         self.walker.blend_pose(0)  # Reset pose after arm raise duration
-            #         self.state = "Deciding"
-            #         self.wait_start_time = current_time  # Start decision timer
-            #         self.hand_raise_finished = True
-            #         logger.info(
-            #             f"Scenario 07: RaiseArm sequence finished after {raise_arm_duration}s. "
-            #             "State -> Deciding.",
-            #         )
             # State 4: Raise Hand (Static Hold)
             elif (
                 self.at_curb
@@ -2919,18 +2888,18 @@ class World:
         self.db = [-1, 15] if self.char == "yielding" else [-1, 20]  # Decision Box from 05_int
         mult = 1.0 if self.char == "yielding" else 1.1 * 1.1 * 1.1  # Speed multiplier from 05_int
 
-        if self.debug:
-            logger.debug(
-                f"Setup Scenario 07_int: Spawning distance: {spawning_distance:.2f}, "
-                f"Crossing distance: {crossing_distance:.2f}, "
-                f"Walking distance X: {walking_distance_X:.2f}, "
-                f"Walking distance Y: {walking_distance_Y:.2f}, "
-                f"Walk after crossing X: {walk_after_crossing_X:.2f}, "
-                f"Walk after crossing Y: {walk_after_crossing_Y:.2f}, "
-                f"Wait duration: {self.wait_duration:.2f}, "
-                f"Character: {self.char}, "
-                f"Pedestrian speed: {self.ped_speed:.2f}",
-            )
+        # if self.debug:
+        logger.debug(
+            f"Setup Scenario 07_int: Spawning distance: {spawning_distance:.2f}, "
+            f"Crossing distance: {crossing_distance:.2f}, "
+            f"Walking distance X: {walking_distance_X:.2f}, "
+            f"Walking distance Y: {walking_distance_Y:.2f}, "
+            f"Walk after crossing X: {walk_after_crossing_X:.2f}, "
+            f"Walk after crossing Y: {walk_after_crossing_Y:.2f}, "
+            f"Wait duration: {self.wait_duration:.2f}, "
+            f"Character: {self.char}, "
+            f"Pedestrian speed: {self.ped_speed:.2f}",
+        )
 
         # --- Spawn & Base Location (Identical to 05_int) ---
         base_loc = obstacles[0][1].location + carla.Location(0, -spawning_distance, 0)
@@ -3047,7 +3016,7 @@ class World:
         self.look_across_street_left = LookAcrossStreetLeft(
             self.walker,
             self.curb_point,
-            duration=0.5,
+            duration=1.5,
         )  # Look triggered at curb
 
         # Define start and end for RaiseArm

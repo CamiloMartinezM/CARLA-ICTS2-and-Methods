@@ -372,7 +372,7 @@ class IConfig07(ScenarioConfig):
     def __init__(self) -> None:
         """Initialize the configuration for the Interactive Scenario 07."""
         self.ped_speed_range = [1.1, 1.2]  # Initial walking speed
-        self.spawning_distances = [45, 50]  # How far ahead the interaction starts
+        self.spawning_distances = [55, 56]  # How far ahead the interaction starts
         self.walking_distances_X = [1, 2]  # Offset from curb to spawn/walk
         self.walking_distances_Y = [2, 5]  # Distance walked towards curb
         self.crossing_distances = [7, 8]  # How far the pedestrian sprints/crosses

@@ -77,11 +77,9 @@ class LookAcrossStreetLeft(object):
         self.done = False
         self.duration = duration
         self.start_time = None
-        self.state = "Idle"  # <-- Initialize state here
+        self.state = "Idle"
 
     def step(self):
-        # ...(rest of the step method remains the same)...
-
         if self.done:
             return "Done"
 
@@ -105,17 +103,28 @@ class LookAcrossStreetLeft(object):
                 # Walker facing Yaw=180 (-Y). We want to look towards +X (90 deg right turn).
                 # Need negative yaw relative to forward direction.
                 if bone.name == "crl_neck__C":
-                    bone.relative.rotation.pitch += 40  # Look slightly up/level
-                    bone.relative.rotation.yaw -= 80  # Turn head RIGHT relative to body
+                    # (+) Makes him look to his left, (-) to his right
+                    bone.relative.rotation.pitch += 40
+
+                    # (-) Twists the neck to the right w.r.t to the body's vertical line
+                    # and the pedestrian looking to the front
+                    # bone.relative.rotation.yaw -= 80
                     new_pose.append((bone.name, bone.relative))
                 elif bone.name == "crl_Head__C":
-                    bone.relative.rotation.pitch -= 15  # Adjust head level
-                    bone.relative.rotation.roll -= 5  # Slight tilt
-                    bone.relative.rotation.yaw -= 10  # Fine tune head right turn
+                    # (+) Tilts the head to his left, (-) to his right
+                    bone.relative.rotation.pitch += 25
+
+                    # (+) Looks up, (-) looks down
+                    # bone.relative.rotation.roll -= 5
+
+                    # (-) Twists the head to the right w.r.t to the body's vertical line
+                    # and the pedestrian looking to the front
+                    # bone.relative.rotation.yaw -= 10
                     new_pose.append((bone.name, bone.relative))
-                elif bone.name == "crl_spine01__C":
-                    bone.relative.rotation.roll += 25  # Twist spine RIGHT
-                    new_pose.append((bone.name, bone.relative))
+                # elif bone.name == "crl_spine01__C":
+                #     # (+) Twists spine forward, (-) backward
+                #     bone.relative.rotation.roll += 25
+                #     new_pose.append((bone.name, bone.relative))
                 else:
                     new_pose.append((bone.name, bone.relative))
 

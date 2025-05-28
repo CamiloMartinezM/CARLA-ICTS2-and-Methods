@@ -1,7 +1,7 @@
 # Runtime Configuration
 carla:
   path: "/home/camilo/Applications/carla-0-9-15-linux"
-  quality: "Low" # Options: "Low", "Epic"
+  quality: "Epic" # Options: "Low", "Epic"
   port: 2000
   server_mode: true # Whether to launch CARLA in server mode
   fps: 25
@@ -36,9 +36,9 @@ scenarios: [
 
 # Camera Configuration
 camera:
-  # - "pedestrian_frontal"
-  - "bev_follow_pedestrian"
-  # - "pedestrian_pov"
+  - "pedestrian_frontal"
+  # "bev_follow_pedestrian"
+  - "pedestrian_pov"
   # - "vehicle_pov"
   # ["vehicle_pov"] # Possible are: ["pedestrian_pov", "vehicle_pov", "bev_static", "bev_follow_vehicle", "bev_follow_pedestrian", "default"]
 
