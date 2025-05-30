@@ -166,6 +166,25 @@ def run(config: dict) -> None:
                 #     np.save(car_file, save_data_car, allow_pickle=True)
                 #     print("Saved", i)
 
+                if multi_camera_recorder is not None:
+                    logger.info("Episode finished. Running extra ticks for final frame capture...")
+                    extra_ticks = 100
+                    for i in range(extra_ticks):
+                        carla_world.tick()  # Tick the CARLA world
+                        current_snapshot_frame = carla_world.get_snapshot().frame
+                        # Allow sensor callbacks to process and put frames on queue
+                        t.sleep(
+                            carla_world.get_settings().fixed_delta_seconds * 1.1
+                        )  # Small wait
+                        multi_camera_recorder.tick(
+                            current_snapshot_frame
+                        )  # Process frames for this tick
+                        if i % 5 == 0:
+                            logger.debug(
+                                f"Extra tick {i + 1}/{extra_ticks}, World Frame: {current_snapshot_frame}"
+                            )
+                    logger.info("Finished extra ticks.")
+
             except KeyboardInterrupt:
                 break
 

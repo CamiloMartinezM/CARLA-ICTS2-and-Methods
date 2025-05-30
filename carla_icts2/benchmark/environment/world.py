@@ -31,6 +31,7 @@ from carla_icts2.benchmark.environment.ped_controller import (
     TurnHeadRightBehindNoICR,
     TurnHeadRightWalk,
     UncertainSteps,
+    WaveHand,
     l2_distance,
     l2_length,
     y_distance,
@@ -1224,158 +1225,315 @@ class World:
 
             self.relaxer.step()
 
-        elif self.scenario[0] == "07_int":
-            # Scenario 7: Walk -> Stop -> Look -> Raise Hand -> Decide -> Sprint/Wait Logic
-            current_time = time.time()
-            look_status = "Idle"  # Default status
+        # elif self.scenario[0] == "07_int":
+        #     # Scenario 7: Walk -> Stop -> Look -> Raise Hand -> Decide -> Sprint/Wait Logic
+        #     current_time = time.time()
+        #     look_status = "Idle"  # Default status
 
-            # 1. Walk to Curb Point
+        #     # 1. Walk to Curb Point
+        #     if not self.at_curb:
+        #         status1 = self.path_controller_1.step()
+        #         if status1 == "Done":
+        #             self.at_curb = True
+        #             self.walker.apply_control(
+        #                 carla.WalkerControl(direction=carla.Vector3D(0, 0, 0), speed=0.0)
+        #             )  # Stop
+        #             logger.info("Scenario 07: Reached curb point, stopping.")
+        #             # Reset flags for next phases
+        #             self.look_started = False
+        #             self.look_finished = False
+        #             self.hand_raise_started = False
+        #             self.hand_raise_finished = False
+        #             self.decided_action = None
+
+        #     # 2. Look Across Street (if at curb and not started/finished)
+        #     elif self.at_curb and not self.look_started:
+        #         look_status = self.look_across_street_left.step()
+        #         if look_status != "Idle" and look_status != "Done":  # i.e., "Running"
+        #             self.look_started = True
+        #             logger.info("Scenario 07: Starting look across street.")
+        #         elif look_status == "Done":  # Can happen if duration is tiny
+        #             self.look_started = True
+        #             self.look_finished = True
+        #             logger.info("Scenario 07: Look finished immediately.")
+
+        #     # 3. Wait for Look to Finish
+        #     elif self.at_curb and self.look_started and not self.look_finished:
+        #         look_status = self.look_across_street_left.step()
+        #         if look_status == "Done":
+        #             self.look_finished = True
+        #             logger.info("Scenario 07: Look finished.")
+        #             # Immediately try to start hand raise
+        #             self.hand_raise_started = False
+        #             self.hand_raise_finished = False
+
+        #     # State 4: Raise Hand (Static Hold)
+        #     elif (
+        #         self.at_curb
+        #         and self.look_finished
+        #         and (not self.hand_raise_started or not self.hand_raise_finished)
+        #     ):
+        #         if not self.hand_raise_started:
+        #             # Reset the controller for a new activation if it was used before
+        #             self.raise_arm_controller.reset_for_new_activation()
+        #             self.raise_arm_controller.step()  # Call once to apply the pose
+        #             self.hand_raise_started = True
+        #             self.raise_arm_active_time_start = current_time
+        #             logger.info("Scenario 07: Initiated static RaiseArm. Pose applied.")
+
+        #         # Now, just wait for the duration. The pose is "stuck".
+        #         raise_arm_duration = 2  # How long to keep arm raised (ADJUST THIS)
+
+        #         if (current_time - self.raise_arm_active_time_start) >= raise_arm_duration:
+        #             logger.info(
+        #                 f"Scenario 07: Static RaiseArm duration ({raise_arm_duration}s) finished."
+        #             )
+        #             self.walker.blend_pose(0)  # Reset pose to default animation
+        #             self.hand_raise_finished = True
+        #             # self.state = "Deciding" # <<< ERROR: self.state does not exist in World class
+        #             # Correct way to transition (assuming self.decided_action was used for state):
+        #             self.wait_start_time = current_time  # Timer for decision phase
+        #             # Transition to decision making in the next main elif block
+        #             # No explicit state change here, the next elif will catch hand_raise_finished
+
+        #     # 6. Make Decision (only if at curb, look finished, hand raise finished, and no decision yet)
+        #     elif (
+        #         self.at_curb
+        #         and self.look_finished
+        #         and self.hand_raise_finished
+        #         and self.decided_action is None
+        #     ):
+        #         distance_to_car = y_distance(self.curb_point, self.player.get_location()) - 2
+        #         car_in_db = self.decision_trigger(distance_to_car, self.db)
+        #         time_elapsed_decision = (
+        #             current_time - self.wait_start_time
+        #         )  # Time since hand raise finished
+
+        #         # Reset pose BEFORE deciding, so pedestrian looks neutral during decision/wait
+        #         self.reset_pose.step()
+
+        #         if self.char == "yielding":
+        #             if car_in_db:
+        #                 if time_elapsed_decision < self.wait_duration:
+        #                     self.decided_action = "Wait"
+        #                     logger.info("Scenario 07: Decided to Wait (Yielding, Car Close).")
+        #                     self.walker.icr = ICR.PLANNING_TO
+        #                     self.walker.son = SON.YIELDING
+        #                 else:
+        #                     self.decided_action = "Sprint"  # Waited long enough
+        #                     logger.info("Scenario 07: Yielding timeout, deciding to Sprint.")
+        #             else:  # Car is far
+        #                 self.decided_action = "Sprint"
+        #                 logger.info("Scenario 07: Yielding, car far, deciding to Sprint.")
+        #         elif self.char == "forcing":
+        #             self.decided_action = "Sprint"  # Forcing always sprints
+        #             logger.info("Scenario 07: Forcing, deciding to Sprint.")
+
+        #         # Apply sprint speed immediately if sprinting
+        #         if self.decided_action == "Sprint":
+        #             sprint_speed = self.ped_speed * self.sprint_multiplier
+        #             self.path_controller_2.cur_speed = sprint_speed
+        #             logger.info(f"Scenario 07: Setting sprint speed: {sprint_speed:.2f} m/s")
+        #             self.walker.icr = ICR.GOING_TO
+        #             self.walker.son = SON.FORCING
+        #             # Start moving immediately by calling step controller
+        #             self.path_controller_2.step()
+
+        #     # 7. Execute Action (Wait or Sprint)
+        #     elif self.decided_action == "Wait":
+        #         self.walker.apply_control(
+        #             carla.WalkerControl(direction=carla.Vector3D(0, 0, 0), speed=0.0)
+        #         )  # Stay stopped
+        #         # Re-evaluate periodically
+        #         distance_to_car = y_distance(self.curb_point, self.player.get_location()) - 2
+        #         car_in_db = self.decision_trigger(distance_to_car, self.db)
+        #         time_elapsed_decision = current_time - self.wait_start_time
+        #         if not car_in_db or time_elapsed_decision >= self.wait_duration:
+        #             logger.info("Scenario 07: Wait finished or car passed, switching to sprint.")
+        #             self.decided_action = "Sprint"
+        #             sprint_speed = self.ped_speed * self.sprint_multiplier
+        #             self.path_controller_2.cur_speed = sprint_speed
+        #             logger.info(f"Scenario 07: Setting sprint speed: {sprint_speed:.2f} m/s")
+        #             self.walker.icr = ICR.GOING_TO
+        #             self.walker.son = SON.FORCING
+        #             # Start moving immediately
+        #             self.path_controller_2.step()
+
+        #     elif self.decided_action == "Sprint":
+        #         status2 = self.path_controller_2.step()
+        #         if status2 == "Done":
+        #             logger.info("Scenario 07: Finished crossing (sprint path).")
+        #             self.decided_action = "CrossingDone"
+        #             # Start optional continuation path
+        #             self.path_controller_3.step()
+        #             self.walker.icr = ICR.VERY_LOW
+        #             self.walker.son = SON.AVERTING
+
+        #     # 8. Optional Continuation after Crossing
+        #     elif self.decided_action == "CrossingDone":
+        #         status3 = self.path_controller_3.step()
+        #         if status3 == "Done":
+        #             self.decided_action = "FinishedScenario"
+        #             self.walker.apply_control(
+        #                 carla.WalkerControl(direction=carla.Vector3D(0, 0, 0), speed=0.0)
+        #             )
+
+        #     # Update dummy car controller
+        #     if self.dummy_car and hasattr(self, "car_controller"):
+        #         self.car_controller.step()
+        elif self.scenario[0] == "07_int":
+            current_time = time.time()
+
+            # Phase 1: Walk to curb
             if not self.at_curb:
                 status1 = self.path_controller_1.step()
                 if status1 == "Done":
                     self.at_curb = True
                     self.walker.apply_control(
                         carla.WalkerControl(direction=carla.Vector3D(0, 0, 0), speed=0.0)
-                    )  # Stop
-                    logger.info("Scenario 07: Reached curb point, stopping.")
-                    # Reset flags for next phases
-                    self.look_started = False
-                    self.look_finished = False
-                    self.hand_raise_started = False
-                    self.hand_raise_finished = False
-                    self.decided_action = None
+                    )
+                    logger.info("Scenario 07: Reached curb point.")
+                    self.iss_at_curb.step()
 
-            # 2. Look Across Street (if at curb and not started/finished)
-            elif self.at_curb and not self.look_started:
-                look_status = self.look_across_street_left.step()
-                if look_status != "Idle" and look_status != "Done":  # i.e., "Running"
+            # Phase 2: Look across street (if at curb)
+            elif self.at_curb and not self.look_finished:
+                if not self.look_started:
+                    self.look_across_street_left_controller.start_pos = (
+                        self.walker.get_location()
+                    )  # Ensure it triggers at current spot
+                    self.look_across_street_left_controller.step()
                     self.look_started = True
-                    logger.info("Scenario 07: Starting look across street.")
-                elif look_status == "Done":  # Can happen if duration is tiny
-                    self.look_started = True
-                    self.look_finished = True
-                    logger.info("Scenario 07: Look finished immediately.")
+                    logger.info("Scenario 07: Starting 'look across street' pose blend.")
 
-            # 3. Wait for Look to Finish
-            elif self.at_curb and self.look_started and not self.look_finished:
-                look_status = self.look_across_street_left.step()
+                look_status = self.look_across_street_left_controller.step()
                 if look_status == "Done":
                     self.look_finished = True
-                    logger.info("Scenario 07: Look finished.")
-                    # Immediately try to start hand raise
-                    self.hand_raise_started = False
-                    self.hand_raise_finished = False
+                    logger.info("Scenario 07: 'Look across street' pose finished and held.")
 
-            # State 4: Raise Hand (Static Hold)
-            elif (
-                self.at_curb
-                and self.look_finished
-                and (not self.hand_raise_started or not self.hand_raise_finished)
-            ):
-                if not self.hand_raise_started:
-                    # Reset the controller for a new activation if it was used before
-                    self.raise_arm_controller.reset_for_new_activation()
-                    self.raise_arm_controller.step()  # Call once to apply the pose
-                    self.hand_raise_started = True
-                    self.raise_arm_active_time_start = current_time
-                    logger.info("Scenario 07: Initiated static RaiseArm. Pose applied.")
-
-                # Now, just wait for the duration. The pose is "stuck".
-                raise_arm_duration = 2  # How long to keep arm raised (ADJUST THIS)
-
-                if (current_time - self.raise_arm_active_time_start) >= raise_arm_duration:
-                    logger.info(
-                        f"Scenario 07: Static RaiseArm duration ({raise_arm_duration}s) finished."
+            # Phase 3: Wave Hand (after looking)
+            elif self.look_finished and not self.wave_finished:
+                if not self.wave_started:
+                    # Reset the "look" pose before waving
+                    self.reset_pose_controller.start_pos = self.walker.get_location()
+                    self.reset_pose_controller.step()
+                    self.reset_pose_controller.done = (
+                        False  # Allow it to be called again if needed later
                     )
-                    self.walker.blend_pose(0)  # Reset pose to default animation
-                    self.hand_raise_finished = True
-                    # self.state = "Deciding" # <<< ERROR: self.state does not exist in World class
-                    # Correct way to transition (assuming self.decided_action was used for state):
-                    self.wait_start_time = current_time  # Timer for decision phase
-                    # Transition to decision making in the next main elif block
-                    # No explicit state change here, the next elif will catch hand_raise_finished
 
-            # 6. Make Decision (only if at curb, look finished, hand raise finished, and no decision yet)
-            elif (
-                self.at_curb
-                and self.look_finished
-                and self.hand_raise_finished
-                and self.decided_action is None
-            ):
+                    self.wave_hand_controller.start_pos = self.walker.get_location()
+                    self.wave_hand_controller.state = "Idle"  # Ensure controller starts fresh
+                    self.wave_hand_controller.step()
+                    self.wave_started = True
+                    logger.info("Scenario 07: Starting 'wave hand' sequence.")
+
+                wave_status = self.wave_hand_controller.step()
+                if wave_status == "Done":
+                    self.wave_finished = True
+                    logger.info("Scenario 07: 'Wave hand' sequence finished.")
+                    # WaveHand controller handles its own lowering.
+
+            # Phase 4: Lean Forward (after waving)
+            elif self.wave_finished and not self.lean_forward_finished:
+                if not self.lean_forward_started:
+                    # LeanForward's start_pos is self.curb_point (or current pos if preferred)
+                    self.lean_forward_controller.start_pos = self.walker.get_location()
+                    self.lean_forward_controller.step()
+                    self.lean_forward_started = True
+                    logger.info("Scenario 07: Starting 'lean forward' pose.")
+
+                lean_status = self.lean_forward_controller.step()
+                if lean_status == "Done":
+                    self.lean_forward_finished = True
+                    logger.info("Scenario 07: 'Lean forward' pose applied.")
+
+            # Phase 5: Make Decision & Execute (after leaning)
+            elif self.lean_forward_finished and self.decided_action is None:
+                # Reset the leaning pose BEFORE sprint/wait decision, as sprint starts immediately.
+                # If LeanForward itself resets to a neutral standing pose when "Done", this might be redundant.
+                # Assuming LeanForward holds its pose, so we reset.
+                self.reset_pose_controller.start_pos = self.walker.get_location()
+                self.reset_pose_controller.step()
+                self.reset_pose_controller.done = False
+
+                self.decision_phase_started = (
+                    True  # Moved this here, decision made after leaning is done
+                )
+                self.wait_start_time = current_time
+                logger.info("Scenario 07: Leaning finished. Moving to decision.")
+
                 distance_to_car = y_distance(self.curb_point, self.player.get_location()) - 2
                 car_in_db = self.decision_trigger(distance_to_car, self.db)
-                time_elapsed_decision = (
-                    current_time - self.wait_start_time
-                )  # Time since hand raise finished
-
-                # Reset pose BEFORE deciding, so pedestrian looks neutral during decision/wait
-                self.reset_pose.step()
 
                 if self.char == "yielding":
                     if car_in_db:
-                        if time_elapsed_decision < self.wait_duration:
-                            self.decided_action = "Wait"
-                            logger.info("Scenario 07: Decided to Wait (Yielding, Car Close).")
-                            self.walker.icr = ICR.PLANNING_TO
-                            self.walker.son = SON.YIELDING
-                        else:
-                            self.decided_action = "Sprint"  # Waited long enough
-                            logger.info("Scenario 07: Yielding timeout, deciding to Sprint.")
-                    else:  # Car is far
+                        # Time check removed from here, assume decision is made once, then wait starts if chosen
+                        self.decided_action = "Wait"
+                        self.walker.icr = ICR.PLANNING_TO
+                        self.walker.son = SON.YIELDING
+                        logger.info("Scenario 07: Decided to Wait (Yielding, Car Close).")
+                    else:
                         self.decided_action = "Sprint"
                         logger.info("Scenario 07: Yielding, car far, deciding to Sprint.")
                 elif self.char == "forcing":
-                    self.decided_action = "Sprint"  # Forcing always sprints
+                    self.decided_action = "Sprint"
                     logger.info("Scenario 07: Forcing, deciding to Sprint.")
 
-                # Apply sprint speed immediately if sprinting
                 if self.decided_action == "Sprint":
                     sprint_speed = self.ped_speed * self.sprint_multiplier
                     self.path_controller_2.cur_speed = sprint_speed
                     logger.info(f"Scenario 07: Setting sprint speed: {sprint_speed:.2f} m/s")
-                    self.walker.icr = ICR.GOING_TO
-                    self.walker.son = SON.FORCING
-                    # Start moving immediately by calling step controller
+                    self.iss_sprinting.step()
                     self.path_controller_2.step()
+                elif self.decided_action == "Wait":
+                    self.walker.apply_control(
+                        carla.WalkerControl(direction=carla.Vector3D(0, 0, 0), speed=0.0)
+                    )
 
-            # 7. Execute Action (Wait or Sprint)
+            # Phase 6: Continue Executing Action
             elif self.decided_action == "Wait":
                 self.walker.apply_control(
                     carla.WalkerControl(direction=carla.Vector3D(0, 0, 0), speed=0.0)
-                )  # Stay stopped
-                # Re-evaluate periodically
+                )
                 distance_to_car = y_distance(self.curb_point, self.player.get_location()) - 2
                 car_in_db = self.decision_trigger(distance_to_car, self.db)
                 time_elapsed_decision = current_time - self.wait_start_time
                 if not car_in_db or time_elapsed_decision >= self.wait_duration:
-                    logger.info("Scenario 07: Wait finished or car passed, switching to sprint.")
                     self.decided_action = "Sprint"
                     sprint_speed = self.ped_speed * self.sprint_multiplier
                     self.path_controller_2.cur_speed = sprint_speed
-                    logger.info(f"Scenario 07: Setting sprint speed: {sprint_speed:.2f} m/s")
-                    self.walker.icr = ICR.GOING_TO
-                    self.walker.son = SON.FORCING
-                    # Start moving immediately
+                    logger.info("Scenario 07: Wait finished or car passed, switching to sprint.")
+                    self.iss_sprinting.step()
                     self.path_controller_2.step()
 
-            elif self.decided_action == "Sprint":
+            elif self.decided_action == "Sprint" and not self.sprint_finished:
                 status2 = self.path_controller_2.step()
                 if status2 == "Done":
+                    self.sprint_finished = True
                     logger.info("Scenario 07: Finished crossing (sprint path).")
-                    self.decided_action = "CrossingDone"
-                    # Start optional continuation path
-                    self.path_controller_3.step()
-                    self.walker.icr = ICR.VERY_LOW
-                    self.walker.son = SON.AVERTING
+                    if self.path_controller_3:
+                        self.meeting_started = True
+                        self.path_controller_3.cur_speed = self.ped_speed
+                        self.path_controller_3.step()
+                    else:
+                        self.decided_action = "FinishedScenario"
+                        self.walker.apply_control(
+                            carla.WalkerControl(direction=carla.Vector3D(0, 0, 0), speed=0.0)
+                        )
+                    if hasattr(self, "iss_meeting"):
+                        self.iss_meeting.step()
 
-            # 8. Optional Continuation after Crossing
-            elif self.decided_action == "CrossingDone":
-                status3 = self.path_controller_3.step()
-                if status3 == "Done":
+            # Phase 7: Walk to meet walker2
+            elif self.meeting_started and self.decided_action != "FinishedScenario":
+                if self.path_controller_3:
+                    status3 = self.path_controller_3.step()
+                    if status3 == "Done":
+                        self.decided_action = "FinishedScenario"
+                        logger.info("Scenario 07: Reached meeting point with walker2.")
+                        self.walker.apply_control(
+                            carla.WalkerControl(direction=carla.Vector3D(0, 0, 0), speed=0.0)
+                        )
+                else:
                     self.decided_action = "FinishedScenario"
-                    self.walker.apply_control(
-                        carla.WalkerControl(direction=carla.Vector3D(0, 0, 0), speed=0.0)
-                    )
 
             # Update dummy car controller
             if self.dummy_car and hasattr(self, "car_controller"):
@@ -3013,7 +3171,7 @@ class World:
             logger.error(f"Failed to spawn second pedestrian at {spawn_loc_ped2}")
 
         # --- Initialize Controllers & State ---
-        self.look_across_street_left = LookAcrossStreetLeft(
+        self.look_across_street_left_controller = LookAcrossStreetLeft(
             self.walker,
             self.curb_point,
             duration=1.5,
@@ -3036,26 +3194,37 @@ class World:
         # Arm stays up for a tiny bit of movement if it were to move
         self.raise_arm_end_trigger_point = self.path_2[0]  # Start of sprint path
 
-        self.raise_arm_controller = RaiseArmStationary(
+        # WaveHand controller (replaces RaiseHandBriefly)
+        self.wave_hand_controller = WaveHand(
             self.walker,
-            start_pos=self.raise_arm_start_trigger_point,  # Trigger when past this point
-            char="forcing",
-            # end_pos=self.raise_arm_end_trigger_point,  # Stop when past this point
-            end_pos=self.get_p_from_vector(
-                self.raise_arm_start_trigger_point,
-                self.raise_arm_end_trigger_point,
-                0.5,
-            ),
+            start_pos=self.curb_point,  # Triggered at curb after looking
+            raise_duration=0.75,
+            wave_cycles=2,
+            wave_segment_duration=0.5,
+            lower_duration=0.5,
         )
-        self.reset_pose = ResetPose(self.walker)  # Still useful after sprint/wait
 
+        # LeanForward controller
+        self.lean_forward_controller = LeanForward(
+            self.walker,
+            start_pos=self.curb_point,  # Triggered at curb after waving
+        )
+
+        self.reset_pose_controller = ResetPose(self.walker)  # Still useful after sprint/wait
+
+        # Initialize state flags
         self.at_curb = False
         self.look_started = False
         self.look_finished = False
-        self.hand_raise_started = False
-        self.hand_raise_finished = False
+        self.wave_started = False
+        self.wave_finished = False
+        self.lean_forward_started = False
+        self.lean_forward_finished = False
+        self.decision_phase_started = False
         self.wait_start_time = None
-        self.decided_action = None  # "Wait", "Sprint", "CrossNormal", "CrossingDone"
+        self.decided_action = None
+        self.sprint_finished = False
+        self.meeting_started = False
 
         # --- Debugging & Initial State ---
         if self.debug:
@@ -3069,6 +3238,35 @@ class World:
         self.walker.icr = ICR.INTERESTED
         self.walker.initial_son = SON.YIELDING if conf.char == "yielding" else SON.FORCING
         self.walker.son = self.walker.initial_son
+
+        # InternalStateSetters (Adjust trigger points if necessary)
+        self.iss_at_curb = InternalStateSetter(
+            self.walker,
+            self.curb_point,
+            ICR.PLANNING_TO,
+            self.walker.son,
+        )
+        self.iss_at_curb = InternalStateSetter(
+            self.walker,
+            self.curb_point,
+            ICR.PLANNING_TO,
+            self.walker.son,
+        )
+        self.iss_sprinting = InternalStateSetter(
+            self.walker,
+            target_across_loc,
+            ICR.GOING_TO,
+            SON.FORCING,
+        )
+        if self.walker2:
+            self.iss_meeting = InternalStateSetter(
+                self.walker,
+                spawn_loc_ped2,
+                ICR.VERY_LOW,
+                SON.AVERTING,
+            )
+        else:
+            self.iss_meeting = None  # Important if walker2 fails to spawn
 
         # --- Setup Dummy Car (Similar to 05_int/previous 07_int) ---
         if self.dummy_car:

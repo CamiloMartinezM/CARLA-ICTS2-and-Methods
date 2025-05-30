@@ -865,52 +865,88 @@ class MultiCameraRecorder:
                 logger.error(f"Error updating transform for camera {view_name}: {e}")
 
         # 2. Process frame queue (only if storing frames in memory)
+        # if self._store_in_memory:
+        #     frames_processed_this_tick = set()
+        #     processed_count = 0
+        #     try:
+        #         # Process all available items currently in the queue for this tick
+        #         while not self.queue.empty():
+        #             frame_id, view_name, frame_data = self.queue.get_nowait()
+
+        #             if view_name not in self.cameras:
+        #                 continue  # Skip if camera was removed/failed
+
+        #             # Process frame if it's the current or slightly old, but discard future
+        #             if frame_id > world_frame:
+        #                 # Put future frames back - they belong to the next tick
+        #                 self.queue.put((frame_id, view_name, frame_data))
+        #                 continue  # Don't process this frame now
+        #             elif frame_id == world_frame:
+        #                 if view_name not in frames_processed_this_tick:
+        #                     self.frames[view_name].append(frame_data)  # Append the processed frame
+        #                     frames_processed_this_tick.add(view_name)
+        #                     processed_count += 1
+        #                     logger.debug(
+        #                         f"Tick {world_frame}: Added frame {frame_id} for '{view_name}'.",
+        #                     )
+        #                 # else: Frame already added for this view this tick, discard duplicate
+        #             else:  # frame_id < world_frame
+        #                 logger.debug(
+        #                     f"Tick {world_frame}: Discard old frame {frame_id} for '{view_name}'.",
+        #                 )
+
+        #         # Handle missing frames for this tick for views that didn't get processed
+        #         for view_name in self.cameras:
+        #             if view_name not in frames_processed_this_tick:
+        #                 logger.warning(
+        #                     f"Tick {world_frame}: Missing frame for view '{view_name}'.",
+        #                 )
+
+        #     except Empty:
+        #         # This case means queue was empty when get_nowait was called
+        #         logger.debug(f"Tick {world_frame}: Queue empty during processing.")
+        #         for view_name in self.cameras:
+        #             if view_name not in frames_processed_this_tick:
+        #                 logger.warning(
+        #                     f"Tick {world_frame}: Missing frame for view '{view_name}' "
+        #                     "(queue empty).",
+        #                 )
         if self._store_in_memory:
             frames_processed_this_tick = set()
-            processed_count = 0
+            # Process all frames in the queue that are for the current world_frame or older
+            # This helps catch up on any slightly delayed frames from previous ticks.
+            temp_requeue = []  # To temporarily hold future frames
             try:
-                # Process all available items currently in the queue for this tick
                 while not self.queue.empty():
                     frame_id, view_name, frame_data = self.queue.get_nowait()
 
                     if view_name not in self.cameras:
-                        continue  # Skip if camera was removed/failed
+                        continue
 
-                    # Process frame if it's the current or slightly old, but discard future
-                    if frame_id > world_frame:
-                        # Put future frames back - they belong to the next tick
-                        self.queue.put((frame_id, view_name, frame_data))
-                        continue  # Don't process this frame now
-                    elif frame_id == world_frame:
-                        if view_name not in frames_processed_this_tick:
-                            self.frames[view_name].append(frame_data)  # Append the processed frame
-                            frames_processed_this_tick.add(view_name)
-                            processed_count += 1
+                    if frame_id <= world_frame:  # Process current or past frames
+                        if (
+                            view_name not in self.frames
+                        ):  # Should not happen if initialized correctly
+                            self.frames[view_name] = []
+
+                        # Ensure we only add one frame per view for a given world_frame if strict
+                        # sync is needed. However, for catching up, it's better to append if it's a
+                        # new frame_id for that view
+                        self.frames[view_name].append(frame_data)
+                        frames_processed_this_tick.add(view_name)
+                        if self.debug:
                             logger.debug(
-                                f"Tick {world_frame}: Added frame {frame_id} for '{view_name}'.",
+                                f"Tick {world_frame}: "
+                                f"Added frame {frame_id} for '{view_name}' to memory.",
                             )
-                        # else: Frame already added for this view this tick, discard duplicate
-                    else:  # frame_id < world_frame
-                        logger.debug(
-                            f"Tick {world_frame}: Discard old frame {frame_id} for '{view_name}'.",
-                        )
+                    else:  # frame_id > world_frame
+                        temp_requeue.append((frame_id, view_name, frame_data))
 
-                # Handle missing frames for this tick for views that didn't get processed
-                for view_name in self.cameras:
-                    if view_name not in frames_processed_this_tick:
-                        logger.warning(
-                            f"Tick {world_frame}: Missing frame for view '{view_name}'.",
-                        )
+                for item in temp_requeue:  # Put future frames back
+                    self.queue.put(item)
 
             except Empty:
-                # This case means queue was empty when get_nowait was called
                 logger.debug(f"Tick {world_frame}: Queue empty during processing.")
-                for view_name in self.cameras:
-                    if view_name not in frames_processed_this_tick:
-                        logger.warning(
-                            f"Tick {world_frame}: Missing frame for view '{view_name}' "
-                            "(queue empty).",
-                        )
 
             if self.debug:
                 mem_queue_size = (
@@ -1039,6 +1075,10 @@ class MultiCameraRecorder:
         """Stop recording, destroy sensors, and save videos."""
         logger.info("Stopping multi-camera recording...")
 
+        # Give a brief moment for ongoing sensor callbacks to finish
+        # This helps get the very last frames into the queue or onto disk.
+        time.sleep(5)  # Small delay
+
         active_cameras = list(self.cameras.keys())  # Get keys before potentially modifying dict
 
         for view_name in active_cameras:
@@ -1048,6 +1088,10 @@ class MultiCameraRecorder:
                     if camera.is_listening:
                         camera.stop()
                         logger.info(f"Stopped listening for camera '{view_name}'.")
+
+                    # Short delay after stopping listener before destroying actor
+                    time.sleep(0.1)
+
                     if not camera.destroy():
                         logger.warning(f"Could not destroy camera '{view_name}'.")
                     else:
@@ -1057,13 +1101,16 @@ class MultiCameraRecorder:
 
         # Ensure the queue processing finishes (especially if using threads later)
         # Give a very short time for any final callbacks to potentially place items
-        time.sleep(0.5)
+        time.sleep(5)
+
         # Process any remaining items in the queue if storing in memory
         if self._store_in_memory:
-            logger.info(f"Processing remaining items in queue ({self.queue.qsize()})...")
-            world_frame = self.carla_world.get_snapshot().frame  # Get final frame
-            self.tick(world_frame + 1)  # Process frames up to the end
-            logger.info("Finished processing queue.")
+            logger.info(f"Processing any remaining items in queue ({self.queue.qsize()})...")
+            # Use the last known world frame or a slightly incremented one
+            final_world_frame = self.carla_world.get_snapshot().frame + 1
+            # Call tick one last time to ensure all queued frames up to this point are processed
+            self.tick(final_world_frame)
+            logger.info("Finished processing queue for in-memory frames.")
 
         # Now save the videos
         self.save_videos()
@@ -1082,7 +1129,7 @@ class MultiCameraRecorder:
                 logger.info(f"Removed base frames directory: {self.frames_base_path}")
             except Exception as e:
                 logger.error(
-                    f"Could not remove base frames directory {self.frames_base_path}: {e}"
+                    f"Could not remove base frames directory {self.frames_base_path}: {e}",
                 )
 
 

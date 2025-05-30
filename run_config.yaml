@@ -37,9 +37,9 @@ scenarios: [
 # Camera Configuration
 camera:
   - "pedestrian_frontal"
-  # "bev_follow_pedestrian"
   - "pedestrian_pov"
-  # - "vehicle_pov"
+  - "vehicle_pov"
+  # "bev_follow_pedestrian"
   # ["vehicle_pov"] # Possible are: ["pedestrian_pov", "vehicle_pov", "bev_static", "bev_follow_vehicle", "bev_follow_pedestrian", "default"]
 
 # Video Configuration
