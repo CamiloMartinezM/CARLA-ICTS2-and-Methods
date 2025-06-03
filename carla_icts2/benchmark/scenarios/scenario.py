@@ -382,6 +382,27 @@ class Scenario:
 
         return "06_int", obstacles, end, start
 
+    def scenario07_int(self):
+        """
+        Setup for Interactive Scenario 7: "The Sudden Sprint".
+        Uses similar spawn/goal as scenario 05 for consistency.
+        """
+        start = (92.5, 300, -90)  # Same as 05_int
+        end = (92.5, 200, -90)  # Same as 05_int
+        obstacles = []
+        walker_bp = self.world.get_blueprint_library().filter("walker.pedestrian.0001")[0]
+        if walker_bp.has_attribute("is_invincible"):
+            walker_bp.set_attribute("is_invincible", "false")
+        # Initial spawn location - will be adjusted by SD in World setup
+        walker_spawn_point = carla.Transform()
+        walker_spawn_point.location.x = 85  # Base X before WDX offset
+        walker_spawn_point.location.y = 280  # Base Y before SD offset
+        walker_spawn_point.location.z += 1.0
+        walker_spawn_point.rotation.yaw = 90.0  # Start facing away from initial car pos
+        walker = [walker_bp, walker_spawn_point]
+        obstacles.append(walker)
+        return "07_int", obstacles, end, start
+
     def scenario01_non_int(self):
         start = (92.5, 300, -90)
         end = (92.5, 200, -90)

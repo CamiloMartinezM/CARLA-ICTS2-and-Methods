@@ -23,6 +23,7 @@ target-version = "py310"
 select = [
     "ALL", # include all the rules, including new ones
 ]
+
 ignore = [
     "D413",
     "TRY003",  # Avoid specifying long messages outside the exception class
@@ -42,6 +43,8 @@ ignore = [
     "TRY301",  # Abstract `raise` to an inner function
     "PTH207",  # Replace `glob` with `Path.glob` or `Path.rglob`
     "PTH103",  # `os.makedirs()` should be replaced by `Path.mkdir(parents=True)`
+    "N806",    # Variable `walking_distance_X` in function should be lowercase
+    "N803",    # Argument name `M` should be lowercase
 
     # Actually, just ignore all PTH rules
     "PTH",
@@ -60,3 +63,10 @@ skip-magic-trailing-comma = false
 
 # Like Black, automatically detect the appropriate line ending.
 line-ending = "auto"
+
+[tool.mypy]
+disable_error_code = ["import-untyped"]
+
+[[tool.mypy.overrides]]
+module = ["carla.*"]
+ignore_missing_imports = true

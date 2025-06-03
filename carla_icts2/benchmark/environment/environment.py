@@ -1,4 +1,5 @@
 import random
+import time
 from pathlib import Path
 
 import carla
@@ -28,16 +29,18 @@ from carla_icts2.scenarios_config import (
     IConfig04,
     IConfig05,
     IConfig06,
+    IConfig07,
 )
 
 
 class GIDASBenchmark(gym.Env):
     def __init__(self, port=Config.port, mode="TRAINING", setting="normal", record=False):
-        super(GIDASBenchmark, self).__init__()
+        super().__init__()
         random.seed(100)
         self.action_space = gym.spaces.Discrete(Config.N_DISCRETE_ACTIONS)
         height = int(Config.segcam_image_x)
         width = int(Config.segcam_image_y)
+        self.debug = Config.debug
         self.observation_space = gym.spaces.Box(
             low=0,
             high=255,
@@ -68,7 +71,7 @@ class GIDASBenchmark(gym.Env):
         if Config.load_complete_map:
             logger.info("Loading complete map Town01_Opt...")
             # self.client.load_world("Town01_Opt")
-            self.client.load_world("Town01_Opt", carla.MapLayer.Buildings)
+            self.client.load_world("Town01_Opt", map_layers=carla.MapLayer.NONE)
         else:
             logger.info("Loading simplistic world Town01_Opt...")
             with Path(ASSETS_DIR / "Town01_my.xodr").open("r") as odr:
@@ -77,16 +80,18 @@ class GIDASBenchmark(gym.Env):
                     carla.OpendriveGenerationParameters(2.0, 50.0, 0.0, 200.0, False, True),
                 )
 
-        # self.client.load_world("Town01_Opt", carla.MapLayer.Buildings)
-        self.first_sleep = True
         wld = self.client.get_world()
+        wld.load_map_layer(carla.MapLayer.All)
+        wld.unload_map_layer(carla.MapLayer.StreetLights)
+        wld.unload_map_layer(carla.MapLayer.Particles)
+        wld.unload_map_layer(carla.MapLayer.Props)
+        wld.unload_map_layer(carla.MapLayer.Foliage)
+        wld.unload_map_layer(carla.MapLayer.ParkedVehicles)
+
+        self.first_sleep = True
         self.extract = False
         self.prev_vel = 20
-        # time.sleep(5)
-        # wld.unload_map_layer(carla.MapLayer.StreetLights)
-        # wld.unload_map_layer(carla.MapLayer.Props)
-        # wld.unload_map_layer(carla.MapLayer.Particles)
-        logger.info("World loaded.")
+
         self.map = wld.get_map()
         settings = wld.get_settings()
         settings.fixed_delta_seconds = Config.simulation_step
@@ -100,85 +105,63 @@ class GIDASBenchmark(gym.Env):
         # self.planner_agent = RLAgent(self.world, self.map, self.scene)
         self.planner_agent = Learner(self.world, self.map, self.scene)
 
-        wld_map = wld.get_map()
-        print(wld_map.name)
         wld.tick()
 
-        self.episodes = list()
-        self.val_episodes = list()
-        self.test_episodes = list()
+        self.episodes = []
+        self.val_episodes = []
+        self.test_episodes = []
 
-        i = 0
-        print(Config.scenarios)
-        if self.mode == "TRAINING":
-            selector = lambda x: x.get_training()
-        elif self.mode == "VALIDATION":
-            selector = lambda x: x.get_validation()
-        else:
-            selector = lambda x: x.get_test()
-        for scenario in Config.scenarios:
+        # --- Create instances of all available scenario configurations ---
+        all_scenario_config_instances = [
+            IConfig01(),
+            IConfig02(),
+            IConfig03(),
+            IConfig04(),
+            IConfig05(),
+            IConfig06(),
+            IConfig07(),
+            Config01(),
+            Config02(),
+            Config03(),
+            Config04(),
+            Config05(),
+            Config06(),
+        ]
+
+        # --- Create a dictionary for quick lookup by ID ---
+        # This assumes self.id is correctly set in each config class's __init__
+        scenario_instance_map = {}
+        for instance in all_scenario_config_instances:
+            if instance.id is not None:
+                scenario_instance_map[instance.id] = instance
+            else:
+                logger.error(f"Scenario instance {instance} does not have a valid ID.")
+
+        # Iterate through the IDs specified in global Config
+        for scenario_id_str in Config.scenarios:
             if self.setting == "special":
                 # Used for backwards compatibility
                 self._get_special_scenes()
                 self.mode = "TESTING"
                 self.test_episodes = iter(self.episodes)
-            elif scenario == "01_int":
-                self.episodes.extend(IConfig01().get_training())
-                self.val_episodes.extend(IConfig01().get_validation())
-                self.test_episodes.extend(IConfig01().get_test())
-            elif scenario == "02_int":
-                self.episodes.extend(IConfig02().get_training())
-                self.val_episodes.extend(IConfig02().get_validation())
-                self.test_episodes.extend(IConfig02().get_test())
-            elif scenario == "03_int":
-                self.episodes.extend(IConfig03().get_training())
-                self.val_episodes.extend(IConfig03().get_validation())
-                self.test_episodes.extend(IConfig03().get_test())
-            elif scenario == "01_non_int":
-                self.episodes.extend(Config01().get_training())
-                self.val_episodes.extend(Config01().get_validation())
-                self.test_episodes.extend(Config01().get_test())
-            elif scenario == "02_non_int":
-                self.episodes.extend(Config02().get_training())
-                self.val_episodes.extend(Config02().get_validation())
-                self.test_episodes.extend(Config02().get_test())
-            elif scenario == "03_non_int":
-                self.episodes.extend(Config03().get_training())
-                self.val_episodes.extend(Config03().get_validation())
-                self.test_episodes.extend(Config03().get_test())
+                logger.info("Special setting activated, loading special scenes for testing.")
+                break  # Exit the loop as special scenes are now loaded
 
-            elif scenario == "04_non_int":
-                self.episodes.extend(Config04().get_training())
-                self.val_episodes.extend(Config04().get_validation())
-                self.test_episodes.extend(Config04().get_test())
+            # Fetch the pre-instantiated scenario config object
+            scenario_config_instance = scenario_instance_map.get(scenario_id_str)
 
-            elif scenario == "05_non_int":
-                self.episodes.extend(Config05().get_training())
-                self.val_episodes.extend(Config05().get_validation())
-                self.test_episodes.extend(Config05().get_test())
-
-            elif scenario == "06_non_int":
-                self.episodes.extend(Config06().get_training())
-                self.val_episodes.extend(Config06().get_validation())
-                self.test_episodes.extend(Config06().get_test())
-
-            elif scenario == "04_int":
-                self.episodes.extend(IConfig04().get_training())
-                self.val_episodes.extend(IConfig04().get_validation())
-                self.test_episodes.extend(IConfig04().get_test())
-
-            elif scenario == "05_int":
-                self.episodes.extend(IConfig05().get_training())
-                self.val_episodes.extend(IConfig05().get_validation())
-                self.test_episodes.extend(IConfig05().get_test())
-
-            elif scenario == "06_int":
-                self.episodes.extend(IConfig06().get_training())
-                self.val_episodes.extend(IConfig06().get_validation())
-                self.test_episodes.extend(IConfig06().get_test())
-
+            if scenario_config_instance:
+                logger.info(f"Loading {scenario_config_instance}")
+                self.episodes.extend(scenario_config_instance.get_training())
+                self.val_episodes.extend(scenario_config_instance.get_validation())
+                self.test_episodes.extend(scenario_config_instance.get_test())
             else:
-                # Used for backwards compatibility
+                # Backwards compatibility for unmapped scenarios (or if ID wasn't set)
+                # This part only populates self.episodes for the unmapped scenario ID string
+                logger.warning(
+                    f"Scenario with ID '{scenario_id_str}' not found in scenario_instance_map "
+                    f"or its 'id' attribute is None. Using fallback logic.",
+                )
                 for speed in np.arange(
                     Config.ped_speed_range[0],
                     Config.ped_speed_range[1] + 0.1,
@@ -190,15 +173,24 @@ class GIDASBenchmark(gym.Env):
                         1,
                     ):
                         conf = ControllerConfig(speed, distance)
-                        self.episodes.append((scenario, conf))
-                        i = i + 1
+                        self.episodes.append((scenario_id_str, conf))
 
-        print("TRAINING", " Number scences:", len(self.episodes))
-        print("VALIDATION", " Number scences:", len(self.val_episodes))
-        print("TESTING", " Number scences:", len(self.test_episodes))
-        # if self.mode == "TESTING" or self.mode=="VALIDATION":
-        self.val_episodes_iterator = iter(self.val_episodes)
-        self.test_episodes_iterator = iter(self.test_episodes)
+        logger.info(f"Number of scenes in TRAINING: {len(self.episodes)}")
+        logger.info(f"Number of scenes in VALIDATION: {len(self.val_episodes)}")
+        if isinstance(self.test_episodes, list):
+            logger.info(f"Number of scenes in TESTING: {len(self.test_episodes)}")
+        logger.info(f"World {self.map.name} loaded in mode {self.mode}.")
+
+        if self.mode in {"TESTING", "VALIDATION"}:
+            self.val_episodes_iterator = iter(self.val_episodes)
+            self.test_episodes_iterator = iter(self.test_episodes)
+
+        # Print a example of a ControllerConfig in self.episodes
+        if self.debug:
+            logger.debug(
+                f"Example of ControllerConfig in TRAINING episodes: {self.episodes[0][1]}",
+            )
+
         self.ds = 0
 
     def _get_special_scenes(self):

@@ -1,6 +1,5 @@
 """Recording module for CARLA simulator to capture the spectator's view."""
 
-import functools  # Added for partial
 import json
 import math
 import platform
@@ -12,7 +11,6 @@ from queue import Empty, Queue
 import carla
 import cv2
 import numpy as np
-from sympy import capture
 
 from carla_icts2.benchmark.environment.world import World
 from carla_icts2.config import logger
@@ -353,7 +351,7 @@ def stitch_videos_side_by_side(
 def videos_in_folder(
     path: str | Path,
     formats: tuple[str, ...] = (".mp4", ".avi"),
-    startswith: tuple[str, ...] = (),
+    startswith: list[str] | tuple[str, ...] = (),
 ) -> list[Path]:
     """List all video files in a given folder.
 
@@ -366,6 +364,15 @@ def videos_in_folder(
     Returns:
         list[Path]: List of video file paths.
     """
+
+    def get_prefix_priority(file_path: Path) -> int:
+        """Get the priority index based on startswith order."""
+        filename = file_path.name
+        for i, prefix in enumerate(startswith):
+            if filename.startswith(prefix):
+                return i
+        return len(startswith)  # Files that don't match any prefix go to the end
+
     path = Path(path)
     if not path.is_dir():
         logger.error(f"{path} is not a valid directory.")
@@ -382,13 +389,20 @@ def videos_in_folder(
     if not video_files:
         logger.warning(f"No video files found in {path}")
 
+    # Make sure that video_files has the list of files in the same order as startswith to allow
+    # for "priority" lookup
+    if startswith:
+        video_files.sort(key=get_prefix_priority)
+
     return video_files
 
 
 # Define standard camera configurations
 CAMERA_CONFIGS = {
     "vehicle_pov": {
-        "relative_transform": carla.Transform(carla.Location(x=-0.25, y=-0.5, z=1.25)),
+        # x (+) brings the camera to the right side of the vehicle
+        # y (-) brings the camera forward
+        "relative_transform": carla.Transform(carla.Location(x=-0.35, y=-0.7, z=1.25)),
         "attach_to": "vehicle",  # Special keyword for vehicle actor
         "attachment_type": carla.AttachmentType.Rigid,
         "fov": "75",
@@ -397,6 +411,22 @@ CAMERA_CONFIGS = {
         "attach_to": "pedestrian",  # Special keyword for pedestrian actor
         "attachment_type": carla.AttachmentType.Rigid,
         "fov": "75",
+    },
+    "pedestrian_frontal": {
+        # Positioned IN FRONT of the pedestrian, looking AT them.
+        # x=2.0 means 2 meters in front of the pedestrian's local +X axis.
+        # z=1.6 means 1.6 meters up from the pedestrian's origin.
+        # Rotation(yaw=180.0) means the camera, initially facing its own +X,
+        # is turned 180 degrees to face back towards the pedestrian's origin.
+        "relative_transform": carla.Transform(
+            carla.Location(x=2.5, y=0.0, z=1.6),
+            carla.Rotation(yaw=180, pitch=-10),
+        ),
+        "attach_to": "pedestrian",
+        "attachment_type": carla.AttachmentType.SpringArm,
+        "fov": "95",  # Slightly narrower FOV might be good, ~70
+        "distance_from_ped": 2.5,
+        "height_offset": 1.6,
     },
     # TODO: Check if this works
     "bev_static": {
@@ -407,16 +437,17 @@ CAMERA_CONFIGS = {
     "bev_follow_vehicle": {
         # High above, following vehicle, looking down
         "relative_transform": carla.Transform(
-            carla.Location(z=20),
-            carla.Rotation(yaw=90.0, roll=90, pitch=-100),
+            carla.Location(z=8),
+            carla.Rotation(yaw=90.0, roll=90, pitch=-110),
         ),
         "attach_to": "vehicle",
         "attachment_type": carla.AttachmentType.SpringArm,  # Smoother following
+        "fov": "95",
     },
     "bev_follow_pedestrian": {
         # High above, following pedestrian, looking down
         "relative_transform": carla.Transform(
-            carla.Location(z=20),
+            carla.Location(z=8),
             carla.Rotation(yaw=180.0, pitch=-90),
         ),
         "attach_to": "pedestrian",
@@ -458,7 +489,8 @@ class MultiCameraRecorder:
         )
         self.cameras: dict[str, carla.Actor] = {}
         # Using separate queues might simplify debugging/logic if one sensor lags
-        # self.queues: dict[str, Queue[tuple[int, np.ndarray]]] = {view: Queue() for view in camera_views}
+        # self.queues: dict[str, Queue[tuple[int, np.ndarray]]] = {view: Queue()
+        #                                                          for view in camera_views}
         # Sticking to one queue for now for simplicity, but add view_name
         self.queue: Queue[tuple[int, str, np.ndarray]] = Queue()
         self.video_fps = config["fps"]
@@ -504,7 +536,7 @@ class MultiCameraRecorder:
 
         logger.info(f"Multi-camera recording initialized for views: {list(self.cameras.keys())}")
         # Add a small delay after spawning sensors
-        time.sleep(1.0)
+        time.sleep(5.0)
 
     def _build_output_base_path(self, scenario: str | None) -> Path:
         """Build the base output directory."""
@@ -518,12 +550,42 @@ class MultiCameraRecorder:
         if view_name == "spectator":
             return self.spectator.get_transform()
 
-        # TODO: Missing "bev_follow_vehicle", "bev_follow_pedestrian"
         # Attached to an actor (vehicle or pedestrian)
         if view_config["attach_to"] == "vehicle":
             ref_transform = self.world.player.get_transform()
         elif view_config["attach_to"] == "pedestrian":
             ref_transform = self.get_walker_pov_camera()
+
+            # For other pedestrian-attached cameras like "pedestrian_frontal"
+            if view_name == "pedestrian_frontal":
+                pedestrian_transform = self.world.walker.get_transform()
+
+                # TODO: It's better practice to pass these from run_config.yaml eventually
+                distance_in_front = view_config["distance_from_ped"]
+                height_offset = view_config["height_offset"]
+                camera_yaw_offset = view_config["relative_transform"].rotation.yaw
+                camera_pitch = view_config["relative_transform"].rotation.pitch
+
+                # Calculate offset in pedestrian's local frame
+                # Pedestrian's +X is forward. Camera needs to be at +X relative to ped.
+                local_offset = carla.Location(x=distance_in_front, y=0, z=height_offset)
+
+                # Transform this local offset to world coordinates based on pedestrian's transform
+                camera_location_world = pedestrian_transform.transform(local_offset)
+
+                # Camera rotation: pedestrian's yaw + 180 degrees to face them, plus pitch
+                camera_rotation_world = carla.Rotation(
+                    pitch=pedestrian_transform.rotation.pitch
+                    + camera_pitch,  # Add pitch relative to ped's pitch
+                    yaw=pedestrian_transform.rotation.yaw + camera_yaw_offset,
+                    roll=pedestrian_transform.rotation.roll,
+                )
+
+                ref_transform = carla.Transform(
+                    camera_location_world,
+                    camera_rotation_world,
+                )
+
         # For static cameras like BEV_static
         elif view_name.startswith("bev_"):
             ref_transform = self.get_bev_camera(
@@ -543,6 +605,7 @@ class MultiCameraRecorder:
 
         # Replace the rotation with the one given in CAMERA_CONFIGS
         if view_name.startswith("bev_"):
+            static_location.z += view_config["relative_transform"].location.z
             rotation = view_config["relative_transform"].rotation
 
         return carla.Transform(static_location, rotation)
@@ -649,7 +712,7 @@ class MultiCameraRecorder:
             # Ensure camera is upright relative to the world
             final_rotation = carla.Rotation(pitch=pitch, yaw=yaw, roll=0.0)
 
-            # 2. Calculate Final Camera POSITION based on the calculated rotation and head origin
+            # Calculate Final Camera POSITION based on the calculated rotation and head origin
             head_origin = head_transform.location
 
             # Get the direction vectors *from the calculated final rotation*
@@ -749,13 +812,6 @@ class MultiCameraRecorder:
             logger.error(f"Error processing frame {image.frame} for '{view_name}': {e}")
             return
 
-        if self.debug:
-            mean_val = np.mean(array)  # For debugging
-            logger.debug(
-                f"Callback '{view_name}': "
-                f"Frame {image.frame}, TS {image.timestamp:.4f}, Mean {mean_val:.2f}",
-            )
-
         # Save the image to disk if needed (for ffmpeg or explicit saving)
         if self._intermediate_frame_saving:
             frame_path = self.frames_base_path / view_name / f"frame_{image.frame:08d}.png"
@@ -827,54 +883,46 @@ class MultiCameraRecorder:
         # 2. Process frame queue (only if storing frames in memory)
         if self._store_in_memory:
             frames_processed_this_tick = set()
-            processed_count = 0
+            # Process all frames in the queue that are for the current world_frame or older
+            # This helps catch up on any slightly delayed frames from previous ticks.
+            temp_requeue = []  # To temporarily hold future frames
             try:
-                # Process all available items currently in the queue for this tick
                 while not self.queue.empty():
                     frame_id, view_name, frame_data = self.queue.get_nowait()
 
                     if view_name not in self.cameras:
-                        continue  # Skip if camera was removed/failed
+                        continue
 
-                    # Process frame if it's the current or slightly old, but discard future
-                    if frame_id > world_frame:
-                        # Put future frames back - they belong to the next tick
-                        self.queue.put((frame_id, view_name, frame_data))
-                        continue  # Don't process this frame now
-                    elif frame_id == world_frame:
-                        if view_name not in frames_processed_this_tick:
-                            self.frames[view_name].append(frame_data)  # Append the processed frame
-                            frames_processed_this_tick.add(view_name)
-                            processed_count += 1
+                    if frame_id <= world_frame:  # Process current or past frames
+                        if (
+                            view_name not in self.frames
+                        ):  # Should not happen if initialized correctly
+                            self.frames[view_name] = []
+
+                        # Ensure we only add one frame per view for a given world_frame if strict
+                        # sync is needed. However, for catching up, it's better to append if it's a
+                        # new frame_id for that view
+                        self.frames[view_name].append(frame_data)
+                        frames_processed_this_tick.add(view_name)
+                        if self.debug:
                             logger.debug(
-                                f"Tick {world_frame}: Added frame {frame_id} for '{view_name}'.",
+                                f"Tick {world_frame}: "
+                                f"Added frame {frame_id} for '{view_name}' to memory.",
                             )
-                        # else: Frame already added for this view this tick, discard duplicate
-                    else:  # frame_id < world_frame
-                        logger.debug(
-                            f"Tick {world_frame}: Discard old frame {frame_id} for '{view_name}'.",
-                        )
+                    else:  # frame_id > world_frame
+                        temp_requeue.append((frame_id, view_name, frame_data))
 
-                # Handle missing frames for this tick for views that didn't get processed
-                for view_name in self.cameras:
-                    if view_name not in frames_processed_this_tick:
-                        logger.warning(
-                            f"Tick {world_frame}: Missing frame for view '{view_name}'.",
-                        )
+                for item in temp_requeue:  # Put future frames back
+                    self.queue.put(item)
 
             except Empty:
-                # This case means queue was empty when get_nowait was called
                 logger.debug(f"Tick {world_frame}: Queue empty during processing.")
-                for view_name in self.cameras:
-                    if view_name not in frames_processed_this_tick:
-                        logger.warning(
-                            f"Tick {world_frame}: Missing frame for view '{view_name}' "
-                            "(queue empty).",
-                        )
 
             if self.debug:
                 mem_queue_size = (
-                    len(self.frames.get(list(self.cameras.keys())[0], [])) if self.cameras else 0
+                    len(self.frames.get(next(iter(self.cameras.keys())), []))
+                    if self.cameras
+                    else 0
                 )
                 logger.debug(
                     f"Tick End: World Frame={world_frame}, Queue Size={self.queue.qsize()}, "
@@ -909,7 +957,8 @@ class MultiCameraRecorder:
                 # Check if the directory exists and contains PNG files
                 if not view_frames_path.is_dir() or not list(view_frames_path.glob("*.png")):
                     logger.warning(
-                        f"No frames found on disk for view '{view_name}' at {view_frames_path}. Skipping ffmpeg."
+                        f"No frames found on disk for view '{view_name}' at {view_frames_path}. "
+                        "Skipping ffmpeg.",
                     )
                     continue
 
@@ -999,6 +1048,10 @@ class MultiCameraRecorder:
         """Stop recording, destroy sensors, and save videos."""
         logger.info("Stopping multi-camera recording...")
 
+        # Give a brief moment for ongoing sensor callbacks to finish
+        # This helps get the very last frames into the queue or onto disk.
+        time.sleep(5)  # Small delay
+
         active_cameras = list(self.cameras.keys())  # Get keys before potentially modifying dict
 
         for view_name in active_cameras:
@@ -1008,6 +1061,10 @@ class MultiCameraRecorder:
                     if camera.is_listening:
                         camera.stop()
                         logger.info(f"Stopped listening for camera '{view_name}'.")
+
+                    # Short delay after stopping listener before destroying actor
+                    time.sleep(0.1)
+
                     if not camera.destroy():
                         logger.warning(f"Could not destroy camera '{view_name}'.")
                     else:
@@ -1017,13 +1074,16 @@ class MultiCameraRecorder:
 
         # Ensure the queue processing finishes (especially if using threads later)
         # Give a very short time for any final callbacks to potentially place items
-        time.sleep(0.5)
+        time.sleep(5)
+
         # Process any remaining items in the queue if storing in memory
         if self._store_in_memory:
-            logger.info(f"Processing remaining items in queue ({self.queue.qsize()})...")
-            world_frame = self.carla_world.get_snapshot().frame  # Get final frame
-            self.tick(world_frame + 1)  # Process frames up to the end
-            logger.info("Finished processing queue.")
+            logger.info(f"Processing any remaining items in queue ({self.queue.qsize()})...")
+            # Use the last known world frame or a slightly incremented one
+            final_world_frame = self.carla_world.get_snapshot().frame + 1
+            # Call tick one last time to ensure all queued frames up to this point are processed
+            self.tick(final_world_frame)
+            logger.info("Finished processing queue for in-memory frames.")
 
         # Now save the videos
         self.save_videos()
@@ -1042,7 +1102,7 @@ class MultiCameraRecorder:
                 logger.info(f"Removed base frames directory: {self.frames_base_path}")
             except Exception as e:
                 logger.error(
-                    f"Could not remove base frames directory {self.frames_base_path}: {e}"
+                    f"Could not remove base frames directory {self.frames_base_path}: {e}",
                 )
 
 
@@ -1174,7 +1234,7 @@ class SpectatorRecorder:
                 )
             f.unlink()
 
-    def tick(self, world_frame: int, discard=True) -> None:
+    def tick(self, world_frame: int, *, discard: bool = True) -> None:
         """Synchronize recorded frames with simulation.
 
         Args:

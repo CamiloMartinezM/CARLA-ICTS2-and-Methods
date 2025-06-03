@@ -4,6 +4,8 @@ Time: 23.03.21 14:29
 
 import math
 import re
+from collections.abc import Callable, Iterable, Mapping
+from typing import Any
 
 import carla
 import torch
@@ -50,3 +52,54 @@ def soft_update(target, source, tau):
 def hard_update(target, source):
     for target_param, param in zip(target.parameters(), source.parameters(), strict=False):
         target_param.data.copy_(param.data)
+
+
+def round_dict_values(
+    data: Mapping[Any, Iterable[float]],
+    round_func: Callable[[float], float] = int,
+) -> dict:
+    """Round the numeric elements of iterable values in a dictionary.
+
+    Parameters
+    ----------
+    data : Mapping[Any, Iterable[float]]
+        A dictionary where each key maps to an iterable (e.g. tuple, list) of numeric (float) values.
+
+    round_func : Callable[[float], float], optional
+        A function that takes a float and returns a rounded value.
+        Default is `int`, which truncates decimals.
+
+    Returns
+    -------
+    dict
+        A dictionary with the same keys as the input, where each iterable of floats
+        has been transformed to a tuple of rounded values using `round_func`.
+
+    Raises
+    ------
+    TypeError:
+        If any of the values in the dictionary are not iterable or contain non-numeric elements.
+
+    Examples
+    --------
+    >>> poses = {'hip': (12.3, 45.6, 78.9), 'knee': [90.4, 12.6, 5.5]}
+    >>> round_dict_values(poses)
+    {'hip': (12, 45, 78), 'knee': (90, 12, 5)}
+
+    >>> import math
+    >>> round_dict_values(poses, round_func=math.floor)
+    {'hip': (12, 45, 78), 'knee': (90, 12, 5)}
+    """
+    result = {}
+    for key, values in data.items():
+        if not isinstance(values, Iterable) or isinstance(values, (str, bytes)):
+            raise TypeError(f"Value for key '{key}' is not a valid iterable of floats.")
+
+        try:
+            rounded_values = tuple(round_func(v) for v in values)
+        except Exception as e:
+            raise TypeError(f"Error rounding values for key '{key}': {e}") from e
+
+        result[key] = rounded_values
+
+    return result
