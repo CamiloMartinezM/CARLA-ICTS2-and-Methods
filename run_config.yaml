@@ -1,20 +1,20 @@
 # Runtime Configuration
 carla:
   path: "/home/camilo/Applications/carla-0-9-15-linux"
-  quality: "Epic" # Options: "Low", "Epic"
+  quality: "Low" # Options: "Low", "Epic"
   port: 2000
   server_mode: true # Whether to launch CARLA in server mode
   fps: 24
   prevernvidia: true
   benchmark: true
   carla_server: true
-  render_offscreen: true # Whether to render offscreen
+  render_offscreen: false # Whether to render offscreen
   debug: false # Whether to turn on the debug mode
   set_variables: ["DRI_PRIME=1"]
   max_episode_length: 600 # Maximum number of frames in an episode, 500
   iterations: 1 # Force the number of iterations to this value, set to 1 for testing
-  width: 2560 # Width of the camera
-  height: 1440 # Height of the camera
+  width: 1080 # Width of the camera
+  height: 720 # Height of the camera
   load_complete_map: true # Whether to load the complete map, False will load a simplistic map
 
 # Logic Configuration
@@ -36,7 +36,7 @@ scenarios: [
 
 # Camera Configuration
 camera:
-  - "vehicle_pov"
+  # - "vehicle_pov"
   # - "pedestrian_pov"
   - "pedestrian_frontal"
   # "bev_follow_pedestrian"
