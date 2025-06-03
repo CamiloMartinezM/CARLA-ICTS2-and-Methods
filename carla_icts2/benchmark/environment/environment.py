@@ -99,14 +99,6 @@ class GIDASBenchmark(gym.Env):
         settings.no_rendering_mode = Config.no_rendering
         wld.apply_settings(settings)
 
-        self.scene_generator = Scenario(wld)
-        self.scene = self.scene_generator.scenario01()
-        self.world = World(wld, hud, self.scene, Config)
-        # self.planner_agent = RLAgent(self.world, self.map, self.scene)
-        self.planner_agent = Learner(self.world, self.map, self.scene)
-
-        wld.tick()
-
         self.episodes = []
         self.val_episodes = []
         self.test_episodes = []
@@ -191,7 +183,21 @@ class GIDASBenchmark(gym.Env):
                 f"Example of ControllerConfig in TRAINING episodes: {self.episodes[0][1]}",
             )
 
+        # --- World Initialization ---
+        # Pass the first scenario tuple and args to World constructor
+        # Need to get the first scenario before initializing World if restart is not called immediately
+        initial_scenario_id, initial_conf = self.next_scene()  # Get first scene config
+        self.world = World(wld, hud, (initial_scenario_id, initial_conf), Config)
+        self.planner_agent = Learner(self.world, self.map, (initial_scenario_id, initial_conf))
+
+        # self.scene_generator = Scenario(wld)
+        # self.scene = self.scene_generator.scenario01()
+        # self.world = World(wld, hud, self.scene, Config)
+        # self.planner_agent = Learner(self.world, self.map, self.scene)
+
         self.ds = 0
+
+        wld.tick()  # Initial tick
 
     def _get_special_scenes(self):
         for scenario in Config.val_scenarios:
@@ -255,24 +261,30 @@ class GIDASBenchmark(gym.Env):
         self.ds = 0
         return observation
 
-    def reset_extract(self):
+    # TODO: Compare to original
+    def reset_extract(self) -> None:
+        # Similar logic to reset, but maybe returns different initial state
         scenario_id, conf = self.next_scene()
-        self.scenario = scenario_id
+        self.scenario_id = scenario_id
         self.speed = conf.ped_speed
         self.distance = conf.ped_distance
-        func = "self.scene_generator.scenario" + scenario_id
-        scenario = eval(func + "()")
-        self.world.restart(scenario, conf)
 
-        self.planner_agent.update_scenario(scenario)
+        try:
+            self.world.restart(scenario_id, conf)
+        except Exception as e:
+            logger.error(
+                f"Error restarting world for extract scenario {scenario_id}: {e}",
+                exc_info=True,
+            )
+            return
+
+        self.planner_agent.update_scenario(self.world.current_scenario)
 
         self.world.world.tick()
-        # print("Is none", self.world.semseg_sensor.array is None)
-        i = 0
         while self.world.semseg_sensor.array is None:
             self.world.world.tick()
-            if i > 100:
-                print(i)
+
+        # Assuming get_walker_state is still the desired return
         return self.world.get_walker_state()
 
     def process_inputs(self):
