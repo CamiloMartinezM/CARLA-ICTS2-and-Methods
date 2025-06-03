@@ -168,21 +168,22 @@ def run(config: dict) -> None:
 
                 if multi_camera_recorder is not None:
                     logger.info("Episode finished. Running extra ticks for final frame capture...")
-                    extra_ticks = 100
-                    for i in range(extra_ticks):
+                    extra_ticks = 50
+                    for m in range(extra_ticks):
                         carla_world.tick()  # Tick the CARLA world
                         current_snapshot_frame = carla_world.get_snapshot().frame
+
                         # Allow sensor callbacks to process and put frames on queue
-                        t.sleep(
-                            carla_world.get_settings().fixed_delta_seconds * 1.1
-                        )  # Small wait
-                        multi_camera_recorder.tick(
-                            current_snapshot_frame
-                        )  # Process frames for this tick
-                        if i % 5 == 0:
+                        t.sleep(carla_world.get_settings().fixed_delta_seconds * 1.1)  # Small wait
+
+                        # Process frames for this tick
+                        multi_camera_recorder.tick(current_snapshot_frame)
+                        if m % 5 == 0:
                             logger.debug(
-                                f"Extra tick {i + 1}/{extra_ticks}, World Frame: {current_snapshot_frame}"
+                                f"Extra tick {m + 1}/{extra_ticks}, "
+                                f"World Frame: {current_snapshot_frame}",
                             )
+
                     logger.info("Finished extra ticks.")
 
             except KeyboardInterrupt:
@@ -196,6 +197,8 @@ def run(config: dict) -> None:
         #     arr = np.load(f, allow_pickle=True)
         #     print(arr[0])
         #     print(len(arr))
+
+        t.sleep(2)  # Wait for the environment to stabilize
 
         # --- Cleanup after each scenario ---
         if multi_camera_recorder:
@@ -225,6 +228,8 @@ def run_before() -> None:
 def postprocessing(
     width: int | None = None,
     height: int | None = None,
+    camera_views_to_stitch: list[str] | None = None,
+    max_stitching_videos: int = 3,
     *,
     use_ffmpeg: bool = True,
 ) -> None:
@@ -240,9 +245,17 @@ def postprocessing(
             If None, it takes the `Config.width` value.
         height (int | None): Height that each video should be resized to before stitching together.
             If None, it takes the `Config.height` value.
+        camera_views_to_stitch (list[str] | None): List of camera views to stitch together.
+            If None, it defaults to the one in the `run_config.yaml` file.
+        max_stitching_videos (int): Maximum number of videos to stitch together horizontally.
+            Defaults to 3.
         use_ffmpeg (bool): Whether to use ffmpeg for stitching videos. Defaults to True.
     """
     kill_carla_server()
+
+    run_config = load_yaml("run_config.yaml")
+    if camera_views_to_stitch is None:
+        camera_views_to_stitch = run_config["stitched_video"]["views"]
 
     # Loop through the recorded videos and stitch them together
     for scenario_folder in VIDEOS_DIR.iterdir():
@@ -253,14 +266,18 @@ def postprocessing(
                 (scenario_folder / "all_views.mp4").unlink()
 
             # Get the list of videos in the folder, but only the views that we're interested in
-            videos = videos_in_folder(
-                scenario_folder,
-                startswith=("bev_follow_vehicle", "pedestrian_pov_view", "vehicle_pov_view"),
-            )
+            videos = videos_in_folder(scenario_folder, startswith=camera_views_to_stitch)
             if len(videos) > 1:
-                if len(videos) != 3:
+                if len(videos) > max_stitching_videos:
                     logger.warning(
-                        f"Expected 3 videos in {scenario_folder}, found {len(videos)}.",
+                        f"Found {len(videos)} videos in {scenario_folder}, "
+                        f"but only stitching the first {max_stitching_videos} videos.",
+                    )
+                    videos = videos[:max_stitching_videos]
+                elif len(videos) < max_stitching_videos:
+                    logger.warning(
+                        f"Expected {max_stitching_videos} videos in {scenario_folder}, "
+                        f"found {len(videos)}.",
                     )
 
                 logger.info(

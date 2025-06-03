@@ -1,12 +1,100 @@
-from copy import deepcopy
+import abc
 import math
 import time
 from enum import Enum
+from typing import Literal
 
 import carla
 import numpy as np
 
+from carla_icts2.benchmark.environment.utils import round_dict_values
 from carla_icts2.config import logger
+
+
+class BasePose(abc.ABC):
+    """Abstract Base Class for all poses."""
+
+    def __init__(self, walker: carla.Walker) -> None:
+        """Initialize the BasePose.
+
+        Parameters
+        ----------
+        walker : carla.Walker
+            The walker actor this pose is associated with.
+        """
+        self.walker = walker
+        self.blend_duration = 0.25
+
+    @abc.abstractmethod
+    def step(self) -> Literal["Running", "Done", "Idle"]:
+        """Execute one simulation step's logic specific for this pose."""
+        raise NotImplementedError
+
+    def _apply_arm_pose(
+        self,
+        arm_bone_targets: dict[str, tuple[float, float, float]],
+        *,
+        relative: bool = True,
+    ) -> dict[str, tuple[float, float, float]]:
+        """Apply a target pose to the arm bones of the walker.
+
+        Parameters
+        ----------
+        arm_bone_targets : dict[str, tuple[float, float, float]]
+            A dict like
+            ```
+            {
+                "crl_arm__R": (pitch, roll, yaw),
+                "crl_shoulder__R": (pitch, roll, yaw),
+                ...
+            }
+            ```
+            If a bone is not in the dict, its current relative transform is maintained.
+        relative : bool, optional
+            If True, the specified rotations are applied relative to the current pose.
+            If False, they are set as absolute values. Default is True.
+
+        Returns
+        -------
+        dict[str, tuple[float, float, float]]
+            A dictionary mapping each arm bone name to its updated absolute (pitch, roll, yaw)
+            rotation.
+        """
+        bones = self.walker.get_bones()
+        new_pose = []
+        updated_pose = {}
+        for bone in bones.bone_transforms:
+            if bone.name in arm_bone_targets:
+                pitch, roll, yaw = arm_bone_targets[bone.name]
+                if pitch is not None:
+                    if relative:
+                        bone.relative.rotation.pitch += pitch
+                    else:
+                        bone.relative.rotation.pitch = pitch
+                if roll is not None:
+                    if relative:
+                        bone.relative.rotation.roll += roll
+                    else:
+                        bone.relative.rotation.roll = roll
+                if yaw is not None:
+                    if relative:
+                        bone.relative.rotation.yaw += yaw
+                    else:
+                        bone.relative.rotation.yaw = yaw
+
+                updated_pose[bone.name] = (
+                    bone.relative.rotation.pitch,
+                    bone.relative.rotation.roll,
+                    bone.relative.rotation.yaw,
+                )
+
+            new_pose.append((bone.name, bone.relative))
+
+        control = carla.WalkerBoneControlIn()
+        control.bone_transforms = new_pose
+        self.walker.set_bones(control)
+        self.walker.blend_pose(self.blend_duration)
+        return updated_pose
 
 
 class PathController:
@@ -448,6 +536,125 @@ class WaveHand(object):
         # Blend into this wave segment pose. The duration here is how long it takes
         # to reach this extreme of the wave.
         self._apply_arm_pose(wave_pose_targets, self.wave_segment_duration * 0.8)  # Blend quickly
+
+
+class SimplifiedWave(BasePose):
+    """A very simple waving controller that alternates between two predefined raised-arm poses.
+
+    - It ONLY sets the arm bones.
+    - The waving effect is achieved by repeatedly calling its step() method, which alternates the
+      target pose for the arm.
+    """
+
+    def __init__(
+        self,
+        walker: carla.Walker,
+        blend_duration: float = 2.0,
+        *,
+        start_waving_inmediately: bool = False,
+        debug: bool = False,
+    ) -> None:
+        """Initialize the SimplifiedWave controller."""
+        super().__init__(walker)
+        self.walker = walker
+        self.blend_duration = blend_duration
+        self.start_waving_inmediately = start_waving_inmediately
+        self.currently_pose1 = True  # Start by aiming for pose 1 when first activated
+        self.debug = debug  # Enable/disable debug logging
+
+        # Store target rotations for each pose. Only arm bones are defined here.
+        self.raise_arm_pose1 = {
+            "crl_arm__R": (-120.0, 0.0, 0.0),
+            "crl_shoulder__R": (-1.0, 20.0, 0.0),
+            "crl_foreArm__R": (-10.0, 40.0, 0.0),
+        }
+        self.raise_arm_pose2 = {
+            "crl_arm__R": (-110.0, 0.0, 0.0),
+            "crl_shoulder__R": (-1.0, 20.0, -10.0),
+            "crl_foreArm__R": (-10.0, 40.0, 0.0),
+        }
+
+        # Stored ABSOLUTE (pitch, roll, yaw) of the bones updated in raise_arm_pose1
+        # This is filled inside self.start_waving()
+        self.stored_after_raise_arm_pose1: dict[str, tuple[float, float, float]] = {}
+
+        # Stored ABSOLUTE (pitch, roll, yaw) of the bones updated in raise_arm_pose2
+        # This is filled inside self.step()
+        self.stored_after_raise_arm_pose2: dict[str, tuple[float, float, float]] = {}
+
+        self.is_active = False  # Controller is activated by an external call to start_waving
+        self.last_blend_initiated_time = 0.0
+
+    def start_waving(self) -> None:
+        """Call this once to begin the waving sequence."""
+        self.is_active = True
+        self.currently_pose1 = True  # Ensure it starts by targeting Pose 1
+        self.stored_after_raise_arm_pose1 = self._apply_arm_pose(
+            self.raise_arm_pose1,
+            relative=True,
+        )
+        if self.debug:
+            logger.debug(
+                f"SimplifiedWave: Waving started, applying Pose 1 and got "
+                f"{round_dict_values(self.stored_after_raise_arm_pose1)}",
+            )
+
+    def stop_waving(self) -> None:
+        """Call this to stop the controller from applying new poses.
+
+        The arm will remain in its last blended-to state. An external ResetPose controller is
+        needed to lower it.
+        """
+        self.is_active = False
+        if self.debug:
+            logger.debug("SimplifiedWave: Waving stopped. Arm left in last pose.")
+
+    def step(self) -> Literal["Done", "Idle"]:
+        """Execute one simulation step's logic for waving.
+
+        If active, and enough time has passed since the last blend was initiated, this method will
+        apply the *other* wave pose.
+
+        It should be called repeatedly by the world tick during the waving duration.
+        """
+        if self.start_waving_inmediately:
+            self.start_waving()
+
+        if not self.is_active:
+            return "Idle"  # Or "Done" if preferred for an inactive state
+
+        if self.currently_pose1:
+            # Was targeting Pose 1, now target Pose 2
+            if self.stored_after_raise_arm_pose2:
+                self._apply_arm_pose(self.stored_after_raise_arm_pose2, relative=False)
+            else:
+                self.stored_after_raise_arm_pose2 = self._apply_arm_pose(
+                    self.raise_arm_pose2,
+                    relative=True,
+                )
+
+            if self.debug:
+                logger.debug(
+                    "SimplifiedWave: Blending from (towards) Pose 1 to Pose 2 and got "
+                    f"current absolute pose {round_dict_values(self.stored_after_raise_arm_pose2)}",
+                )
+            self.currently_pose1 = False
+        else:
+            # Was targeting Pose 2, now target Pose 1
+            if self.stored_after_raise_arm_pose1:
+                self._apply_arm_pose(self.stored_after_raise_arm_pose1, relative=False)
+            else:
+                self._apply_arm_pose(self.raise_arm_pose1, relative=True)
+
+            if self.debug:
+                logger.debug(
+                    "SimplifiedWave: Blending from (towards) Pose 2 to Pose 1 and got "
+                    f"current absolute pose {round_dict_values(self.stored_after_raise_arm_pose1)}",
+                )
+                
+            self.currently_pose1 = True
+
+        return "Done"
 
 
 class LookAcrossStreetLeft(object):
@@ -1260,11 +1467,14 @@ class LeanForward:
     def step(self):
         if self.done:
             return "Done"
+
         if self.start_pos is not None:
             direction = self.walker.get_location() - self.start_pos
             direction_norm = math.sqrt(direction.x**2 + direction.y**2)
             if direction_norm > 0.1:
                 return "Running"
+
+        logger.info("LeanForward: Applying lean forward pose.")
 
         self.walker.icr = ICR.GOING_TO
         self.walker.son = SON.FORCING
@@ -1283,6 +1493,165 @@ class LeanForward:
         self.walker.blend_pose(0.25)
 
         return "Done"
+
+
+class LeanForwardAndLook(BasePose):
+    """Lean forward and look (either left or right) pose controller."""
+
+    def __init__(
+        self,
+        walker: carla.Walker,
+        start_pos: carla.libcarla.Location = None,
+        char: str = "forcing",
+        look_to: Literal["right", "left", "custom"] = "right",
+        lean_amount: float = 100,
+        head_turn_neck_pitch: float = 5,
+        head_turn_head_pitch: float = -20,
+        head_turn_head_roll: float = 0,
+        hips_yaw_offset: float = 5,
+        target_spine_yaw: float = 50,
+        blend_duration: float = 0.3,
+        hold_duration: float = 1.0,
+    ) -> None:
+        """Initialize a `LeanForward` with a head turn.
+
+        **Details:**
+        - `crl_neck__C.rotation.pitch` (`head_turn_neck_pitch`): (-) Makes him look to his left,
+            (+) to his right.
+        - `crl_Head__C.rotation.pitch` (`head_turn_head_pitch`): (+) Tilts the head to his left,
+            (-) to his right.
+        - `crl_Head__C.rotation.roll` (`head_turn_head_roll`): Controls the side-to-side tilt of
+            the head (ear towards shoulder). If `+20` was part of the "look left", then `-20` for
+            "look right" if it's a symmetrical tilt, or 0 if no tilt is desired.
+        - `crl_Head__C.rotation.yaw`: If yaw is to be involved in the head turn
+            (e.g., `yaw += angle` for left), then for a right turn it would be `yaw -= angle`.
+        - `crl_hips__C` (`hips_yaw_offset`): If the actor is already oriented perpendicular to
+            street, `hips_yaw_offset` might be 0. If actor faces along street, `hips_yaw_offset`
+            might be `+/-90`. This needs to be relative to the actor's current animation base pose.
+        - `crl_spine__C` (`target_spine_yaw`): Torso Twist (Spine Yaw relative to Hips, to look
+            right/left along street). Degrees to twist spine for right look.
+        """
+        self.walker = walker
+        self.start_pos = start_pos
+        self.char = char  # Used to potentially vary spine_roll for leaning
+        self.look_to = look_to
+
+        # If look_to is custom, then we take the sign of what the user instantiated the class with
+        # If it's either "left" or "right", then we override the sign with the following rules
+        if self.look_to != "custom":
+            head_turn_neck_pitch = abs(head_turn_neck_pitch)
+            head_turn_head_pitch = abs(head_turn_head_pitch)
+            head_turn_head_roll = abs(head_turn_head_roll)
+            hips_yaw_offset = abs(hips_yaw_offset)
+            target_spine_yaw = abs(target_spine_yaw)
+
+        if self.look_to == "left":
+            head_turn_head_pitch *= -1
+            hips_yaw_offset *= -1
+            target_spine_yaw *= -1
+        elif self.look_to == "right":
+            head_turn_neck_pitch *= -1
+            head_turn_head_roll *= -1
+
+        # Pose parameters
+        self.lean_amount = lean_amount
+        if self.char == "forcing":  # Example: more aggressive lean for forcing
+            self.spine_roll_lean = self.lean_amount
+        else:  # yielding
+            self.spine_roll_lean = self.lean_amount * 0.7  # Less lean for yielding
+
+        self.head_turn_neck_pitch = head_turn_neck_pitch
+        self.head_turn_head_pitch = head_turn_head_pitch
+        self.head_turn_head_roll = head_turn_head_roll
+        self.hips_yaw_offset = hips_yaw_offset
+        self.target_spine_yaw = target_spine_yaw
+
+        self.blend_duration = blend_duration  # Time to blend into the combined pose
+        self.hold_duration = hold_duration  # Time to hold the pose
+
+        self.state = "Idle"  # Idle, ApplyingPose, Holding, Done
+        self.start_time_apply: float | None = None
+        self.start_time_hold: float | None = None
+        self.done = False
+
+    def step(self) -> Literal["Running", "Done"]:
+        """Perform a step in the controller."""
+        if self.done:
+            return "Done"
+
+        current_loc = self.walker.get_location()
+        current_time = time.time()
+
+        if self.state == "Idle":
+            if self.start_pos is None or l2_distance(current_loc, self.start_pos) <= 0.5:
+                self.state = "ApplyingPose"
+                self.start_time_apply = current_time
+                logger.info(f"LeanForwardAndLook: Applying lean and look {self.look_to} pose.")
+
+                # Set DBN states
+                self.walker.icr = ICR.GOING_TO  # Or another appropriate ICR for this action
+                self.walker.son = SON.FORCING if self.char == "forcing" else SON.YIELDING
+
+                bones = self.walker.get_bones()
+                new_pose_combined = []
+                for bone_transform in bones.bone_transforms:
+                    name = bone_transform.name
+                    # Create a mutable copy
+                    relative_transform = carla.Transform(
+                        location=bone_transform.relative.location,
+                        rotation=bone_transform.relative.rotation,
+                    )
+
+                    # 1. Orient Hips/Legs (if needed, relative to animation's base)
+                    #    This is tricky without knowing the base animation's hip orientation.
+                    #    If the actor is already spawned facing perpendicular, this might be 0.
+                    if name == "crl_hips__C":
+                        relative_transform.rotation.yaw += self.hips_yaw_offset
+
+                    # 2. Lean Forward (Spine Roll) - relative to the (potentially re-oriented) hips
+                    #    AND Twist Torso (Spine Yaw) - also relative to hips
+                    elif name == "crl_spine__C":
+                        relative_transform.rotation.roll += self.spine_roll_lean
+                        relative_transform.rotation.yaw += self.target_spine_yaw
+
+                    # 3. Turn head left (neck and head pitch/roll)
+                    elif name == "crl_neck__C":
+                        relative_transform.rotation.pitch += self.head_turn_neck_pitch
+                    elif name == "crl_Head__C":
+                        relative_transform.rotation.pitch += self.head_turn_head_pitch
+                        relative_transform.rotation.roll += self.head_turn_head_roll
+                        # Yaw is not modified for a simple left look from TurnHeadLeftWalk example
+
+                    new_pose_combined.append((name, relative_transform))
+
+                control = carla.WalkerBoneControlIn(new_pose_combined)
+                self.walker.set_bones(control)
+                self.walker.blend_pose(self.blend_duration)
+            else:
+                return "Running"  # Waiting for trigger
+
+        elif self.state == "ApplyingPose":
+            if self.start_time_apply is None:
+                raise ValueError("start_time_apply is None entering ApplyingPose state.")
+
+            if current_time - self.start_time_apply >= self.blend_duration:
+                self.state = "Holding"
+                self.start_time_hold = current_time
+                logger.info(
+                    f"LeanForwardAndLook: Pose applied, now holding for {self.hold_duration}s.",
+                )
+
+        elif self.state == "Holding":
+            if self.start_time_hold is None:
+                raise ValueError("start_time_hold is None entering Holding state.")
+
+            if current_time - self.start_time_hold >= self.hold_duration:
+                self.state = "Done"
+                self.done = True  # Mark controller as fully done
+                logger.info("LeanForwardAndLook: Hold duration finished. Controller is Done.")
+                # The pose remains set. External ResetPose controller should be called next.
+
+        return "Running"  # If in Idle (waiting), ApplyingPose, or Holding state
 
 
 class ResetPose:

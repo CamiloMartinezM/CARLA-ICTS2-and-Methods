@@ -71,7 +71,7 @@ class GIDASBenchmark(gym.Env):
         if Config.load_complete_map:
             logger.info("Loading complete map Town01_Opt...")
             # self.client.load_world("Town01_Opt")
-            self.client.load_world("Town01_Opt", carla.MapLayer.Buildings)
+            self.client.load_world("Town01_Opt", map_layers=carla.MapLayer.NONE)
         else:
             logger.info("Loading simplistic world Town01_Opt...")
             with Path(ASSETS_DIR / "Town01_my.xodr").open("r") as odr:
@@ -80,16 +80,17 @@ class GIDASBenchmark(gym.Env):
                     carla.OpendriveGenerationParameters(2.0, 50.0, 0.0, 200.0, False, True),
                 )
 
-        # self.client.load_world("Town01_Opt", carla.MapLayer.Buildings)
-        self.first_sleep = True
         wld = self.client.get_world()
-        self.extract = False
-        self.prev_vel = 20
-
-        time.sleep(5)
+        wld.load_map_layer(carla.MapLayer.All)
         wld.unload_map_layer(carla.MapLayer.StreetLights)
         wld.unload_map_layer(carla.MapLayer.Particles)
-        # wld.unload_map_layer(carla.MapLayer.Props)
+        wld.unload_map_layer(carla.MapLayer.Props)
+        wld.unload_map_layer(carla.MapLayer.Foliage)
+        wld.unload_map_layer(carla.MapLayer.ParkedVehicles)
+
+        self.first_sleep = True
+        self.extract = False
+        self.prev_vel = 20
 
         self.map = wld.get_map()
         settings = wld.get_settings()
@@ -104,7 +105,6 @@ class GIDASBenchmark(gym.Env):
         # self.planner_agent = RLAgent(self.world, self.map, self.scene)
         self.planner_agent = Learner(self.world, self.map, self.scene)
 
-        wld_map = wld.get_map()
         wld.tick()
 
         self.episodes = []
@@ -177,8 +177,9 @@ class GIDASBenchmark(gym.Env):
 
         logger.info(f"Number of scenes in TRAINING: {len(self.episodes)}")
         logger.info(f"Number of scenes in VALIDATION: {len(self.val_episodes)}")
-        logger.info(f"Number of scenes in TESTING: {len(self.test_episodes)}")
-        logger.info(f"World {wld_map.name} loaded in mode {self.mode}.")
+        if isinstance(self.test_episodes, list):
+            logger.info(f"Number of scenes in TESTING: {len(self.test_episodes)}")
+        logger.info(f"World {self.map.name} loaded in mode {self.mode}.")
 
         if self.mode in {"TESTING", "VALIDATION"}:
             self.val_episodes_iterator = iter(self.val_episodes)

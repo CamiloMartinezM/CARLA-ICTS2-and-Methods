@@ -372,21 +372,21 @@ class IConfig07(ScenarioConfig):
     def __init__(self) -> None:
         """Initialize the configuration for the Interactive Scenario 07."""
         self.ped_speed_range = [1.1, 1.2]  # Initial walking speed
-        self.spawning_distances = [55, 55]  # How far ahead the interaction starts
+        self.spawning_distances = [42, 45]  # How far ahead the interaction starts
         self.walking_distances_X = [1, 2]  # Offset from curb to spawn/walk
-        self.walking_distances_Y = [2, 5]  # Distance walked towards curb
+        self.walking_distances_Y = [2, 4]  # Distance walked towards curb
         self.crossing_distances = [7, 8]  # How far the pedestrian sprints/crosses
-        self.sprint_speed_multiplier = [2.5, 3.5]  # Factor to multiply base speed for sprint
+        self.sprint_speed_multiplier = [2.0, 2.5]  # Factor to multiply base speed for sprint
         self.wait_duration = [0.5, 1.5]  # Seconds to wait if yielding and car is close
-        self.character = ["forcing", "yielding"]
+        self.character = ["forcing"]  # , "yielding"]
 
         # Distance to walk across the street after sprinting
         # (i.e., in the same direction of the sprint)
-        self.walk_after_crossing_X = 2.5
+        self.walk_after_crossing_X = 2
 
         # Distance to walk on the other side of the street after crossing
         # (i.e., perpendicular to the sprint, along the curb)
-        self.walk_after_crossing_Y = 10
+        self.walk_after_crossing_Y = 5
 
         super().__init__()
 

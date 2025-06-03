@@ -351,7 +351,7 @@ def stitch_videos_side_by_side(
 def videos_in_folder(
     path: str | Path,
     formats: tuple[str, ...] = (".mp4", ".avi"),
-    startswith: tuple[str, ...] = (),
+    startswith: list[str] | tuple[str, ...] = (),
 ) -> list[Path]:
     """List all video files in a given folder.
 
@@ -364,6 +364,15 @@ def videos_in_folder(
     Returns:
         list[Path]: List of video file paths.
     """
+
+    def get_prefix_priority(file_path: Path) -> int:
+        """Get the priority index based on startswith order."""
+        filename = file_path.name
+        for i, prefix in enumerate(startswith):
+            if filename.startswith(prefix):
+                return i
+        return len(startswith)  # Files that don't match any prefix go to the end
+
     path = Path(path)
     if not path.is_dir():
         logger.error(f"{path} is not a valid directory.")
@@ -380,13 +389,20 @@ def videos_in_folder(
     if not video_files:
         logger.warning(f"No video files found in {path}")
 
+    # Make sure that video_files has the list of files in the same order as startswith to allow
+    # for "priority" lookup
+    if startswith:
+        video_files.sort(key=get_prefix_priority)
+
     return video_files
 
 
 # Define standard camera configurations
 CAMERA_CONFIGS = {
     "vehicle_pov": {
-        "relative_transform": carla.Transform(carla.Location(x=-0.35, y=-0.5, z=1.25)),
+        # x (+) brings the camera to the right side of the vehicle
+        # y (-) brings the camera forward
+        "relative_transform": carla.Transform(carla.Location(x=-0.35, y=-0.7, z=1.25)),
         "attach_to": "vehicle",  # Special keyword for vehicle actor
         "attachment_type": carla.AttachmentType.Rigid,
         "fov": "75",
@@ -865,52 +881,6 @@ class MultiCameraRecorder:
                 logger.error(f"Error updating transform for camera {view_name}: {e}")
 
         # 2. Process frame queue (only if storing frames in memory)
-        # if self._store_in_memory:
-        #     frames_processed_this_tick = set()
-        #     processed_count = 0
-        #     try:
-        #         # Process all available items currently in the queue for this tick
-        #         while not self.queue.empty():
-        #             frame_id, view_name, frame_data = self.queue.get_nowait()
-
-        #             if view_name not in self.cameras:
-        #                 continue  # Skip if camera was removed/failed
-
-        #             # Process frame if it's the current or slightly old, but discard future
-        #             if frame_id > world_frame:
-        #                 # Put future frames back - they belong to the next tick
-        #                 self.queue.put((frame_id, view_name, frame_data))
-        #                 continue  # Don't process this frame now
-        #             elif frame_id == world_frame:
-        #                 if view_name not in frames_processed_this_tick:
-        #                     self.frames[view_name].append(frame_data)  # Append the processed frame
-        #                     frames_processed_this_tick.add(view_name)
-        #                     processed_count += 1
-        #                     logger.debug(
-        #                         f"Tick {world_frame}: Added frame {frame_id} for '{view_name}'.",
-        #                     )
-        #                 # else: Frame already added for this view this tick, discard duplicate
-        #             else:  # frame_id < world_frame
-        #                 logger.debug(
-        #                     f"Tick {world_frame}: Discard old frame {frame_id} for '{view_name}'.",
-        #                 )
-
-        #         # Handle missing frames for this tick for views that didn't get processed
-        #         for view_name in self.cameras:
-        #             if view_name not in frames_processed_this_tick:
-        #                 logger.warning(
-        #                     f"Tick {world_frame}: Missing frame for view '{view_name}'.",
-        #                 )
-
-        #     except Empty:
-        #         # This case means queue was empty when get_nowait was called
-        #         logger.debug(f"Tick {world_frame}: Queue empty during processing.")
-        #         for view_name in self.cameras:
-        #             if view_name not in frames_processed_this_tick:
-        #                 logger.warning(
-        #                     f"Tick {world_frame}: Missing frame for view '{view_name}' "
-        #                     "(queue empty).",
-        #                 )
         if self._store_in_memory:
             frames_processed_this_tick = set()
             # Process all frames in the queue that are for the current world_frame or older
@@ -950,7 +920,9 @@ class MultiCameraRecorder:
 
             if self.debug:
                 mem_queue_size = (
-                    len(self.frames.get(list(self.cameras.keys())[0], [])) if self.cameras else 0
+                    len(self.frames.get(next(iter(self.cameras.keys())), []))
+                    if self.cameras
+                    else 0
                 )
                 logger.debug(
                     f"Tick End: World Frame={world_frame}, Queue Size={self.queue.qsize()}, "
@@ -985,7 +957,8 @@ class MultiCameraRecorder:
                 # Check if the directory exists and contains PNG files
                 if not view_frames_path.is_dir() or not list(view_frames_path.glob("*.png")):
                     logger.warning(
-                        f"No frames found on disk for view '{view_name}' at {view_frames_path}. Skipping ffmpeg."
+                        f"No frames found on disk for view '{view_name}' at {view_frames_path}. "
+                        "Skipping ffmpeg.",
                     )
                     continue
 
