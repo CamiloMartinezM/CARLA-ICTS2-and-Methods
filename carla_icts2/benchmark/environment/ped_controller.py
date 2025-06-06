@@ -651,7 +651,7 @@ class SimplifiedWave(BasePose):
                     "SimplifiedWave: Blending from (towards) Pose 2 to Pose 1 and got "
                     f"current absolute pose {round_dict_values(self.stored_after_raise_arm_pose1)}",
                 )
-                
+
             self.currently_pose1 = True
 
         return "Done"
@@ -1812,24 +1812,24 @@ class UncertainSteps:
 
 
 class ControllerConfig:
-    def __init__(self, ped_speed=1.0, ped_distance=30.0):
+    def __init__(self, ped_speed: float = 1.0, ped_distance: float = 30.0) -> None:
         self.ped_speed = ped_speed
         self.ped_distance = ped_distance
-        self.spawning_distance = 0
-        self.walking_distance = 0
-        self.looking_distance = 0
-        self.crossing_distance = 0
-        self.reenter_distance = 0
-        self.op_reenter_distance = 0
+        self.spawning_distance = 0.0
+        self.walking_distance = 0.0
+        self.looking_distance = 0.0
+        self.crossing_distance = 0.0
+        self.reenter_distance = 0.0
+        self.op_reenter_distance = 0.0
         self.char = "yielding"
 
         # --- NEW Parameters specifically for IConfig07 ---
         self.sprint_speed_multiplier = 1.0  # Default multiplier is 1 (no sprint)
-        self.walking_distance_X = None
-        self.walking_distance_Y = None
-        self.walk_after_crossing_X = None
-        self.walk_after_crossing_Y = None
-        self.wait_duration = 0.0  # Default wait duration
+        self.walking_distance_X = 0.0
+        self.walking_distance_Y = 0.0
+        self.walk_after_crossing_X = 0.0
+        self.walk_after_crossing_Y = 0.0
+        self.wait_duration = 0.0
 
     def __str__(self) -> str:
         """Return a string representation of the object.

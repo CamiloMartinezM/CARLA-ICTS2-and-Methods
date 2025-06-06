@@ -3,6 +3,7 @@
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import numpy as np
 from dotenv import load_dotenv
 from loguru import logger
 
@@ -25,6 +26,9 @@ for path in [ASSETS_DIR]:
 
 # TZINFO
 TZINFO = ZoneInfo("Europe/Berlin")
+
+# Random number generator
+RNG = np.random.default_rng()
 
 # If tqdm is installed, configure loguru with tqdm.write
 # https://github.com/Delgan/loguru/issues/135

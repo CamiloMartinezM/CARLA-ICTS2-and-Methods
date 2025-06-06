@@ -6,6 +6,7 @@ import math
 import random
 import sys
 import time
+import traceback
 
 import carla
 import numpy as np
@@ -40,7 +41,7 @@ from carla_icts2.benchmark.environment.ped_controller import (
 )
 from carla_icts2.benchmark.environment.sensors import *
 from carla_icts2.benchmark.environment.utils import find_weather_presets
-from carla_icts2.benchmark.scenarios.scenarios import BaseScenario, SCENARIO_MAP
+from carla_icts2.benchmark.scenarios.scenarios import SCENARIO_MAP, BaseScenario
 from carla_icts2.config import logger
 
 
@@ -190,6 +191,10 @@ class World:
 
         if follow_player or not self.already_spawned_bev_camera:
             transform = self.player.get_transform()
+
+        if not transform:
+            # This shouldn't happen
+            return
 
         location = carla.Location(x=transform.location.x, y=transform.location.y, z=10)
         self.already_spawned_bev_camera = True
@@ -413,33 +418,6 @@ class World:
             blueprint.set_attribute("is_invincible", "true")
         return blueprint
 
-    def _draw_grid(self):
-        width = 20
-        world = self.world
-        loc = self.walker.get_location()
-        loc = self.walker.get_location() + carla.Location(0, 0, 0)
-        upper = loc + carla.Location(0, -width, 0)
-        right = loc + carla.Location(width, 0, 0)
-        right_upper = loc + carla.Location(width, -width, 0)
-        world.debug.draw_line(loc, upper, thickness=0.02)
-        world.debug.draw_line(loc, right, thickness=0.02)
-        world.debug.draw_line(upper, right_upper, thickness=0.02)
-        world.debug.draw_line(right, right_upper, thickness=0.02)
-        for i in range(1, width):
-            offset_y = carla.Location(0, -i, 0)
-            offset_x = carla.Location(i, 0, 0)
-            world.debug.draw_line(loc + offset_y, right + offset_y, thickness=0.02)
-            world.debug.draw_line(loc + offset_x, upper + offset_x, thickness=0.02)
-
-    def _draw_point(self, p, color=carla.Color(r=0, g=255, b=255)):
-        self.world.debug.draw_point(p, size=0.1, color=color, life_time=0)
-
-    def get_point(self, offset):
-        cur = self.walker.get_location()
-        offset_x, offset_y = offset
-        loc = carla.Location(cur.x + offset_x, cur.y - offset_y, 0.5)
-        return loc
-
     # TODO: Compare to original
     def restart(self, scenario_id: str, conf: ControllerConfig):
         logger.info(f"Restarting world for scenario: {scenario_id}")
@@ -456,87 +434,99 @@ class World:
         # Keep same camera config if the camera manager exists.
         cam_index = self.camera_manager.index if self.camera_manager is not None else 0
         semseg_index = (
-            self.semseg_sensor.index if self.semseg_sensor is not None else 5
-        )  # Default semseg index
+            self.semseg_sensor.index
+            if self.semseg_sensor is not None
+            else 5  # Default semseg index
+        )
         cam_pos_index = (
-            self.camera_manager.transform_index if self.camera_manager is not None else 1
-        )  # Default POV index
+            self.camera_manager.transform_index
+            if self.camera_manager is not None
+            else 1  # Default POV index
+        )
         semseg_pos_index = (
-            self.semseg_sensor.transform_index if self.semseg_sensor is not None else 1
-        )  # Default POV index
+            self.semseg_sensor.transform_index
+            if self.semseg_sensor is not None
+            else 1  # Default POV index
+        )
 
         # Instantiate the correct scenario class
         ScenarioClass = SCENARIO_MAP.get(scenario_id)
         if not ScenarioClass:
-            logger.error(f"Scenario ID '{scenario_id}' not found in SCENARIO_MAP.")
-            # Handle error: Maybe raise exception or default to a basic scenario?
-            # For now, let's skip scenario setup
-            self.current_scenario = None
-        else:
-            self.current_scenario = ScenarioClass(self, conf)
+            raise ValueError(f"Scenario ID '{scenario_id}' not found in SCENARIO_MAP.")
 
-            # Spawn the player vehicle
-            start_transform = self.current_scenario.get_start_transform()
-            if self.player is not None and self.player.is_alive:
-                self.player.destroy()  # Destroy previous player cleanly
-                self.player = None
+        self.current_scenario = ScenarioClass(self, conf)
 
-            # Retry spawning player
-            spawn_attempts = 0
-            while self.player is None and spawn_attempts < 5:
-                self.player = self.world.try_spawn_actor(self.car_blueprint, start_transform)
-                if self.player:
-                    self.modify_vehicle_physics(self.player)
-                    logger.info(f"Player spawned successfully for scenario {scenario_id}")
-                else:
-                    logger.warning(
-                        f"Attempt {spawn_attempts + 1}: Failed to spawn player, retrying..."
-                    )
-                    self.world.wait_for_tick()  # Wait a tick before retrying
-                    spawn_attempts += 1
+        if not self.current_scenario:
+            raise ValueError(
+                f"Scenario ID '{scenario_id}' found in SCENARIO_MAP, but unable to instantiate it"
+            )
 
-            if self.player is None:
-                logger.error(f"Failed to spawn player after {spawn_attempts} attempts. Exiting.")
-                sys.exit(1)
+        # Spawn the player vehicle
+        start_transform = self.current_scenario.get_start_transform()
+        if self.player is not None and self.player.is_alive:
+            self.player.destroy()  # Destroy previous player cleanly
+            self.player = None
 
-            # Set up the scenario actors and controllers
-            # This method is now responsible for spawning the walker and assigning it to self.walker
-            try:
-                self.current_scenario.setup()
-            except Exception as e:
-                logger.error(f"Error during scenario setup for {scenario_id}: {e}", exc_info=True)
-                # Handle setup error, maybe try to clean up spawned actors?
-                if self.current_scenario:
-                    self.current_scenario.destroy()
-                self.current_scenario = None
-                return  # Prevent further execution if setup failed
-
-            # Check if walker was spawned correctly by setup
-            if self.walker is None or not self.walker.is_alive:
-                logger.error(
-                    f"Walker was not spawned correctly during setup for scenario {scenario_id}"
+        # Retry spawning player
+        spawn_attempts = 0
+        while self.player is None and spawn_attempts < 5:
+            self.player = self.world.try_spawn_actor(self.car_blueprint, start_transform)
+            if self.player:
+                self.modify_vehicle_physics(self.player)
+                logger.info(f"Player spawned successfully for scenario {scenario_id}")
+            else:
+                logger.warning(
+                    f"Attempt {spawn_attempts + 1}: Failed to spawn player, retrying...",
                 )
-                # Handle error
-                return
+                self.world.wait_for_tick()  # Wait a tick before retrying
+                spawn_attempts += 1
 
-            # Set initial walker state (ICR, SON) - Get from scenario object
-            initial_icr, initial_son = self.current_scenario.get_initial_walker_state()
-            self.walker.icr = initial_icr
-            self.walker.son = initial_son
-            # self.walker.initial_son = initial_son # Keep if needed elsewhere
+        if self.player is None:
+            logger.error(f"Failed to spawn player after {spawn_attempts} attempts. Exiting.")
+            sys.exit(1)
 
-            # Set initial player velocity if required by scenario type (example)
-            # This logic could also be moved into the scenario's setup method
-            if not self.random and scenario_id.endswith("_int"):
-                self.player.set_target_velocity(carla.Vector3D(0, -6, 0))
-            elif not self.random and scenario_id.endswith("_non_int"):
-                # Adjust velocity based on specific non-int scenarios if needed
-                if scenario_id in ["01_non_int", "02_non_int", "03_non_int"]:
-                    self.player.set_target_velocity(carla.Vector3D(0, -6, 0))  # Example
-                elif scenario_id in ["04_non_int", "05_non_int", "06_non_int"]:
-                    self.player.set_target_velocity(
-                        carla.Vector3D(0, -5, 0)
-                    )  # Example different speed
+        # Set up the scenario actors and controllers
+        # This method is now responsible for spawning the walker
+        # and assigning it to self.walker
+        try:
+            self.current_scenario.setup()
+        except Exception as e:
+            # Get the full traceback as a string
+            tb_str = traceback.format_exc()
+
+            logger.error(
+                f"Error during scenario setup for {scenario_id}: {e}\nFull traceback:\n{tb_str}",
+                exc_info=True,  # Includes full traceback
+                stack_info=True,  # Includes stack info from current point
+            )
+            self.destroy()  # Clean-up if unable to start
+            return  # Prevent further execution if setup failed
+
+        # Check if walker was spawned correctly by setup
+        if not self.walker or not self.walker.is_alive:
+            logger.error(
+                f"Walker was not spawned correctly during setup for scenario {scenario_id}",
+            )
+            return
+
+        # Set initial walker state (ICR, SON) - Get from scenario object
+        initial_icr, initial_son = self.current_scenario.get_initial_walker_state()
+        self.walker.icr = initial_icr
+        self.walker.son = initial_son
+        # self.walker.initial_son = initial_son # Keep if needed elsewhere
+
+        # TODO: Set initial player velocity if required by scenario type (example)
+        # This logic could also be moved into the scenario's setup method
+        if not self.random and scenario_id.endswith("_int"):
+            self.player.set_target_velocity(carla.Vector3D(0, -6, 0))
+        elif not self.random and scenario_id.endswith("_non_int"):
+            # Adjust velocity based on specific non-int scenarios if needed
+            if scenario_id in ["01_non_int", "02_non_int", "03_non_int"]:
+                self.player.set_target_velocity(carla.Vector3D(0, -6, 0))  # Example
+            elif scenario_id in ["04_non_int", "05_non_int", "06_non_int"]:
+                self.player.set_target_velocity(
+                    carla.Vector3D(0, -5, 0),
+                )  # Example different speed
 
         # Ensure player exists before setting up sensors
         if self.player is None:
@@ -581,13 +571,7 @@ class World:
 
         logger.info(f"World restart complete for scenario {scenario_id}")
 
-    def _normalize_angle(self, angle):
-        """Normalize angle to be within [-180, 180]"""
-        while angle <= -180:
-            angle += 360
-        while angle > 180:
-            angle -= 360
-        return angle
+
 
     # TODO: Compare to original
     def tick(self, clock):
@@ -624,31 +608,6 @@ class World:
             # logger.warning("Tick called but no current scenario is active.")
             # Apply default behavior if no scenario is running (e.g., simple forward motion?)
             pass  # Or apply a default control if needed
-
-    def second_decider(self, distance, dec_d=None):
-        if self.random:
-            if self.second_choice:
-                simulation_step = 0.05
-                self.waiting_c += 1
-                return self.waiting_c * simulation_step > self.waiting_time
-            self.waiting_time = np.random.random() * 2 + 1
-            self.waiting_c = 0
-            self.second_choice = True
-        else:
-            velocity = self.player.get_velocity()
-            speed = (velocity.x * velocity.x + velocity.y * velocity.y) ** 0.5
-            if dec_d is None:
-                return distance < 0 or speed < 1  # less than 3.6kmh
-            return distance + dec_d < 0 or (speed < 1 and distance > 2.5)
-
-    def decision_trigger(self, distance, db, without_speed=False):
-        if self.random:
-            choice = np.random.choice(2)
-            choices = [np.random.choice(2) for i in range(10)]
-            return choice == 1
-        velocity = self.player.get_velocity()
-        speed = (velocity.x * velocity.x + velocity.y * velocity.y) ** 0.5
-        return distance >= db[0] and distance <= db[1] and (speed > 1.5 or without_speed)
 
     def get_walker_state(self):
         loc = self.walker.get_location()
@@ -972,10 +931,6 @@ class World:
         }
 
         return data
-
-    def get_p_from_vector(self, loc1, loc2, perc):
-        vec = loc2 - loc1
-        return loc1 + perc * vec
 
     def setup_04_non_int(
         self,
@@ -2220,64 +2175,6 @@ class World:
                 f"Car controller initialized with speed: {estimated_car_speed_mps:.1f} m/s",
             )
 
-    def _compute_plans(self, offsets, position, color=None):
-        plan = []
-        cur = position  # self.walker.get_location()
-        for offset_x, offset_y in offsets:
-            loc = carla.Location(cur.x + offset_x, cur.y - offset_y, 0.5)
-            plan.append(loc)
-            if color is not None:
-                self.world.debug.draw_point(loc, size=0.1, color=color, life_time=0)
-        return plan
-
-    def _draw_circle(self, loc, radius):
-        for i in range(0, 360, 2):
-            x = radius * math.cos(math.radians(i))
-            y = radius * math.sin(math.radians(i))
-
-            self.world.debug.draw_point(
-                loc + carla.Location(-x, y, 0),
-                size=0.05,
-                color=carla.Color(255, 165, 0),
-                life_time=0,
-            )
-
-    def _draw_db(self, db=None, color=carla.Color(0, 255, 0)):
-        if db is None:
-            db = self.db
-        left = carla.Location(83, self.desc_p.y + db[0], 0.5)
-        right = carla.Location(103, self.desc_p.y + db[0], 0.5)
-        self.world.debug.draw_line(left, right, thickness=0.05, color=color)
-        left = carla.Location(83, self.desc_p.y + db[1], 0.5)
-        right = carla.Location(103, self.desc_p.y + db[1], 0.5)
-        self.world.debug.draw_line(left, right, thickness=0.05, color=color)
-
-    def compute_collision_point(self):
-        walker_loc = self.walker.get_location()
-        goal_loc = self.path_2[0]
-        walker_dir = goal_loc - walker_loc
-        car_loc = self.player.get_location()
-        walker_vel = self.walker.get_velocity()
-        walker_vel = walker_dir * l2_length(walker_vel) / l2_length(walker_dir)
-        car_vel = self.player.get_velocity()
-
-        self.world.debug.draw_line(
-            walker_loc,
-            walker_loc + 2 * walker_vel,
-            thickness=0.05,
-            color=carla.Color(255, 255, 255),
-        )
-        self.world.debug.draw_line(
-            car_loc,
-            car_loc + 2 * car_vel,
-            thickness=0.05,
-            color=carla.Color(255, 255, 255),
-        )
-
-    def _draw_db_circle(self):
-        self._draw_circle(self.desc_p, self.db[0])
-        self._draw_circle(self.desc_p, self.db[1])
-
     def setup_01_int_vanilla(self, spawn_point, obstacles):
         self.walker = self.world.try_spawn_actor(obstacles[0][0], obstacles[0][1])
         self.walker.apply_control(carla.WalkerControl(carla.Vector3D(0, 0, 0), self.ped_speed))
@@ -2407,16 +2304,30 @@ class World:
             self.imu_sensor = None
             self.radar_sensor = None
 
-    def destroy(self):
+    def destroy(self) -> None:
+        """Destroy the scenario and all associated actors."""
         if self.radar_sensor is not None:
             self.toggle_radar()
 
         self.destroy_sensors(destroy_managers=True)
 
-        if self.player is not None:
+        # Try to clean up spawned actors
+        if self.current_scenario:
+            self.current_scenario.destroy()
+        self.current_scenario = None
+
+        if self.player is not None and self.player.is_alive:
             self.player.destroy()
-        if self.walker is not None:
+            self.player = None
+
+        if self.walker is not None and self.walker.is_alive:
             self.walker.destroy()
+            self.walker = None
+
+        # Check if walker2 exists and destroy it
+        if hasattr(self, "walker2") and self.walker2 is not None and self.walker2.is_alive:
+            self.walker2.destroy()
+            self.walker2 = None
 
         if self.incoming_car is not None and self.incoming_car.is_alive:
             self.incoming_car.destroy()
@@ -2424,8 +2335,3 @@ class World:
         # Destroy POV camera if it exists
         if hasattr(self, "pov_camera") and self.pov_camera is not None:
             self.pov_camera.destroy()
-
-        # Check if walker2 exists and destroy it
-        if hasattr(self, "walker2") and self.walker2 is not None and self.walker2.is_alive:
-            self.walker2.destroy()
-            self.walker2 = None

@@ -1,6 +1,4 @@
-"""Author: Dikshant Gupta
-Time: 23.03.21 14:29
-"""
+"""Utility functions for the CARLA ICTS2 benchmark environment."""
 
 import math
 import re
@@ -9,6 +7,8 @@ from typing import Any
 
 import carla
 import torch
+
+from carla_icts2.config import logger
 
 
 def find_weather_presets():
@@ -52,6 +52,15 @@ def soft_update(target, source, tau):
 def hard_update(target, source):
     for target_param, param in zip(target.parameters(), source.parameters(), strict=False):
         target_param.data.copy_(param.data)
+
+
+def normalize_angle(angle: float) -> float:
+    """Normalize angle to be within [-180, 180]."""
+    while angle <= -180:
+        angle += 360
+    while angle > 180:
+        angle -= 360
+    return angle
 
 
 def round_dict_values(
@@ -103,3 +112,57 @@ def round_dict_values(
         result[key] = rounded_values
 
     return result
+
+
+def trigger_warn_or_error(
+    variable: Any,  # noqa: ANN401
+    variable_name: str = "",
+    src: str = "",
+    *,
+    warn: bool = True,
+    raise_error: bool = False,
+) -> bool:
+    """Trigger a warning or error based on the state of a variable.
+
+    Args:
+        variable: The variable to check (e.g., `walker`, `player`)
+        variable_name (str): Name of the variable for logging purposes.
+        src (str): Optional source string to prepend to the log message.
+        warn (bool): If True, log a warning instead of raising an error.
+        raise_error (bool): If True, raise a ValueError if the variable is None or not valid.
+
+    Returns:
+        bool: True if the variable is valid (not None and alive), False if it was None or not
+            alive and `warn` was True.
+
+    Raises:
+        ValueError: If `variable is None` or `not variable.is_alive` and `raise_error` is True.
+    """
+    warn = not raise_error  # Avoid unnecessary warn if raise_error = True
+
+    if not variable_name:
+        if isinstance(variable, str):
+            variable_name = variable
+        elif hasattr(variable, "__class__"):
+            variable_name = f"{variable.__class__.__name__}"
+        else:
+            variable_name = f"{variable}"
+
+    prefix = f"{src} called but " if src else ""
+    e1 = e2 = ""
+    if not variable:
+        e1 = f"{prefix}{variable_name} is None."
+
+    if variable is not None and not variable.is_alive:
+        e2 = f"{prefix}{variable_name} is not alive."
+
+    no_warn = True
+    for e in [e1, e2]:
+        if e:
+            if warn:
+                logger.warning(e)
+                no_warn = False
+            if raise_error:
+                raise ValueError(e)
+
+    return no_warn
