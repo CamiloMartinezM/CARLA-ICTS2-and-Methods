@@ -1847,30 +1847,83 @@ class ControllerConfig:
 
 
 class ICR(Enum):
-    VERY_LOW = 1
-    LOW = 2
-    INTERESTED = 3
-    PLANNING_TO = 4
-    GOING_TO = 5
+    """Represent the Intention to Claim the Road (ICR) of a pedestrian.
+
+    This enum defines different levels of a pedestrian's intention to cross or
+    occupy the road space, which can influence their behavior and interaction
+    with vehicles.
+    """
+
+    VERY_LOW = 1  # Pedestrian has very little or no intention to cross.
+    LOW = 2  # Pedestrian has low intention to cross, may be hesitant.
+    INTERESTED = 3  # Pedestrian shows interest in crossing, may be observing.
+    PLANNING_TO = 4  # Pedestrian is actively planning to cross, preparing to move.
+    GOING_TO = 5  # Pedestrian is committed and moving to cross the road.
 
 
 class SON(Enum):
-    AVERTING = 1
-    YIELDING = 2
-    FORCING = 3
+    """Represent the Strategy of Negotiation (SON) of a pedestrian.
+
+    This enum categorizes the general approach or strategy a pedestrian adopts
+    when interacting or negotiating with a vehicle, particularly in situations
+    of potential conflict for road space.
+    """
+
+    AVERTING = 1  # Pedestrian actively avoids conflict, e.g., by stopping or moving away.
+    YIELDING = 2  # Pedestrian is prepared to give way to the vehicle.
+    FORCING = 3  # Pedestrian intends to take priority and expects the vehicle to yield.
 
 
-def l2_distance(pos1, pos2):
+def l2_distance(pos1: carla.Location, pos2: carla.Location) -> float:
+    """Calculate the 2D Euclidean distance between two CARLA locations.
+
+    This function computes the straight-line distance between `pos1` and `pos2`
+    in the XY plane, ignoring the Z (height) coordinate, using `math.hypot`
+    for efficient calculation.
+
+    Args:
+        pos1 (carla.Location): The first CARLA location.
+        pos2 (carla.Location): The second CARLA location.
+
+    Returns:
+        float: The 2D Euclidean distance between the two positions.
+    """
     direction = pos1 - pos2
-    direction_norm = math.sqrt(direction.x**2 + direction.y**2)
-    return direction_norm
+    return math.sqrt(direction.x**2 + direction.y**2)
 
 
-def y_distance(pos1, pos2):
+def y_distance(pos1: carla.Location, pos2: carla.Location) -> float:
+    """Calculate the difference in the Y-coordinates of two CARLA locations.
+
+    This function returns the result of `pos2.y - pos1.y`. A positive value
+    indicates that `pos2` is further along the positive Y-axis than `pos1`.
+    This is often used to determine relative positioning along a specific axis,
+    for example, if a pedestrian is in front of or behind a vehicle along its
+    direction of travel if the Y-axis aligns with that direction.
+
+    Args:
+        pos1 (carla.Location): The first CARLA location.
+        pos2 (carla.Location): The second CARLA location.
+
+    Returns:
+        float: The difference `pos2.y - pos1.y`.
+    """
     return pos2.y - pos1.y
 
 
-def l2_length(pos1):
+def l2_length(pos1: carla.Vector3D) -> float:
+    """Calculate the 2D magnitude (length) of a CARLA vector.
+
+    This function computes the length of the vector `pos1` in the XY plane,
+    effectively treating it as a 2D vector by ignoring its Z component.
+    This is equivalent to the L2 norm of the vector's (x, y) components.
+
+    Args:
+        pos1 (carla.Vector3D): The CARLA vector (or any object with x, y attributes)
+            for which to calculate the 2D length.
+
+    Returns:
+        float: The 2D length (magnitude) of the vector.
+    """
     direction = pos1
-    direction_norm = math.sqrt(direction.x**2 + direction.y**2)
-    return direction_norm
+    return math.sqrt(direction.x**2 + direction.y**2)
