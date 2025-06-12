@@ -1,3 +1,6 @@
+# ruff: noqa: D102
+"""Pedestrian controller module for CARLA ICTS2 benchmark."""
+
 import abc
 import math
 import time
@@ -17,10 +20,8 @@ class BasePose(abc.ABC):
     def __init__(self, walker: carla.Walker) -> None:
         """Initialize the BasePose.
 
-        Parameters
-        ----------
-        walker : carla.Walker
-            The walker actor this pose is associated with.
+        Args:
+            walker (carla.Walker): The walker actor this pose is associated with.
         """
         self.walker = walker
         self.blend_duration = 0.25
@@ -38,27 +39,22 @@ class BasePose(abc.ABC):
     ) -> dict[str, tuple[float, float, float]]:
         """Apply a target pose to the arm bones of the walker.
 
-        Parameters
-        ----------
-        arm_bone_targets : dict[str, tuple[float, float, float]]
-            A dict like
-            ```
-            {
-                "crl_arm__R": (pitch, roll, yaw),
-                "crl_shoulder__R": (pitch, roll, yaw),
-                ...
-            }
-            ```
-            If a bone is not in the dict, its current relative transform is maintained.
-        relative : bool, optional
-            If True, the specified rotations are applied relative to the current pose.
-            If False, they are set as absolute values. Default is True.
+        Args:
+            arm_bone_targets (dict[str, tuple[float, float, float]]): A dict like
+                ```
+                {
+                    "crl_arm__R": (pitch, roll, yaw),
+                    "crl_shoulder__R": (pitch, roll, yaw),
+                    ...
+                }
+                ```
+                If a bone is not in the dict, its current relative transform is maintained.
+            relative (bool, optional): If True, the specified rotations are applied relative to the
+                current pose. If False, they are set as absolute values. Default is True.
 
-        Returns
-        -------
-        dict[str, tuple[float, float, float]]
-            A dictionary mapping each arm bone name to its updated absolute (pitch, roll, yaw)
-            rotation.
+        Returns:
+            (dict[str, tuple[float, float, float]]): A dictionary mapping each arm bone name to its
+            updated absolute (pitch, roll, yaw) rotation.
         """
         bones = self.walker.get_bones()
         new_pose = []
@@ -154,192 +150,20 @@ class PathController:
         self.done = True
 
 
-# # Works!
-# class WaveHand(object):
-#     """
-#     Controller to make the walker raise their right hand and perform a brief wave.
-#     """
+class WaveHand(BasePose):
+    """A controller to make the walker wave their hand."""
 
-#     def __init__(
-#         self,
-#         walker,
-#         start_pos=None,
-#         raise_duration=2,
-#         wave_cycles=2,
-#         wave_segment_duration=0.1,
-#         lower_duration=0.25,
-#     ):
-#         self.walker = walker
-#         self.start_pos = start_pos
-#         self.raise_duration = raise_duration
-#         self.wave_cycles = wave_cycles
-#         self.wave_segment_duration = wave_segment_duration
-#         self.lower_duration = lower_duration
-
-#         self.state = "Idle"  # Idle, Raising, Waving_Out, Waving_In, Lowering, Done
-#         self.start_time = None
-#         self.current_wave_count = 0
-#         self._initial_arm_pose_bones = {}
-
-#     def _store_initial_arm_pose(self):
-#         self._initial_arm_pose_bones.clear()
-#         bones = self.walker.get_bones()
-#         for bone_transform in bones.bone_transforms:
-#             if (
-#                 "arm__R" in bone_transform.name
-#                 or "shoulder__R" in bone_transform.name
-#                 or "foreArm__R" in bone_transform.name
-#             ):  # Also store forearm
-#                 relative_transform = bone_transform.relative
-#                 self._initial_arm_pose_bones[bone_transform.name] = carla.Transform(
-#                     location=carla.Location(
-#                         x=relative_transform.location.x,
-#                         y=relative_transform.location.y,
-#                         z=relative_transform.location.z,
-#                     ),
-#                     rotation=carla.Rotation(
-#                         pitch=relative_transform.rotation.pitch,
-#                         yaw=relative_transform.rotation.yaw,
-#                         roll=relative_transform.rotation.roll,
-#                     ),
-#                 )
-
-#     def step(self):
-#         if self.state == "Done":
-#             return "Done"
-
-#         current_loc = self.walker.get_location()
-#         current_time = time.time()
-
-#         # Trigger condition
-#         if self.state == "Idle":
-#             if self.start_pos is None or l2_distance(current_loc, self.start_pos) <= 0.5:
-#                 self.state = "Raising"
-#                 self.start_time = current_time
-#                 self._store_initial_arm_pose()
-#                 logger.debug("WaveHand triggered: Raising arm.")
-
-#                 bones = self.walker.get_bones()
-#                 new_pose_raise = []
-#                 for bone in bones.bone_transforms:
-#                     if bone.name == "crl_arm__R":
-#                         bone.relative.rotation.pitch -= 100  # Raise arm
-#                         bone.relative.rotation.roll = 10
-#                     elif bone.name == "crl_shoulder__R":
-#                         bone.relative.rotation.pitch -= -1  # Adjust shoulder
-#                         bone.relative.rotation.roll += 20  # Slight outward roll
-#                     elif bone.name == "crl_foreArm__R":
-#                         bone.relative.rotation.pitch -= 10
-#                         # bone.relative.rotation.pitch = 30  # Bend elbow
-#                         bone.relative.rotation.roll += 40  # Slight outward roll
-#                         bone.relative.rotation.yaw = 0  # Ensure forearm starts straight
-
-#                     new_pose_raise.append((bone.name, bone.relative))
-
-#                 control_raise = carla.WalkerBoneControlIn()
-#                 control_raise.bone_transforms = new_pose_raise
-#                 self.walker.set_bones(control_raise)
-#                 self.walker.blend_pose(self.raise_duration)
-#             else:
-#                 return "Running"
-
-#         elif self.state == "Raising":
-#             if current_time - self.start_time >= self.raise_duration:
-#                 self.state = "Waving_Out"
-#                 self.start_time = current_time
-#                 self.current_wave_count = 0
-#                 logger.debug("WaveHand: Arm raised, starting wave (outward).")
-#                 self._apply_wave_segment_pose(outward=True)
-
-#         elif self.state == "Waving_Out":
-#             if current_time - self.start_time >= self.wave_segment_duration:
-#                 self.state = "Waving_In"
-#                 self.start_time = current_time
-#                 logger.debug("WaveHand: Waving inward.")
-#                 self._apply_wave_segment_pose(outward=False)
-
-#         elif self.state == "Waving_In":
-#             if current_time - self.start_time >= self.wave_segment_duration:
-#                 self.current_wave_count += 1
-#                 if self.current_wave_count >= self.wave_cycles:
-#                     self.state = "Lowering"
-#                     self.start_time = current_time
-#                     logger.debug("WaveHand: Waving finished, lowering arm.")
-
-#                     if self._initial_arm_pose_bones:
-#                         bones = self.walker.get_bones()
-#                         new_pose_lower = []
-#                         for bt in bones.bone_transforms:
-#                             if bt.name in self._initial_arm_pose_bones:
-#                                 new_pose_lower.append(
-#                                     (bt.name, self._initial_arm_pose_bones[bt.name]),
-#                                 )
-#                             else:  # For non-arm bones, keep their current relative transform
-#                                 new_pose_lower.append((bt.name, bt.relative))
-
-#                         control_lower = carla.WalkerBoneControlIn()
-#                         control_lower.bone_transforms = new_pose_lower
-#                         self.walker.set_bones(control_lower)
-#                         self.walker.blend_pose(self.lower_duration)
-#                     else:
-#                         self.walker.blend_pose(self.lower_duration)
-#                 else:
-#                     self.state = "Waving_Out"
-#                     self.start_time = current_time
-#                     logger.debug(
-#                         f"WaveHand: Starting wave cycle {self.current_wave_count + 1} (outward)."
-#                     )
-#                     self._apply_wave_segment_pose(outward=True)
-
-#         elif self.state == "Lowering":
-#             if current_time - self.start_time >= self.lower_duration:
-#                 self.state = "Done"
-#                 logger.debug("WaveHand: Arm lowered.")
-
-#         return "Running"
-
-#     def _apply_wave_segment_pose(self, outward: bool):
-#         wave_forearm_yaw_angle = 30  # Degrees for forearm yaw movement from center
-
-#         bones = self.walker.get_bones()
-#         new_pose_wave = []
-
-#         for bone in bones.bone_transforms:
-#             # Maintain the raised position for upper arm and shoulder
-#             if bone.name == "crl_arm__R":
-#                 bone.relative.rotation.pitch -= 100
-#                 bone.relative.rotation.roll = 10
-#             elif bone.name == "crl_shoulder__R":
-#                 bone.relative.rotation.pitch -= -1
-#                 bone.relative.rotation.roll += 20  # Slight outward roll
-#             elif bone.name == "crl_foreArm__R":
-#                 # Apply the wave motion to the forearm's yaw
-#                 bone.relative.rotation.pitch -= 10
-#                 bone.relative.rotation.roll += 40  # Slight outward roll
-#                 bone.relative.rotation.yaw = (
-#                     wave_forearm_yaw_angle if outward else -wave_forearm_yaw_angle
-#                 )
-
-#             new_pose_wave.append((bone.name, bone.relative))
-
-
-#         control_wave = carla.WalkerBoneControlIn()
-#         control_wave.bone_transforms = new_pose_wave
-#         self.walker.set_bones(control_wave)
-#         logger.debug(f"Blending time: {self.wave_segment_duration * 0.5}")
-#         # Blend quickly into the wave segment pose.
-#         # A shorter blend time makes the wave look sharper.
-#         self.walker.blend_pose(self.wave_segment_duration * 0.5)
-class WaveHand(object):
     def __init__(
         self,
-        walker,
-        start_pos=None,
-        raise_duration=0.75,  # Adjusted default - tune this!
-        wave_cycles=2,
-        wave_segment_duration=0.3,  # Adjusted default - tune this!
-        lower_duration=0.5,  # Adjusted default - tune this!
-    ):
+        walker: carla.Walker,
+        start_pos: carla.Location | None = None,
+        raise_duration: float = 0.75,
+        wave_cycles: int = 2,
+        wave_segment_duration: float = 0.3,
+        lower_duration: float = 0.5,
+    ) -> None:
+        super().__init__(walker)
+
         self.walker = walker
         self.start_pos = start_pos
         self.raise_duration = raise_duration
@@ -350,7 +174,9 @@ class WaveHand(object):
         self.state = "Idle"
         self.start_time = None
         self.current_wave_count = 0
-        self._initial_arm_pose_bones = {}  # Stores original pose before any action
+
+        # Stores original pose before any action
+        self._initial_arm_pose_bones: dict[str, carla.Transform] = {}
 
         # Define target bone rotations for "raised" state consistently
         self.raised_arm_pitch = -140  # More upright raise
@@ -360,7 +186,8 @@ class WaveHand(object):
         self.raised_forearm_pitch = -10  # Bent elbow for waving
         self.raised_forearm_yaw = 0  # Forearm straight initially when raised
 
-    def _store_initial_arm_pose(self):
+    def _store_initial_arm_pose(self) -> None:
+        """Store the initial pose of the arm bones for later reset."""
         self._initial_arm_pose_bones.clear()
         bones = self.walker.get_bones()
         for bone_transform in bones.bone_transforms:
@@ -385,15 +212,17 @@ class WaveHand(object):
                     ),
                 )
 
-    def _apply_arm_pose(self, target_pitches_rolls_yaws, blend_duration):
-        """
-        Applies a target pose to the arm bones.
-        target_pitches_rolls_yaws: A dict like {
-            "crl_arm__R": (pitch, roll, yaw),
-            "crl_shoulder__R": (pitch, roll, yaw),
-            ...
-        }
-        If a bone is not in the dict, its current relative transform is maintained.
+    def _apply_arm_pose(self, target_pitches_rolls_yaws: dict[str, tuple[float, float, float]], blend_duration: float) -> None:
+        """Apply a target pose to the arm bones.
+
+        Args:
+            target_pitches_rolls_yaws: A dict like {
+                "crl_arm__R": (pitch, roll, yaw),
+                "crl_shoulder__R": (pitch, roll, yaw),
+                ...
+            }
+            If a bone is not in the dict, its current relative transform is maintained.
+            blend_duration: Duration to blend into this pose.
         """
         bones = self.walker.get_bones()
         new_pose = []
@@ -420,7 +249,7 @@ class WaveHand(object):
         self.walker.set_bones(control)
         self.walker.blend_pose(blend_duration)
 
-    def step(self):
+    def step(self) -> Literal["Running", "Done", "Idle"]:
         if self.state == "Done":
             return "Done"
 
@@ -456,6 +285,11 @@ class WaveHand(object):
                 return "Running"
 
         elif self.state == "Raising":
+            if self.start_time is None:
+                raise ValueError(
+                    "WaveHand: start_time is None in Raising state. This should not happen.",
+                )
+
             if (
                 current_time - self.start_time >= self.raise_duration and self.wave_cycles > 0
             ):  # Wait for raise to complete
@@ -466,6 +300,11 @@ class WaveHand(object):
                 self._apply_wave_segment_pose(outward=True)
 
         elif self.state == "Waving_Out":
+            if self.start_time is None:
+                raise ValueError(
+                    "WaveHand: start_time is None in Waving_Out state. This should not happen.",
+                )
+
             # Check if the blend for Waving_Out is complete before moving to Waving_In
             if (
                 current_time - self.start_time >= self.wave_segment_duration
@@ -477,6 +316,11 @@ class WaveHand(object):
                 self._apply_wave_segment_pose(outward=False)
 
         elif self.state == "Waving_In":
+            if self.start_time is None:
+                raise ValueError(
+                    "WaveHand: start_time is None in Waving_In state. This should not happen.",
+                )
+
             # Check if the blend for Waving_In is complete
             if current_time - self.start_time >= self.wave_segment_duration:
                 self.current_wave_count += 1
@@ -515,13 +359,18 @@ class WaveHand(object):
                     self._apply_wave_segment_pose(outward=True)
 
         elif self.state == "Lowering":
+            if self.start_time is None:
+                raise ValueError(
+                    "WaveHand: start_time is None in Lowering state. This should not happen.",
+                )
+
             if current_time - self.start_time >= self.lower_duration:
                 self.state = "Done"
                 logger.debug("WaveHand: Arm lowered.")
 
         return "Running"
 
-    def _apply_wave_segment_pose(self, outward: bool):
+    def _apply_wave_segment_pose(self, *, outward: bool) -> None:
         wave_forearm_yaw_amplitude = 45
 
         wave_pose_targets = {
@@ -1812,7 +1661,22 @@ class UncertainSteps:
 
 
 class ControllerConfig:
+    """Configuration object for controlling pedestrian and scenario parameters."""
+
     def __init__(self, ped_speed: float = 1.0, ped_distance: float = 30.0) -> None:
+        """Initialize a configuration object for controlling pedestrian and scenario parameters.
+
+        This class stores various parameters that define the behavior of a pedestrian
+        within a specific scenario instance, such as speeds, distances for different
+        actions, and interaction characteristics.
+
+        Args:
+            ped_speed (float): The base speed of the pedestrian in meters per second.
+                Defaults to 1.0.
+            ped_distance (float): A general distance parameter, often used as an initial
+                distance for interactions or decisions. Its specific meaning can vary
+                depending on the scenario. Defaults to 30.0.
+        """
         self.ped_speed = ped_speed
         self.ped_distance = ped_distance
         self.spawning_distance = 0.0
@@ -1822,8 +1686,6 @@ class ControllerConfig:
         self.reenter_distance = 0.0
         self.op_reenter_distance = 0.0
         self.char = "yielding"
-
-        # --- NEW Parameters specifically for IConfig07 ---
         self.sprint_speed_multiplier = 1.0  # Default multiplier is 1 (no sprint)
         self.walking_distance_X = 0.0
         self.walking_distance_Y = 0.0
