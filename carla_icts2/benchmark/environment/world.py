@@ -114,6 +114,8 @@ class World:
         # Define the functions to update the camera based on the provided specifications
         self.define_camera_based_on_specs(camera_specs=args.camera)
 
+        time.sleep(5)  # Wait for the world to stabilize after spawning actors
+
     def define_camera_based_on_specs(self, camera_specs: str) -> None:
         """Define the function to update the camera based on the provided specifications.
 
