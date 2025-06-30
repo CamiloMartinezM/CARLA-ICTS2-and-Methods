@@ -110,15 +110,21 @@ def execute_ffmpeg_frames_to_video(
     cmd_parts = [
         "ffmpeg",
         "-y",  # Overwrite output files without asking
+        "-framerate",
+        str(video_fps),  # Use -framerate for input
         "-f image2 -pattern_type glob -i",
         "'" + str(frames_path) + "/*.png'",  # Input frames
-        "-r",
-        str(video_fps),  # Set FPS
         "-c:v",
         "libx264",  # Use H.264 codec
-        "-preset slow",
+        "-profile:v",
+        "baseline",
+        "-level",
+        "3.0",
+        "-preset medium",
         "-crf 10",  #  Lower CRF = better quality (0 = lossless, 10 = nearly lossless)
         "-pix_fmt yuv420p",  # Ensures compatibility
+        "-r",
+        str(video_fps),  # Also specify output framerate
         "'" + str(output_path) + "'",  # Output file
         "> /dev/null 2>&1",  # Suppress output
     ]
