@@ -208,9 +208,6 @@ def run(config: dict) -> None:
 
         env.close()
 
-    # Run after the simulation ends
-    postprocessing()
-
 
 def run_server(config: dict) -> subprocess.CompletedProcess:
     """Run the Carla server with the given `config`."""
@@ -232,6 +229,7 @@ def postprocessing(
     max_stitching_videos: int = 3,
     *,
     use_ffmpeg: bool = True,
+    replace_existing: bool = False,
 ) -> None:
     """Run after the main function and stitches the videos together.
 
@@ -250,6 +248,8 @@ def postprocessing(
         max_stitching_videos (int): Maximum number of videos to stitch together horizontally.
             Defaults to 3.
         use_ffmpeg (bool): Whether to use ffmpeg for stitching videos. Defaults to True.
+        replace_existing (bool): If True, it will replace existing stitched videos.
+            Defaults to False.
     """
     kill_carla_server()
 
@@ -262,8 +262,13 @@ def postprocessing(
         if scenario_folder.is_dir():
             # If an all_views file already exists, delete it to re-generate it
             if (scenario_folder / "all_views.mp4").exists():
-                logger.warning(f"Deleting already existing {scenario_folder / 'all_views.mp4'}.")
-                (scenario_folder / "all_views.mp4").unlink()
+                if replace_existing:
+                    logger.warning(
+                        f"Deleting already existing {scenario_folder / 'all_views.mp4'}.",
+                    )
+                    (scenario_folder / "all_views.mp4").unlink()
+                else:
+                    continue
 
             # Get the list of videos in the folder, but only the views that we're interested in
             videos = videos_in_folder(scenario_folder, startswith=camera_views_to_stitch)
@@ -306,7 +311,7 @@ def kill_carla_server() -> None:
 
 
 @app.default()
-def main() -> None:
+def main(*, replace_existing: bool = False) -> None:
     """Run the complete script."""
     run_config = load_yaml("run_config.yaml")
 
@@ -340,7 +345,7 @@ def main() -> None:
         raise
     finally:
         # Ensure server is killed even if the script crashes
-        postprocessing()
+        postprocessing(replace_existing=replace_existing)
         if p.is_alive():
             p.terminate()
             p.join()
