@@ -60,14 +60,6 @@ def run(config: dict) -> None:
                 scenario=scenario,
                 debug=Config.debug,
             )
-            # multi_camera_recorder = SpectatorRecorder(
-            #     env.world,
-            #     config["video"],
-            #     width=Config.width,
-            #     height=Config.height,
-            #     scenario=scenario,
-            #     camera_type=Config.camera,
-            # )
         else:
             logger.info("Video recording disabled or no camera views specified.")
 

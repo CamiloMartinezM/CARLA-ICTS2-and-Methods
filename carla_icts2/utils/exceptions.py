@@ -40,3 +40,17 @@ class PlayerNotAliveError(ActorNotAliveError):
 
     def __init__(self, scenario_id: str | None = None, message: str | None = None) -> None:
         super().__init__("Player", scenario_id, message)
+
+
+class ScenarioSetupError(Exception):
+    """Raised when a scenario's `tick()` is called before it's properly set up.
+
+    A scenario is set up by calling its `setup()` method.
+    """
+
+    def __init__(self, scenario_id: str, missing_attrs: list[str] | None = None) -> None:
+        """Initialize the ScenarioSetupError."""
+        message = f"Scenario '{scenario_id}' tick failed. "
+        if missing_attrs:
+            message += f"Missing attributes: {', '.join(missing_attrs)}"
+        super().__init__(message)

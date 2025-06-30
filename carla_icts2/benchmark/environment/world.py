@@ -43,6 +43,7 @@ from carla_icts2.benchmark.environment.sensors import *
 from carla_icts2.benchmark.environment.utils import find_weather_presets
 from carla_icts2.benchmark.scenarios.scenarios import SCENARIO_MAP, BaseScenario
 from carla_icts2.config import logger
+from carla_icts2.utils.exceptions import WalkerNotAliveError
 
 
 class World:
@@ -112,6 +113,8 @@ class World:
         self.dummy_car = False
         self.debug = args.debug
 
+        time.sleep(5)
+        
         # Initial restart with the provided tuple
         scenario_id, initial_config = scenario
         self.restart(scenario_id, initial_config)
@@ -128,6 +131,9 @@ class World:
 
         # Define the functions to update the camera based on the provided specifications
         self.define_camera_based_on_specs(camera_specs=args.camera)
+
+        # Sleep for 5 seconds to allow the world to stabilize after spawning the player and walker
+        time.sleep(5)
 
     def define_camera_based_on_specs(self, camera_specs: str) -> None:
         """Define the function to update the camera based on the provided specifications.
@@ -419,7 +425,7 @@ class World:
         return blueprint
 
     # TODO: Compare to original
-    def restart(self, scenario_id: str, conf: ControllerConfig):
+    def restart(self, scenario_id: str, conf: ControllerConfig) -> None:
         logger.info(f"Restarting world for scenario: {scenario_id}")
         self.current_scenario_id = scenario_id
         self.current_config = conf
@@ -456,10 +462,12 @@ class World:
 
         self.current_scenario = ScenarioClass(self, conf)
 
-        if not self.current_scenario:
+        if self.current_scenario is None:
             raise ValueError(
-                f"Scenario ID '{scenario_id}' found in SCENARIO_MAP, but unable to instantiate it"
+                f"Scenario ID '{scenario_id}' found in SCENARIO_MAP, but unable to instantiate it",
             )
+
+        logger.info(f"Instantiated Scenario:\n{self.current_scenario}")
 
         # Spawn the player vehicle
         start_transform = self.current_scenario.get_start_transform()
@@ -485,6 +493,9 @@ class World:
             logger.error(f"Failed to spawn player after {spawn_attempts} attempts. Exiting.")
             sys.exit(1)
 
+        # Update the scenario's reference to the newly spawned player}
+        self.current_scenario.player = self.player
+
         # Set up the scenario actors and controllers
         # This method is now responsible for spawning the walker
         # and assigning it to self.walker
@@ -504,10 +515,7 @@ class World:
 
         # Check if walker was spawned correctly by setup
         if not self.walker or not self.walker.is_alive:
-            logger.error(
-                f"Walker was not spawned correctly during setup for scenario {scenario_id}",
-            )
-            return
+            raise WalkerNotAliveError(self.current_scenario.get_scenario_id())
 
         # Set initial walker state (ICR, SON) - Get from scenario object
         initial_icr, initial_son = self.current_scenario.get_initial_walker_state()
@@ -571,8 +579,6 @@ class World:
 
         logger.info(f"World restart complete for scenario {scenario_id}")
 
-
-
     # TODO: Compare to original
     def tick(self, clock):
         self.counter += 1
@@ -609,7 +615,12 @@ class World:
             # Apply default behavior if no scenario is running (e.g., simple forward motion?)
             pass  # Or apply a default control if needed
 
-    def get_walker_state(self):
+    def get_walker_state(self) -> tuple[float, float, ICR, SON] | None:
+        """Get the pedestrian's position and state (ICR, SON)."""
+        if self.walker is None:
+            logger.error("Walker is None")
+            return None
+
         loc = self.walker.get_location()
         x, y = loc.x, loc.y
         return (x, y, self.walker.icr, self.walker.son)

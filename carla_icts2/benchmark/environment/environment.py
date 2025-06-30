@@ -10,7 +10,7 @@ import pygame
 from PIL import Image
 
 from carla_icts2.benchmark.environment.hud import HUD
-from carla_icts2.benchmark.environment.ped_controller import ControllerConfig
+from carla_icts2.benchmark.environment.ped_controller import ICR, SON, ControllerConfig
 from carla_icts2.benchmark.environment.world import World
 from carla_icts2.benchmark.learner_example import Learner
 from carla_icts2.benchmark.scenarios.scenario import Scenario
@@ -261,9 +261,8 @@ class GIDASBenchmark(gym.Env):
         self.ds = 0
         return observation
 
-    # TODO: Compare to original
-    def reset_extract(self) -> None:
-        # Similar logic to reset, but maybe returns different initial state
+    def reset_extract(self) -> tuple[float, float, ICR, SON] | None:
+        """Reset the environment for extracting scenarios."""
         scenario_id, conf = self.next_scene()
         self.scenario_id = scenario_id
         self.speed = conf.ped_speed
@@ -276,19 +275,19 @@ class GIDASBenchmark(gym.Env):
                 f"Error restarting world for extract scenario {scenario_id}: {e}",
                 exc_info=True,
             )
-            return
+            return None
 
         self.planner_agent.update_scenario(self.world.current_scenario)
 
         self.world.world.tick()
-        while self.world.semseg_sensor.array is None:
+        while self.world.semseg_sensor is not None and self.world.semseg_sensor.array is None:
             self.world.world.tick()
 
         # Assuming get_walker_state is still the desired return
         return self.world.get_walker_state()
 
-    def process_inputs(self):
-        """Process keyboard inputs for camera toggling"""
+    def process_inputs(self) -> bool:
+        """Process keyboard inputs for camera toggling."""
         for event in pygame.event.get():
             print("EVENT: ", event)
             if event.type == pygame.QUIT:
