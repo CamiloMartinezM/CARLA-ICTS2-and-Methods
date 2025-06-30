@@ -1,5 +1,4 @@
 import random
-import time
 from pathlib import Path
 
 import carla
@@ -13,7 +12,6 @@ from carla_icts2.benchmark.environment.hud import HUD
 from carla_icts2.benchmark.environment.ped_controller import ICR, SON, ControllerConfig
 from carla_icts2.benchmark.environment.world import World
 from carla_icts2.benchmark.learner_example import Learner
-from carla_icts2.benchmark.scenarios.scenario import Scenario
 from carla_icts2.config import ASSETS_DIR, logger
 from carla_icts2.scenarios_config import (
     Config,
@@ -224,42 +222,6 @@ class GIDASBenchmark(gym.Env):
                     1,
                 ):
                     self.episodes.append((scenario, speed, distance))
-        # episodes = [(scenario, 1.3, 40.0), (scenario, 1.5, 40.0), (scenario, 1.7, 36.0), (scenario, 2.0, 32.0),
-        #         #             (scenario, 1.6, 36.0), (scenario, 2.0, 25.0), (scenario, 2.8, 18.0)]
-        # self.episodes += episodes
-
-    def reset(self):
-        if True:
-            scenario_id, conf = self.next_scene()
-            # ped_speed = 1.25  # Debug Settings
-            # ped_distance = 10.75
-            # scenario_id = "10"
-            self.scenario = scenario_id
-            self.speed = conf.ped_speed
-            self.distance = conf.ped_distance
-        else:
-            scenario_id, self.speed, self.distance = self.next_scene()
-            conf = ControllerConfig()
-            conf.ped_speed = self.speed
-            conf.ped_distance = self.distance
-        func = "self.scene_generator.scenario" + scenario_id
-        scenario = eval(func + "()")
-        self.world.restart(scenario, conf)
-
-        self.planner_agent.update_scenario(scenario)
-
-        self.world.world.tick()
-        i = 0
-        # print("Is none", self.world.semseg_sensor.array is None)
-        while self.world.semseg_sensor.array is None:
-            i += 1
-            self.world.world.tick()
-            if i > 100:
-                print(i)
-        # print("Is none", self.world.semseg_sensor.array is None)
-        observation, risk, ped_observable = self._get_observation()
-        self.ds = 0
-        return observation
 
     def reset_extract(self) -> tuple[float, float, ICR, SON] | None:
         """Reset the environment for extracting scenarios."""
@@ -289,20 +251,23 @@ class GIDASBenchmark(gym.Env):
     def process_inputs(self) -> bool:
         """Process keyboard inputs for camera toggling."""
         for event in pygame.event.get():
-            print("EVENT: ", event)
+            logger.info("EVENT: ", event)
             if event.type == pygame.QUIT:
                 return True  # Exit
             if event.type == pygame.KEYUP:
                 # Camera controls
                 if event.key == pygame.K_TAB:  # TAB key - toggle camera position
+                    if self.world.camera_manager is None:
+                        logger.error("Camera manager is not initialized.")
+                        return False
                     self.world.camera_manager.toggle_camera()
                     print("Camera position changed")
                 elif event.key == pygame.K_c:  # C key - cycle through camera types
+                    if self.world.camera_manager is None:
+                        logger.error("Camera manager is not initialized.")
+                        return False
                     self.world.camera_manager.next_sensor()
                     print("Camera type changed")
-                elif event.key == pygame.K_p:  # P key - switch to POV camera
-                    self.enable_pov_camera()
-                    print("Switched to POV camera")
                 elif event.key == pygame.K_ESCAPE:  # ESC key - exit
                     return True  # Exit
         return False  # Continue

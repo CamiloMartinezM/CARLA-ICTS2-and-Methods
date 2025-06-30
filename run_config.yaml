@@ -1,7 +1,7 @@
 # Runtime Configuration
 carla:
   path: "/home/camilo/Applications/carla-0-9-15-linux"
-  quality: "Low" # Options: "Low", "Epic"
+  quality: "Epic" # Options: "Low", "Epic"
   port: 2000
   server_mode: true # Whether to launch CARLA in server mode
   fps: 24
@@ -21,11 +21,11 @@ carla:
 scenarios: [
     # "01_int",
     # "02_int",
-    "03_int",
+    # "03_int",
     # "04_int",
     # "05_int",
     # "06_int",
-    # "07_int",
+    "07_int",
     # "01_non_int",
     # "02_non_int",
     # "03_non_int",

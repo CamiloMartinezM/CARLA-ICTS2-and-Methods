@@ -2,13 +2,11 @@
 """Module containing the base scenario class and specific scenario implementations."""
 
 import abc
-import functools
 import math
 import time
 from typing import TYPE_CHECKING, Any
 
 import carla
-import numpy as np
 
 from carla_icts2.benchmark.environment.car_controller import CarController
 from carla_icts2.benchmark.environment.ped_controller import (
@@ -20,7 +18,6 @@ from carla_icts2.benchmark.environment.ped_controller import (
     LeanForwardAndLook,
     LookAcrossStreetLeft,
     LookBehindLeft,
-    LookBehindLeftSpine,
     LookBehindRight,
     PathController,
     RaiseArm,
@@ -36,9 +33,6 @@ from carla_icts2.benchmark.environment.ped_controller import (
     l2_length,
     y_distance,
 )
-from carla_icts2.benchmark.environment.utils import (
-    find_weather_presets,
-)  # Keep utils if needed by scenarios
 from carla_icts2.config import RNG, logger
 from carla_icts2.utils.exceptions import (
     PlayerNotAliveError,
@@ -529,7 +523,7 @@ class BaseScenario(abc.ABC):
     def decision_trigger(
         self,
         distance: float,
-        db: list[float] | None,
+        db: list[float | int] | None,
         *,
         without_speed: bool = False,
     ) -> bool:
@@ -1379,64 +1373,993 @@ class Scenario03Int(BaseScenario):
         ):
             raise ScenarioSetupError(self.scenario_id)
 
-        status = self.path_controller_1.step()
-        self.turn_head.step()
-
-        if self.dummy_car and self.my_world.car_controller:
+        if self.dummy_car:
             self.my_world.car_controller.step()
 
-        # Decision logic based on car's distance and pedestrian character
-        if self.flip_choice is None and y_distance(self.walker.get_location(), self.flip_p) < 0:
-            distance = y_distance(self.walker.get_location(), self.player.get_location())
-            if self.init_char == "forcing":
-                # Forcing pedestrian decides to flip to yielding if car is close
-                if self.decision_trigger(distance, self.db):
-                    self.flip_choice = "yielding"
-                    self.relaxer.step()
-                else:
-                    self.flip_choice = "forcing"
-            else:  # init_char == "yielding"
-                # Yielding pedestrian decides to flip to forcing if car is far
-                if self.decision_trigger(distance, self.db, without_speed=True):
-                    self.flip_choice = "yielding"
-                else:
-                    self.flip_choice = "forcing"
-                    self.second_choice = self.second_decider(distance)
-
-        # Adjust speed based on decision and car proximity
-        if self.flip_choice == "forcing":
-            distance = y_distance(self.walker.get_location(), self.player.get_location())
-            if (
-                not self.second_choice
-                and y_distance(self.walker.get_location(), self.acc_p) < 0
-                and self.decision_trigger(distance, self.acc_db)
-            ):
-                self.set_walker_speed_relative(1.1)
-                self.walker.son = SON.FORCING
-                self.walker.icr = ICR.GOING_TO
-        elif self.flip_choice == "yielding":
-            distance = y_distance(self.walker.get_location(), self.player.get_location())
-            if y_distance(self.walker.get_location(), self.desc_p) < 0 and self.decision_trigger(
-                distance,
-                self.slow_db,
-            ):
-                self.path_controller_1.speed_schedule = self.speed_schedule_stop
-                self.walker.son = SON.YIELDING
-                self.walker.icr = ICR.LOW
-
-        # Handle path completion
-        if status == "Done":
-            if self.flip_choice == "forcing" and not self.second_choice:
+        if self.init_char == "forcing":
+            status = self.path_controller_1.step()
+            self.turn_head.step()
+            if self.choice == "Stop":
+                # print("Status", status, "Choice", self.choice, "Stopped", self.stopped)
+                if status == "Done" and not self.stopped:
+                    self.path_controller_2.cur_speed = 0.0
+                    self.path_controller_1.cur_speed = 0.0
+                    self.set_walker_speed_relative(0.0)
+                    self.stopped = True
+                    # print("Stopped")
+                elif status == "Done":
+                    distance = (
+                        y_distance(self.walker.get_location(), self.player.get_location()) + 10
+                    )
+                    if self.second_decider(distance, 10):
+                        self.walker.blend_pose(0)
+                        self.path_controller_2.cur_speed = self.ped_speed
+                        self.path_controller_2.step()
+                        self.walker.icr = ICR.GOING_TO
+                        self.choice = "Cross"
+            elif self.choice == "Cross":
+                # self.walker.blend_pose(0)
                 self.path_controller_2.step()
             else:
-                self.walker.apply_control(
-                    carla.WalkerControl(direction=carla.Vector3D(0, 0, 0), speed=0.0)
+                if (
+                    l2_distance(self.walker.get_location(), self.flip_p) < 0.1
+                    and self.flip_choice is None
+                ):
+                    distance = (
+                        y_distance(self.walker.get_location(), self.player.get_location()) - 2
+                    )
+
+                    if self.decision_trigger(
+                        distance,
+                        self.slow_db,
+                        without_speed=True,
+                    ):  # distance >=self.slow_db[0] and distance <= self.slow_db[1]:
+                        self.flip_choice = "Error"
+                        self.set_walker_speed_relative(0.7)
+                        self.path_controller_1.cur_speed = self.path_controller_1.cur_speed * 0.7
+                        self.turn_head.relax_spine()
+                        self.walker.icr = ICR.INTERESTED
+                        self.walker.son = SON.YIELDING
+                    else:
+                        self.flip_choice = "StandardAcc"
+                        # print(self.flip_choice)
+                        self.set_walker_speed_relative(1.1)
+                        self.path_controller_1.cur_speed = self.path_controller_1.cur_speed * 1.1
+                        self.turn_head.lean_forward(1.2)
+                        self.walker.icr = ICR.PLANNING_TO
+
+                if (
+                    l2_distance(self.walker.get_location(), self.acc_p) < 0.1
+                    and self.flip_choice == "Error"
+                ):
+                    distance = (
+                        y_distance(self.walker.get_location(), self.player.get_location()) - 2
+                    )
+                    if self.decision_trigger(
+                        distance,
+                        self.acc_db,
+                        without_speed=True,
+                    ):  # distance >=self.acc_db[0] and distance <= self.acc_db[1]:
+                        self.path_controller_1.cur_speed = (
+                            self.path_controller_1.cur_speed * 1.0 / 0.7 * 1.2
+                        )
+                        self.set_walker_speed_relative(1.0 / 0.7 * 1.2)
+                        self.turn_head.lean_forward(1)
+                        self.flip_choice = "Accelerated"
+
+                        self.walker.icr = ICR.PLANNING_TO
+                        self.walker.son = SON.FORCING
+                    else:
+                        self.flip_choice = "Keep"
+                    # print(self.flip_choice)
+                if l2_distance(self.walker.get_location(), self.desc_p) < 0.1:
+                    distance = (
+                        y_distance(self.walker.get_location(), self.player.get_location()) - 2
+                    )
+                    # print("Desc_p")
+                    if self.decision_trigger(
+                        distance,
+                        self.db,
+                    ):  # distance >=self.db[0] and distance <= self.db[1]:
+                        self.choice = "Stop"
+                        self.cur_speed = self.path_controller_1.cur_speed
+                        self.path_controller_1.cur_speed = self.path_controller_1.cur_speed * 0.8
+                        self.path_controller_1.speed_schedule = self.speed_schedule_stop
+                        self.path_controller_1.set_walker_speed_relative(0.8)
+                        self.turn_head.relax_spine()
+                        self.walker.icr = ICR.VERY_LOW
+                        # self.walker.son = SON.AVERTING
+                    else:
+                        self.choice = "Cross"
+                        self.walker.icr = ICR.GOING_TO
+                    # print(distance, self.choice)
+        else:
+            status = self.path_controller_1.step()
+            self.turn_head.step()
+            if self.choice == "Stop":
+                # print("Status", status, "Choice", self.choice, "Stopped", self.stopped)
+                if status == "Done" and not self.stopped:
+                    self.path_controller_2.cur_speed = 0.0
+                    self.path_controller_1.cur_speed = 0.0
+                    self.set_walker_speed_relative(0.0)
+                    self.stopped = True
+                    # print("Stopped")
+                elif status == "Done":
+                    distance = (
+                        y_distance(self.walker.get_location(), self.player.get_location()) + 10
+                    )
+                    if self.second_decider(distance, 20):  # distance < 0:
+                        self.walker.blend_pose(0)
+                        self.path_controller_2.cur_speed = self.ped_speed
+                        self.path_controller_2.step()
+                        self.walker.icr = ICR.GOING_TO
+                        self.choice = "Cross"
+            elif self.choice == "Cross":
+                # self.walker.blend_pose(0)
+                self.path_controller_2.step()
+            elif l2_distance(self.walker.get_location(), self.desc_p) < 0.1:
+                distance = y_distance(self.walker.get_location(), self.player.get_location()) - 2
+                if self.decision_trigger(
+                    distance,
+                    self.db,
+                ):  # distance >=self.db[0] and distance <= self.db[1]:
+                    self.choice = "Stop"
+                    self.cur_speed = self.path_controller_1.cur_speed
+                    self.path_controller_1.cur_speed = self.path_controller_1.cur_speed * 0.95
+                    self.path_controller_1.speed_schedule = self.speed_schedule_stop
+                    self.path_controller_1.set_walker_speed_relative(0.95)
+                    self.turn_head.relax_spine()
+                    self.walker.icr = ICR.VERY_LOW
+                    # self.walker.son = SON.AVERTING
+                else:
+                    self.choice = "Cross"
+                    self.turn_head.lean_forward(1.2)
+                    self.walker.icr = ICR.GOING_TO
+
+        self.iss_crossed.step()
+        relax = self.relaxer.step()
+        if relax and self.choice is None:
+            self.path_controller_1.speed_schedule = None
+            self.path_controller_1.cur_speed = self.ped_speed
+            self.path_controller_2.speed_schedule = None
+            self.path_controller_2.cur_speed = self.ped_speed
+            self.walker.son = SON.AVERTING
+
+        # Update references
+        self.my_world.player = self.player
+        self.my_world.walker = self.walker
+
+
+class Scenario04Int(BaseScenario):
+    """Implementation for Interactive Scenario 04.
+
+    This scenario simulates a pedestrian who may have misjudged the vehicle's speed.
+    The pedestrian walks along the curb, turns to cross, and then, while already on
+    the road, performs a second check. Based on the vehicle's proximity at this
+    critical moment, the pedestrian decides to either continue crossing (potentially
+    accelerating) or take a step back to clear the vehicle's lane, representing
+    a last-second correction of their initial decision.
+    """
+
+    def __init__(self, world: "World", config: ControllerConfig) -> None:
+        """Initialize scenario-specific attributes."""
+        super().__init__(world, config)
+        self.scenario_id = "04_int"
+
+        # Initialize controllers and paths to None
+        self.path_controller_1: PathController | None = None
+        self.path_controller_2: PathController | None = None
+        self.path_controller_3: PathController | None = None
+        self.path_controller_4: PathController | None = None
+        self.turn_head: TurnHeadRightBehindNoICR | None = None
+        self.look_behind_left: LookBehindLeft | None = None
+        self.reset: ResetPose | None = None
+        self.turn_head_second: TurnHeadRightBehindNoICR | None = None
+        self.resetLD1: ResetPose | None = None
+        self.resetLD2: ResetPose | None = None
+        self.relaxer: Relaxer | None = None
+        self.lean_forward: LeanForward | None = None
+        self.curd_stat: InternalStateSetter | None = None
+        self.starts_crossing: InternalStateSetter | None = None
+        self.iss_crossed: InternalStateSetter | None = None
+
+        # Scenario state and configuration attributes
+        self.desc_p: carla.Location | None = None
+
+    def get_spawn_details(
+        self,
+    ) -> tuple[str, list, tuple[float, float, float], tuple[float, float, float]]:
+        """Return the spawn details for the ego vehicle and obstacles."""
+        start = (92.5, 300, -90)
+        end = (92.5, 200, -90)
+        obstacles = []
+
+        walker_bp = self.world.get_blueprint_library().filter("walker.pedestrian.0001")[0]
+        if walker_bp.has_attribute("is_invincible"):
+            walker_bp.set_attribute("is_invincible", "false")
+        walker_spawn_point = carla.Transform()
+        walker_spawn_point.location.x = 85
+        walker_spawn_point.location.y = 300
+        walker_spawn_point.location.z += 1.0
+        walker_spawn_point.rotation.yaw = 270.0
+        walker = [walker_bp, walker_spawn_point]
+        obstacles.append(walker)
+
+        return self.scenario_id, obstacles, end, start
+
+    def get_initial_walker_state(self) -> tuple[ICR, SON]:
+        """Return the initial cognitive state of the walker."""
+        return ICR.PLANNING_TO, SON.YIELDING if self.config.char == "yielding" else SON.FORCING
+
+    def setup(self) -> None:
+        """Set up the scenario, spawning actors and initializing controllers."""
+        logger.info(f"Setting up scenario: {self.get_scenario_id()}")
+        obstacles = self.get_obstacle_blueprints()
+        conf = self.config
+
+        if self.player is None:
+            raise PlayerNotAliveError(self.scenario_id)
+
+        # --- Parameter extraction from config ---
+        spawning_distance = conf.spawning_distance
+        walking_distance = conf.walking_distance
+        looking_distance1 = conf.looking_distance1
+        looking_distance2 = conf.looking_distance2
+        crossing_distanceX = conf.crossing_distanceX
+        crossing_distanceY = conf.crossing_distanceY
+        walk_back_distance = conf.walk_back_distance
+        self.ped_speed = conf.ped_speed
+
+        # Set decision box based on character
+        self.db = [-1.0, 15.0] if conf.char == "yielding" else [-1.0, 20.0]
+        if self.dummy_car:
+            self.db = [-1.0, 20.0]
+
+        # --- Spawn Walker ---
+        base_loc = obstacles[0][1].location + carla.Location(0, -spawning_distance, 0)
+        spawn_loc = base_loc
+        self.walker = self.world.try_spawn_actor(
+            obstacles[0][0],
+            carla.Transform(spawn_loc, obstacles[0][1].rotation),
+        )
+        if not self.walker:
+            logger.error(f"Failed to spawn walker for {self.get_scenario_id()}")
+            return
+
+        self.my_world.walker = self.walker
+        self.walker.apply_control(carla.WalkerControl(carla.Vector3D(0, 0, 0), self.ped_speed))
+        self.world.tick()
+
+        # --- Path Planning ---
+        # Path 1: Walk to curb and turn slightly
+        offsets_1 = [(0, walking_distance), (1, walking_distance + crossing_distanceY)]
+        path_1 = self._compute_plans(
+            offsets_1,
+            base_loc,
+            color=carla.Color(255, 100, 0) if self.my_world.debug else None,
+        )
+        self.path_controller_1 = PathController(self.world, self.walker, path_1, self.ped_speed)
+
+        # Path 2: Crossing the street to decision point
+        offsets_2 = [(crossing_distanceX, walking_distance + crossing_distanceY)]
+        path_2 = self._compute_plans(
+            offsets_2,
+            base_loc,
+            color=carla.Color(255, 0, 0) if self.my_world.debug else None,
+        )
+        mult = 1.0 if conf.char == "yielding" else 1.1 * 1.1 * 1.1
+        self.path_controller_2 = PathController(
+            self.world, self.walker, path_2, self.ped_speed * mult
+        )
+
+        # Path 3: Fully crossing the street after a positive decision
+        offsets_3 = [
+            (12.0, walking_distance + crossing_distanceY),
+            (12.0, walking_distance + crossing_distanceY + 5.0),
+        ]
+        path_3 = self._compute_plans(
+            offsets_3,
+            base_loc,
+            color=carla.Color(0, 0, 255) if self.my_world.debug else None,
+        )
+        self.path_controller_3 = PathController(self.world, self.walker, path_3, self.ped_speed)
+
+        # Path 4: Taking a step back after a negative decision
+        offsets_4 = [
+            (
+                crossing_distanceX - walk_back_distance - 0.2 * crossing_distanceX,
+                walking_distance + crossing_distanceY,
+            ),
+        ]
+        path_4 = self._compute_plans(
+            offsets_4,
+            base_loc,
+            color=carla.Color(255, 100, 0) if self.my_world.debug else None,
+        )
+        self.path_controller_4 = PathController(self.world, self.walker, path_4, self.ped_speed)
+
+        # --- Controller Initialization ---
+        self.turn_head = TurnHeadRightBehindNoICR(self.walker, path_1[1])
+        self.look_behind_left = LookBehindLeft(self.walker, mult=2)
+        self.reset = ResetPose(self.walker)
+        second_turn_p = self.get_point(
+            (crossing_distanceX - looking_distance2, walking_distance + crossing_distanceY),
+        )
+        self.turn_head_second = TurnHeadRightBehindNoICR(self.walker, second_turn_p)
+        reset_ld1_p = self.get_point(
+            (1 + looking_distance1, walking_distance + crossing_distanceY),
+        )
+        self.resetLD1 = ResetPose(self.walker, reset_ld1_p)
+        self.resetLD2 = ResetPose(self.walker, path_2[0])
+
+        self.desc_p = path_2[0]  # The decision point is the end of the first crossing segment
+        self.relaxer = Relaxer(self.walker, self.player, self.desc_p)
+        self.lean_forward = LeanForward(self.walker, path_1[-1])
+
+        # --- Cognitive State Initialization ---
+        initial_icr, initial_son = self.get_initial_walker_state()
+        self.walker.icr = initial_icr
+        self.walker.son = initial_son
+        self.walker.initial_son = initial_son
+        self.iss_crossed = InternalStateSetter(self.walker, path_3[0], ICR.VERY_LOW, SON.AVERTING)
+        self.starts_crossing = InternalStateSetter(
+            self.walker,
+            path_1[-1],
+            ICR.GOING_TO,
+            self.walker.initial_son,
+        )
+        self.curd_stat = InternalStateSetter(
+            self.walker,
+            path_1[0],
+            ICR.PLANNING_TO,
+            self.walker.initial_son,
+        )
+
+        # --- Debug Drawing ---
+        if self.my_world.debug:
+            self._draw_grid()
+            self._draw_db()
+            self._draw_point(reset_ld1_p, color=carla.Color(0, 255, 255))
+            self._draw_point(second_turn_p, color=carla.Color(0, 255, 255))
+
+        # --- Dummy Car Controller ---
+        if self.dummy_car:
+            if self.desc_p is None:
+                logger.error("desc_p cannot be None at this point")
+            else:
+                player_loc = self.player.get_location()
+                breaking_point = carla.Location(player_loc.x, self.desc_p.y + self.db[0], 0.5)
+                car_behave = conf.char == "forcing"
+                car_to_desc = player_loc.y - self.desc_p.y - self.db[1]
+                ped_to_desc = l2_distance(self.walker.get_location(), self.desc_p)
+                ped_time = ped_to_desc / self.ped_speed if self.ped_speed > 0 else float("inf")
+                speed = car_to_desc / ped_time if ped_time != float("inf") else 8.0
+
+                self.my_world.car_controller = CarController(
+                    self.player,
+                    breaking_point,
+                    speed=speed - 2 if car_behave else speed - 1,
+                    yielding=car_behave,
                 )
+
+    def tick(self) -> None:
+        """Execute one simulation step for Scenario 04."""
+        # Update references
+        self.player = self.my_world.player
+        self.walker = self.my_world.walker
+
+        # Check if all required attributes are initialized
+        if (
+            self.walker is None
+            or self.player is None
+            or self.path_controller_1 is None
+            or self.path_controller_2 is None
+            or self.path_controller_3 is None
+            or self.path_controller_4 is None
+            or self.turn_head is None
+            or self.look_behind_left is None
+            or self.reset is None
+            or self.turn_head_second is None
+            or self.resetLD1 is None
+            or self.resetLD2 is None
+            or self.relaxer is None
+            or self.lean_forward is None
+            or self.curd_stat is None
+            or self.starts_crossing is None
+            or self.iss_crossed is None
+            or self.desc_p is None
+        ):
+            raise ScenarioSetupError(self.scenario_id)
+
+        status = self.path_controller_1.step()
+        if self.dummy_car:
+            self.my_world.car_controller.step()
+
+        # self.look_behind_right.step()
+        self.turn_head.step()
+        self.resetLD1.step()
+
+        self.turn_head_second.step()
+        if self.walker.initial_son == SON.FORCING:
+            self.lean_forward.step()
+
+        if status == "Done":
+            # self.reset.step()
+            status2 = self.path_controller_2.step()
+
+            if status2 == "Done":
+                if self.choice == "Back":
+                    # self.reset.step()
+
+                    # self.reset.step()
+                    # make walker run backwards
+                    self.walker.set_transform(
+                        carla.Transform(
+                            self.walker.get_transform().location,
+                            carla.Rotation(0, 0, 0),
+                        ),
+                    )
+                    status3 = self.path_controller_4.step()
+                    if status3 == "Done":
+                        self.reset.step()
+                        self.path_controller_1.cur_speed = 0.0
+                        self.path_controller_2.cur_speed = 0.0
+                        self.path_controller_3.cur_speed = 0.0
+                        self.path_controller_4.cur_speed = 0.0
+                        self.set_walker_speed_relative(0.0)
+                elif self.choice == "Continue":
+                    # self.reset.step()
+                    self.resetLD2.step()
+                    status3 = self.path_controller_3.step()
+                    if status3 == "Done":
+                        self.reset.step()
+                        self.path_controller_1.cur_speed = 0.0
+                        self.path_controller_2.cur_speed = 0.0
+                        self.path_controller_3.cur_speed = 0.0
+                        self.path_controller_4.cur_speed = 0.0
+                        self.set_walker_speed_relative(0.0)
+
+                # self.choice = "Continue"
+                # self.walker.icr = ICR.GOING_TO
+                elif l2_distance(self.walker.get_location(), self.desc_p) < 0.2:
+                    distance = (
+                        y_distance(self.walker.get_location(), self.player.get_location()) - 2
+                    )
+                    if self.decision_trigger(distance, self.db):
+                        self.choice = "Back"
+                        self.walker.icr = ICR.VERY_LOW
+                        self.walker.son = SON.YIELDING
+                    else:
+                        self.choice = "Continue"
+                        self.walker.icr = ICR.GOING_TO
+                        self.walker.son = SON.FORCING
+
+        self.relaxer.step()
+        self.iss_crossed.step()
+        self.starts_crossing.step()
+        self.curd_stat.step()
+
+        # Update world references at the end of the tick
+        self.my_world.player = self.player
+        self.my_world.walker = self.walker
+
+
+class Scenario05Int(BaseScenario):
+    """Implementation for Interactive Scenario 05.
+
+    This scenario is designed to simulate a pedestrian who appears uncertain or
+    confused, giving mixed signals to the driver. The pedestrian walks towards the
+    curb and then begins to cross, but their movement across the road is interspersed
+    with moments of looking back and forth and oscillating speed. This makes it
+    challenging for a path prediction model to determine the pedestrian's true
+    intent (to cross or to yield). The final decision to fully cross or stop is
+    made at a decision point in the lane.
+    """
+
+    def __init__(self, world: "World", config: ControllerConfig) -> None:
+        """Initialize scenario-specific attributes."""
+        super().__init__(world, config)
+        self.scenario_id = "05_int"
+
+        # Initialize controllers and paths to None
+        self.path_controller_1: PathController | None = None
+        self.path_controller_2: PathController | None = None
+        self.path_controller_3: PathController | None = None
+        self.uncertain: UncertainSteps | None = None
+        self.turn_head: TurnHeadRightBehind | None = None
+        self.look_behind_right: LookBehindRight | None = None
+        self.look_behind_left: LookBehindLeft | None = None
+        self.reset: ResetPose | None = None
+        self.relaxer: Relaxer | None = None
+        self.lean_forward: LeanForward | None = None
+        self.iss_crossed: InternalStateSetter | None = None
+
+        # Scenario state and configuration attributes
+        self.path_2: list[carla.Location] = []
+        self.desc_p: carla.Location | None = None
+
+    def get_spawn_details(
+        self,
+    ) -> tuple[str, list, tuple[float, float, float], tuple[float, float, float]]:
+        """Return the spawn details for the ego vehicle and obstacles."""
+        start = (92.5, 300, -90)
+        end = (92.5, 200, -90)
+        obstacles = []
+        walker_bp = self.world.get_blueprint_library().filter("walker.pedestrian.0001")[0]
+        if walker_bp.has_attribute("is_invincible"):
+            walker_bp.set_attribute("is_invincible", "false")
+        walker_spawn_point = carla.Transform()
+        walker_spawn_point.location.x = 85
+        walker_spawn_point.location.y = 280
+        walker_spawn_point.location.z += 1.0
+        walker_spawn_point.rotation.yaw = 90.0
+        walker = [walker_bp, walker_spawn_point]
+        obstacles.append(walker)
+        return self.scenario_id, obstacles, end, start
+
+    def get_initial_walker_state(self) -> tuple[ICR, SON]:
+        """Return the initial cognitive state of the walker."""
+        return ICR.INTERESTED, SON.FORCING if self.config.char == "forcing" else SON.YIELDING
+
+    def setup(self) -> None:
+        """Set up the scenario, spawning actors and initializing controllers."""
+        logger.info(f"Setting up scenario: {self.get_scenario_id()}")
+        obstacles = self.get_obstacle_blueprints()
+        conf = self.config
+
+        if self.player is None:
+            raise PlayerNotAliveError(self.scenario_id)
+
+        # --- Parameter extraction from config ---
+        spawning_distance = conf.spawning_distance
+        walking_distance_X = conf.walking_distance_X
+        walking_distance_Y = conf.walking_distance_Y
+        uncertain_steps = conf.uncertain_steps
+        crossing_distance = conf.crossing_distance
+        self.ped_speed = conf.ped_speed
+
+        self.db = [-1.0, 15.0] if conf.char == "yielding" else [-1.0, 20.0]
+        if self.dummy_car:
+            self.db = [-1.0, 30.0] if conf.char == "yielding" else [-1.0, 20.0]
+        mult = 1.0 if conf.char == "yielding" else 1.1 * 1.1 * 1.1
+
+        # --- Spawn Walker ---
+        base_loc = obstacles[0][1].location + carla.Location(0, -spawning_distance, 0)
+        spawn_loc = base_loc
+        self.walker = self.world.try_spawn_actor(
+            obstacles[0][0],
+            carla.Transform(spawn_loc, obstacles[0][1].rotation),
+        )
+        if not self.walker:
+            logger.error(f"Failed to spawn walker for {self.get_scenario_id()}")
+            return
+        self.my_world.walker = self.walker
+        self.walker.apply_control(carla.WalkerControl(carla.Vector3D(0, 0, 0), self.ped_speed))
+        self.world.tick()
+
+        # --- Path Planning ---
+        # Path 1: Walk to the curb
+        offsets_1 = [(walking_distance_X, -walking_distance_Y)]
+        path_1 = self._compute_plans(
+            offsets_1,
+            base_loc,
+            color=carla.Color(255, 100, 0) if self.my_world.debug else None,
+        )
+        self.path_controller_1 = PathController(self.world, self.walker, path_1, self.ped_speed)
+
+        # Path 2: Walk to the middle of the road (decision point)
+        offsets_2 = [(walking_distance_X + crossing_distance, -walking_distance_Y)]
+        self.path_2 = self._compute_plans(
+            offsets_2,
+            base_loc,
+            color=carla.Color(255, 0, 0) if self.my_world.debug else None,
+        )
+        self.path_controller_2 = PathController(
+            self.world,
+            self.walker,
+            self.path_2,
+            self.ped_speed * mult,
+        )
+
+        # Path 3: Continue crossing road after decision
+        offsets_3 = [(12, -walking_distance_Y), (12, 0)]
+        path_3 = self._compute_plans(
+            offsets_3,
+            base_loc,
+            color=carla.Color(0, 0, 255) if self.my_world.debug else None,
+        )
+        self.path_controller_3 = PathController(self.world, self.walker, path_3, self.ped_speed)
+
+        # --- Controller Initialization ---
+        delta = crossing_distance / (uncertain_steps + 1)
+        uncertain_points = [
+            self.get_point(((walking_distance_X + (i + 1) * delta), -walking_distance_Y))
+            for i in range(uncertain_steps)
+        ]
+        self.uncertain = UncertainSteps(self.walker, uncertain_points, conf.char)
+
+        turn_p = self.get_point((0, walking_distance_Y))
+        self.turn_head = TurnHeadRightBehind(self.walker, turn_p)
+        self.look_behind_right = LookBehindRight(self.walker, path_1[0], conf.char)
+        self.look_behind_left = LookBehindLeft(self.walker, mult=2)
+        self.reset = ResetPose(self.walker)
+
+        self.desc_p = self.path_2[0]
+        self.lean_forward = LeanForward(self.walker, self.desc_p)
+        self.relaxer = Relaxer(self.walker, self.player, path_1[0])
+
+        # Speed schedule for uncertain steps
+        if conf.char == "forcing":
+            self.path_controller_2.speed_schedule = [
+                (uncertain_points[p], conf.ped_speed * 1.5 if p % 2 == 0 else conf.ped_speed * 1.0)
+                for p in range(len(uncertain_points))
+            ]
+        else:
+            self.path_controller_2.speed_schedule = [
+                (uncertain_points[p], conf.ped_speed * 1.0 if p % 2 == 0 else conf.ped_speed * 0.5)
+                for p in range(len(uncertain_points))
+            ]
+
+        # --- Cognitive State Initialization ---
+        initial_icr, initial_son = self.get_initial_walker_state()
+        self.walker.icr = initial_icr
+        self.walker.son = initial_son
+        self.walker.initial_son = initial_son
+        self.iss_crossed = InternalStateSetter(self.walker, path_3[0], ICR.VERY_LOW, SON.AVERTING)
+
+        # --- Debug Drawing ---
+        if self.my_world.debug:
+            self._draw_grid()
+            self._draw_db()
+
+        # --- Dummy Car Controller ---
+        if self.dummy_car:
+            if self.desc_p is None:
+                logger.error("desc_p cannot be None at this point")
+            else:
+                player_loc = self.player.get_location()
+                breaking_point = carla.Location(player_loc.x, self.desc_p.y + self.db[0], 0.5)
+                car_behave = conf.char == "forcing"
+                car_to_desc = player_loc.y - self.desc_p.y - self.db[1]
+                ped_to_desc = l2_distance(self.walker.get_location(), self.desc_p)
+                ped_time = ped_to_desc / self.ped_speed if self.ped_speed > 0 else float("inf")
+                speed = car_to_desc / ped_time if ped_time != float("inf") else 8.0
+
+                self.my_world.car_controller = CarController(
+                    self.player,
+                    breaking_point,
+                    speed=speed - 1 if car_behave else speed - 0.5,
+                    yielding=car_behave,
+                )
+
+    def tick(self) -> None:
+        """Execute one simulation step for Scenario 05."""
+        # Update references
+        self.player = self.my_world.player
+        self.walker = self.my_world.walker
+
+        # Check if all required attributes are initialized
+        if (
+            self.walker is None
+            or self.player is None
+            or self.player is None
+            or self.desc_p is None
+            or self.path_controller_1 is None
+            or self.path_controller_2 is None
+            or self.path_controller_3 is None
+            or self.uncertain is None
+            or self.look_behind_right is None
+            or self.turn_head is None
+            or self.lean_forward is None
+            or self.iss_crossed is None
+            or self.desc_p is None
+            or self.relaxer is None
+        ):
+            raise ScenarioSetupError(self.scenario_id)
+
+        status = self.path_controller_1.step()
+        self.uncertain.step()
+        if self.dummy_car:
+            self.my_world.car_controller.step()
+
+        if status == "Done":
+            status2 = self.path_controller_2.step()
+            if status2 == "Done":
+                if self.choice == "Continue":
+                    self.lean_forward.step()
+                    self.path_controller_3.step()
+                elif self.choice == "Stop":
+                    self.path_controller_2.cur_speed = 0.0
+                    self.path_controller_1.cur_speed = 0.0
+                    self.set_walker_speed_relative(0.0)
+                elif l2_distance(self.walker.get_location(), self.desc_p) < 0.2:
+                    distance = (
+                        y_distance(self.walker.get_location(), self.player.get_location()) - 2
+                    )
+                    if self.decision_trigger(distance, self.db):
+                        self.choice = "Stop"
+                        self.walker.icr = ICR.VERY_LOW
+                        self.walker.son = SON.YIELDING
+                    else:
+                        self.choice = "Continue"
+                        self.walker.icr = ICR.GOING_TO
+                        self.walker.son = SON.FORCING
 
         self.relaxer.step()
         self.iss_crossed.step()
 
+        # Update world references at the end of the tick
+        self.my_world.player = self.player
+        self.my_world.walker = self.walker
+
+
+class Scenario06Int(BaseScenario):
+    """Implementation for Interactive Scenario 06.
+
+    This scenario models a slower pedestrian (e.g., elderly) who intends to cross
+    the street directly. When a conflict with the ego vehicle arises, the pedestrian
+    decides to either continue crossing (if forcing) or to actively avoid the
+    vehicle by walking around its front (if yielding). This requires the path
+    prediction model to anticipate a significant deviation from the initial straight path.
+    """
+
+    def __init__(self, world: "World", config: ControllerConfig) -> None:
+        """Initialize scenario-specific attributes."""
+        super().__init__(world, config)
+        self.scenario_id = "06_int"
+
+        # Initialize controllers and paths to None
+        self.path_controller_1: PathController | None = None
+        self.path_controller_2: PathController | None = None
+        self.path_controller_3: PathController | None = None
+        self.turn_head: TurnHeadRightBehind | None = None
+        self.look_behind_right: LookBehindRight | None = None
+        self.raise_arm: RaiseArm | None = None
+        self.look_behind_left: LookBehindLeft | None = None
+        self.reset: ResetPose | None = None
+        self.relaxer: Relaxer | None = None
+        self.iss_crossed: InternalStateSetter | None = None
+        self.iss_crossed_2: InternalStateSetter | None = None
+
+        # Scenario state and configuration attributes
+        self.desc_p: carla.Location | None = None
+        self.path_2: list[carla.Location] = []
+
+    def get_spawn_details(
+        self,
+    ) -> tuple[str, list, tuple[float, float, float], tuple[float, float, float]]:
+        """Return the spawn details for the ego vehicle and obstacles."""
+        start = (92.5, 300, -90)
+        end = (92.5, 200, -90)
+        obstacles = []
+        walker_bp = self.world.get_blueprint_library().filter("walker.pedestrian.0001")[0]
+        if walker_bp.has_attribute("is_invincible"):
+            walker_bp.set_attribute("is_invincible", "false")
+        # Placeholder transform, as the actual spawn location is calculated in setup()
+        walker_spawn_point = carla.Transform()
+        walker_spawn_point.location.x = 85
+        walker_spawn_point.location.y = 300
+        walker_spawn_point.location.z += 1.0
+        walker_spawn_point.rotation.yaw = 270.0
+        walker = [walker_bp, walker_spawn_point]
+        obstacles.append(walker)
+        return self.scenario_id, obstacles, end, start
+
+    def get_initial_walker_state(self) -> tuple[ICR, SON]:
+        """Return the initial cognitive state of the walker."""
+        return ICR.GOING_TO, SON.FORCING if self.config.char == "forcing" else SON.YIELDING
+
+    def setup(self) -> None:
+        """Set up the scenario, spawning actors and initializing controllers."""
+        logger.info(f"Setting up scenario: {self.get_scenario_id()}")
+        obstacles = self.get_obstacle_blueprints()
+        conf = self.config
+
+        if self.player is None:
+            raise PlayerNotAliveError(self.scenario_id)
+
+        # --- Parameter extraction from config ---
+        spawning_distance = conf.spawning_distance
+        crossing_distance = conf.crossing_distance
+        car_avoid_X = conf.car_avoid_X
+        car_avoid_Y = conf.car_avoid_Y
+        self.ped_speed = conf.ped_speed
+
+        # Set decision box based on character
+        self.db = [-1.0, 5.0] if conf.char == "yielding" else [-1.0, 10.0]
+        if self.dummy_car:
+            self.db = [-1.0, 5.0 + car_avoid_Y] if conf.char == "yielding" else [-1.0, 10.0]
+
+        mult = 1.0 if conf.char == "yielding" else 1.1 * 1.1 * 1.1
+
+        # --- Spawn Walker ---
+        base_loc = obstacles[0][1].location + carla.Location(0, -spawning_distance, 0)
+        spawn_loc = base_loc
+        self.walker = self.world.try_spawn_actor(
+            obstacles[0][0], carla.Transform(spawn_loc, obstacles[0][1].rotation)
+        )
+        if not self.walker:
+            logger.error(f"Failed to spawn walker for {self.get_scenario_id()}")
+            return
+        self.my_world.walker = self.walker
+        self.walker.apply_control(carla.WalkerControl(carla.Vector3D(0, 0, 0), self.ped_speed))
+        self.world.tick()
+
+        # --- Path Planning ---
+        # Path 1: Walk to the middle of the road (decision point)
+        offsets_1 = [(crossing_distance, 0.0)]
+        path_1 = self._compute_plans(
+            offsets_1,
+            base_loc,
+            color=carla.Color(255, 0, 0) if self.my_world.debug else None,
+        )
+        self.path_controller_1 = PathController(self.world, self.walker, path_1, self.ped_speed)
+
+        # Path 2: Continue straight across the road
+        offsets_2 = [(12.0, 0.0), (12.0, 20.0)]
+        self.path_2 = self._compute_plans(
+            offsets_2,
+            base_loc,
+            color=carla.Color(0, 255, 0) if self.my_world.debug else None,
+        )
+        self.path_controller_2 = PathController(
+            self.world,
+            self.walker,
+            self.path_2,
+            self.ped_speed * mult,
+        )
+
+        # Path 3: Avoid the car by walking around it
+        offsets_3 = [
+            (crossing_distance + car_avoid_X, -car_avoid_Y),
+            (12, -car_avoid_Y),
+            (12, -car_avoid_Y + 20),
+        ]
+        self.path_controller_3 = PathController(
+            self.world,
+            self.walker,
+            self._compute_plans(offsets_3, base_loc),
+            self.ped_speed,
+        )
+
+        # --- Controller Initialization ---
+        turn_p = self.get_point((0, 0))
+        self.turn_head = TurnHeadRightBehind(self.walker, turn_p)
+        self.look_behind_right = LookBehindRight(self.walker, path_1[0], conf.char)
+        self.raise_arm = RaiseArm(
+            self.walker,
+            path_1[0],
+            "forcing",
+            self._get_p_from_vector(path_1[0], self.path_2[0], 0.5),
+        )
+        self.look_behind_left = LookBehindLeft(self.walker, mult=2)
+        self.reset = ResetPose(self.walker)
+
+        # Bug from original code: `vec` is a zero vector, so `desc_p` is `path_1[0]`
+        vec = path_1[0] - path_1[0]
+        self.desc_p = path_1[0] + 0.95 * vec
+
+        if conf.char == "forcing":
+            self.path_controller_2.speed_schedule = [
+                (path_1[0] + per * path_1[0] - carla.Location(1, 0, 0), 10.9)
+                for per in [0.0, 0.2, 0.4]
+            ]
+        elif conf.char == "yielding":
+            self.path_controller_1.speed_schedule = [
+                (path_1[0] - per * path_1[0] - carla.Location(1, 0, 0), 0.8)
+                for per in [0.0, 0.2, 0.4]
+            ]
+
+        self.relaxer = Relaxer(self.walker, self.player, path_1[0] + 0.2 * vec)
+
+        # --- Cognitive State Initialization ---
+        initial_icr, initial_son = self.get_initial_walker_state()
+        self.walker.icr = initial_icr
+        self.walker.son = initial_son
+        self.walker.initial_son = initial_son
+        self.iss_crossed = InternalStateSetter(
+            self.walker,
+            offsets_3[1],
+            ICR.VERY_LOW,
+            SON.AVERTING,
+        )
+        self.iss_crossed_2 = InternalStateSetter(
+            self.walker,
+            self.path_2[0],
+            ICR.VERY_LOW,
+            SON.AVERTING,
+        )
+
+        # --- Debug Drawing ---
+        if self.my_world.debug:
+            self._draw_grid()
+            self._draw_db()
+
+        # --- Dummy Car Controller ---
+        if self.dummy_car:
+            if self.desc_p is None:
+                logger.error("desc_p cannot be None at this point")
+            else:
+                player_loc = self.player.get_location()
+                breaking_point = carla.Location(player_loc.x, self.desc_p.y + self.db[0], 0.5)
+                car_behave = conf.char == "forcing"
+                car_to_desc = player_loc.y - self.desc_p.y - self.db[1]
+                ped_to_desc = l2_distance(self.walker.get_location(), self.desc_p)
+                ped_time = ped_to_desc / self.ped_speed if self.ped_speed > 0 else float("inf")
+                speed = car_to_desc / ped_time if ped_time != float("inf") else 8.0
+
+                self.my_world.car_controller = CarController(
+                    self.player,
+                    breaking_point,
+                    speed=speed - 1 if car_behave else speed - 0.5,
+                    yielding=car_behave,
+                )
+
+    def tick(self) -> None:
+        """Execute one simulation step for Scenario 06."""
         # Update references
+        self.player = self.my_world.player
+        self.walker = self.my_world.walker
+
+        # Check if all required attributes are initialized
+        if (
+            self.walker is None
+            or self.player is None
+            or self.desc_p is None
+            or self.player is None
+            or self.path_controller_1 is None
+            or self.path_controller_2 is None
+            or self.path_controller_3 is None
+            or self.turn_head is None
+            or self.look_behind_right is None
+            or self.raise_arm is None
+            or self.iss_crossed is None
+            or self.iss_crossed_2 is None
+            or self.desc_p is None
+            or self.reset is None
+        ):
+            raise ScenarioSetupError(self.scenario_id)
+
+        status = self.path_controller_1.step()
+
+        if self.dummy_car:
+            self.my_world.car_controller.step()
+
+        # self.look_behind_right.step()
+        # self.turn_head.step()
+
+        if status == "Done":
+            if self.choice == "Avoid":
+                self.reset.step()
+                self.path_controller_3.step()
+            elif self.choice == "Continue":
+                status = self.raise_arm.step()
+                logger.info(f"Called raise_arm, status is {status}")
+                self.reset.step()
+                self.path_controller_2.step()
+            # if self.walker.initial_son == SON.FORCING:
+            #     self.choice = "Continue"
+            #     self.walker.icr = ICR.GOING_TO
+            # elif self.walker.initial_son == SON.YIELDING:
+            #     self.choice = "Avoid"
+            #     self.walker.icr = ICR.PLANNING_TO
+
+            elif l2_distance(self.walker.get_location(), self.desc_p) < 0.2:
+                distance = y_distance(self.walker.get_location(), self.player.get_location()) - 2
+                if self.decision_trigger(distance, self.db):
+                    self.choice = "Avoid"
+                    self.walker.icr = ICR.GOING_TO
+                    self.walker.son = SON.YIELDING
+                else:
+                    self.choice = "Continue"
+                    self.walker.icr = ICR.GOING_TO
+                    self.walker.son = SON.FORCING
+        self.iss_crossed.step()
+        self.iss_crossed_2.step()
+
+        self.relaxer.step()
+
+        # Update world references at the end of the tick
         self.my_world.player = self.player
         self.my_world.walker = self.walker
 
@@ -1521,7 +2444,6 @@ class Scenario07Int(BaseScenario):
         # This scenario's main walker starts interested
         return ICR.INTERESTED, SON.YIELDING if self.config.char == "yielding" else SON.FORCING
 
-    # TODO: Compare to original
     def setup(self) -> None:
         logger.info(f"Setting up scenario: {self.get_scenario_id()}")
 
@@ -1566,7 +2488,8 @@ class Scenario07Int(BaseScenario):
 
         # --- Spawn Main Walker (walker1) ---
         # Base location calculation for walker1, similar to 05_int
-        # obstacles[0][1] is the Transform for walker1 from get_spawn_details (which is a placeholder)
+        # obstacles[0][1] is the Transform for walker1 from get_spawn_details
+        # (which is a placeholder)
         # We need a reliable way to get the *intended* starting area for the scenario.
         # Let's assume the scenario05_int reference point: x=85, y=280
         # And that spawning_distance is relative to the car's y.
@@ -1619,7 +2542,10 @@ class Scenario07Int(BaseScenario):
         # Path 2 is just a single segment to this target_across_loc
         path_2_single_target = [target_across_loc]
         self.path_controller_2 = PathController(
-            self.world, self.walker, path_2_single_target, self.ped_speed * mult
+            self.world,
+            self.walker,
+            path_2_single_target,
+            self.ped_speed * mult,
         )  # Initial speed
 
         # --- Path 3: Continue after crossing/sprint to meet walker2 ---
@@ -1760,6 +2686,10 @@ class Scenario07Int(BaseScenario):
             car_should_yield = self.char == "forcing"
             estimated_car_speed_mps = 6.0  # Default/average speed for dummy car
 
+            if self.curb_point is None:
+                logger.error("Curb point is None, cannot set up car controller.")
+                return
+
             # Brake 5m before ped's decision box start
             braking_y_coord = self.curb_point.y + self.db[0] - 5.0
             braking_point_car = carla.Location(player_loc.x, braking_y_coord, 0.5)
@@ -1770,6 +2700,7 @@ class Scenario07Int(BaseScenario):
                 speed=estimated_car_speed_mps,
                 yielding=car_should_yield,
             )
+            self.my_world.car_controller = self.car_controller
             logger.debug(
                 f"Scenario 07_int: Car controller. Yielding: {car_should_yield}. "
                 f"Speed: {estimated_car_speed_mps:.1f} m/s. "
@@ -1780,7 +2711,7 @@ class Scenario07Int(BaseScenario):
         # Ensure the main walker and its primary path controller are initialized.
         if (
             not self.walker
-            or not self.player
+            or not self.my_world.player
             or not self.path_controller_1
             or not self.look_across_street_left_controller
             or not self.wave_hand_controller
@@ -1917,7 +2848,7 @@ class Scenario07Int(BaseScenario):
             elif self.decided_action == "Wait":
                 # If "Wait" is chosen, stop the walker.
                 self.walker.apply_control(
-                    carla.WalkerControl(direction=carla.Vector3D(0, 0, 0), speed=0.0)
+                    carla.WalkerControl(direction=carla.Vector3D(0, 0, 0), speed=0.0),
                 )
 
         # --- Phase 6: Continue Executing Action (Wait or Sprint) ---
@@ -1957,7 +2888,7 @@ class Scenario07Int(BaseScenario):
                     # If no path_3, the scenario effectively ends for the main walker here.
                     self.decided_action = "FinishedScenario"
                     self.walker.apply_control(
-                        carla.WalkerControl(direction=carla.Vector3D(0, 0, 0), speed=0.0)
+                        carla.WalkerControl(direction=carla.Vector3D(0, 0, 0), speed=0.0),
                     )
                 # Update cognitive state for meeting phase or end of crossing.
                 if hasattr(self, "iss_meeting") and self.iss_meeting:
@@ -1971,7 +2902,7 @@ class Scenario07Int(BaseScenario):
                     self.decided_action = "FinishedScenario"  # Mark scenario as finished.
                     logger.info("Scenario 07: Reached meeting point with walker2.")
                     self.walker.apply_control(
-                        carla.WalkerControl(direction=carla.Vector3D(0, 0, 0), speed=0.0)
+                        carla.WalkerControl(direction=carla.Vector3D(0, 0, 0), speed=0.0),
                     )
             else:  # Should not happen if meeting_started is true, but as a fallback.
                 self.decided_action = "FinishedScenario"
@@ -1988,18 +2919,17 @@ class Scenario07Int(BaseScenario):
 # Create a mapping for easy lookup
 SCENARIO_MAP: dict[str, type[BaseScenario]] = {
     "01_int": Scenario01Int,
-    # "01_non_int": Scenario01NonInt,
     "02_int": Scenario02Int,
     "03_int": Scenario03Int,
+    "04_int": Scenario04Int,
+    "05_int": Scenario05Int,
+    "06_int": Scenario06Int,
+    "07_int": Scenario07Int,
+    # "01_non_int": Scenario01NonInt,
     # "02_non_int": Scenario02NonInt,
     # "03_non_int": Scenario03NonInt,
-    # "04_int": Scenario04Int,
-    # "05_int": Scenario05Int,
-    # "06_int": Scenario06Int,
-    "07_int": Scenario07Int,
     # "04_non_int": Scenario04NonInt,
     # "05_non_int": Scenario05NonInt,
     # "06_non_int": Scenario06NonInt,
     # Add mappings for scenarios 1-12 if they need specific logic different from non-int/int
-    # "01": Scenario01, # Needs Scenario01 class definition
 }
