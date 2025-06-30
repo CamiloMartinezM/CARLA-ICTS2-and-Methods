@@ -2913,9 +2913,6 @@ class Scenario07Int(BaseScenario):
             self.car_controller.step()
 
 
-# Type-hint created scenarios
-# ChildScenario = type[Scenario01Int] | type[Scenario02Int] | type[Scenario07Int]
-
 # Create a mapping for easy lookup
 SCENARIO_MAP: dict[str, type[BaseScenario]] = {
     "01_int": Scenario01Int,
@@ -2931,5 +2928,4 @@ SCENARIO_MAP: dict[str, type[BaseScenario]] = {
     # "04_non_int": Scenario04NonInt,
     # "05_non_int": Scenario05NonInt,
     # "06_non_int": Scenario06NonInt,
-    # Add mappings for scenarios 1-12 if they need specific logic different from non-int/int
 }
